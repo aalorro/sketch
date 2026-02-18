@@ -94,7 +94,9 @@
 
       <label><input id="useWebGL" type="checkbox"> Use GPU (WebGL experimental)</label>
       <small id="webglStatus" style="display:none;color:green">✓ GPU accelerated</small>
-      <label><input id="useServer" type="checkbox" checked> Use server style-transfer (requires running server)</label>
+      <label><input id="useML" type="checkbox" checked> Use external ML service (default)</label>
+      <label>ML Service URL <input id="mlUrl" type="text" value="https://api.example.com/ml-sketch" placeholder="https://your-custom-ml-service.com/api"></label>
+      <label><input id="useServer" type="checkbox"> Use server style-transfer (requires running server)</label>
       <label>Server API URL <input id="serverUrl" type="text" value="http://localhost:5001/api/style-transfer-advanced" placeholder="https://example.com/api/style-transfer"></label>
 
       <div style="margin-top:8px;display:flex;gap:8px">

@@ -208,9 +208,32 @@
   }
 
   async function processFile(file, idx, total){
-    console.log('processFile:', file.name, 'useServer:', document.getElementById('useServer').checked);
+    console.log('processFile:', file.name);
+    const useML = document.getElementById('useML').checked;
+    const mlUrl = document.getElementById('mlUrl').value.trim();
     const useServer = document.getElementById('useServer').checked;
     const serverUrl = document.getElementById('serverUrl').value.trim();
+    if(useML && mlUrl){
+      // POST to external ML service and expect image blob back
+      console.log('Using external ML service:', mlUrl);
+      const fd = new FormData(); fd.append('file', file);
+      fd.append('artStyle', document.getElementById('artStyle').value);
+      fd.append('style', document.getElementById('style').value);
+      fd.append('brush', document.getElementById('brush').value);
+      fd.append('seed', getSeed());
+      fd.append('intensity', document.getElementById('intensity').value);
+      fd.append('stroke', document.getElementById('stroke').value);
+      fd.append('skipHatching', document.getElementById('skipHatching').checked);
+      try{
+        const resp = await fetch(mlUrl, {method:'POST', body:fd});
+        console.log('ML response:', resp.status);
+        if(!resp.ok) throw new Error('ML error '+resp.status);
+        return await resp.blob();
+      }catch(err){
+        console.error('ML error:', err);
+        throw err;
+      }
+    }
     if(useServer && serverUrl){
       // POST to server and expect image blob back
       console.log('Using server:', serverUrl);
