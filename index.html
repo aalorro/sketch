@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sketchify — Image to Sketch</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>Sketchify</h1>
+    <p>Generate stylized sketch drawings from your images — runs from GitHub Pages.</p>
+  </header>
+
+  <main>
+    <section class="controls">
+      <div class="buttons" style="margin-bottom:12px">
+        <button id="generate" type="button">Generate</button>
+        <button id="undo" type="button" title="Undo (Ctrl+Z)">↶</button>
+        <button id="redo" type="button" title="Redo (Ctrl+Y)">↷</button>
+      </div>
+      <label>Load image<input id="file" type="file" accept="image/*" multiple></label>
+
+      <div class="presets">
+        <div class="preset-title">Presets</div>
+        <button class="preset" data-preset="sketchy">Sketchy</button>
+        <button class="preset" data-preset="inked">Inked</button>
+        <button class="preset" data-preset="marker">Marker</button>
+        <button class="preset" data-preset="charcoal">Charcoal</button>
+      </div>
+
+      <label>Art style
+        <select id="artStyle">
+          <option value="pencil">Pencil</option>
+          <option value="ink">Ink</option>
+          <option value="marker">Marker</option>
+          <option value="pen">Pen</option>
+        </select>
+      </label>
+
+      <label>Style
+        <select id="style">
+          <option value="line">Line Art</option>
+          <option value="cubist">Cubist</option>
+          <option value="modern">Modern</option>
+          <option value="naive">Naive</option>
+        </select>
+      </label>
+
+      <label>Prompt (optional)
+        <input id="prompt" type="text" placeholder="e.g. dramatic cross-hatching">
+      </label>
+
+      <label>Seed
+        <input id="seed" type="number" placeholder="0.." />
+      </label>
+
+      <label>Resolution
+        <select id="resolution">
+          <option value="512">512 px</option>
+          <option value="1024" selected>1024 px</option>
+          <option value="2048">2048 px</option>
+        </select>
+      </label>
+
+      <label>Aspect Ratio
+        <select id="aspect">
+          <option value="1:1">1:1</option>
+          <option value="3:4">3:4</option>
+          <option value="4:3">4:3</option>
+          <option value="16:9">16:9</option>
+          <option value="9:16">9:16</option>
+        </select>
+      </label>
+
+      <label>Intensity <input id="intensity" type="range" min="1" max="10" value="6"></label>
+      <label>Stroke <input id="stroke" type="range" min="1" max="10" value="3"></label>
+
+      <label><input id="skipHatching" type="checkbox" checked> Skip hatching (clean edges only)</label>
+
+      <label>Output filename
+        <input id="outputName" type="text" value="sketch" placeholder="sketch">
+      </label>
+
+      <label>Brush
+        <select id="brush">
+          <option value="line">Line</option>
+          <option value="hatch">Hatch</option>
+          <option value="crosshatch">Cross-hatch</option>
+          <option value="charcoal">Charcoal</option>
+          <option value="inkWash">Ink Wash</option>
+        </select>
+      </label>
+
+      <label><input id="useWebGL" type="checkbox"> Use GPU (WebGL experimental)</label>
+      <small id="webglStatus" style="display:none;color:green">✓ GPU accelerated</small>
+      <label><input id="useServer" type="checkbox" checked> Use server style-transfer (requires running server)</label>
+      <label>Server API URL <input id="serverUrl" type="text" value="http://localhost:5001/api/style-transfer-advanced" placeholder="https://example.com/api/style-transfer"></label>
+
+      <div style="margin-top:8px;display:flex;gap:8px">
+        <button id="testServer" type="button">Test Server (demo)</button>
+        <small style="align-self:center;color:var(--muted)">Posts demo `test_image.png` to server</small>
+      </div>
+
+      <div class="buttons">
+        <button id="undo" title="Undo (Ctrl+Z)">↶ Undo</button>
+        <button id="redo" title="Redo (Ctrl+Y)">↷ Redo</button>
+      </div>
+
+      <div class="buttons">
+        <button id="generate">Generate</button>
+        <button id="downloadPng">Download PNG</button>
+        <button id="downloadJpg">Download JPG</button>
+        <button id="downloadZip">Download ZIP</button>
+      </div>
+
+      <div class="progress-wrap" hidden>
+        <div class="progress-bar" id="progressBar"><div id="progressFill"></div></div>
+        <div id="progressText" class="note">Idle</div>
+      </div>
+
+    </section>
+
+    <section class="preview" style="display:flex; flex-direction:row; gap:16px; align-items:flex-start;">
+      <div style="flex:1; text-align:center;">
+        <div style="font-size:13px; color:#888; margin-bottom:4px;">Original</div>
+        <canvas id="original" width="512" height="512" style="background:#fff;border:1px solid #ccc;max-width:100%;height:auto;display:block;margin:auto"></canvas>
+      </div>
+      <div style="flex:1; text-align:center;">
+        <div style="font-size:13px; color:#888; margin-bottom:4px;">Rendered</div>
+        <canvas id="preview" width="512" height="512" style="background:#fff;border:1px solid #ccc;max-width:100%;height:auto;display:block;margin:auto"></canvas>
+        <p class="note">Tip: use larger resolutions for better results. Seed makes effects repeatable.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <small>Deploy this folder to GitHub Pages to run directly from GitHub.</small>
+  </footer>
+
+  <script src="jszip.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
