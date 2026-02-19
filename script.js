@@ -411,104 +411,526 @@
     const seed = getSeed(); const rand = mulberry32(seed||Date.now());
 
     let imgData = srcImageData || ctx.getImageData(0,0,w,h);
-    // if srcImageData is full color, convert to gray array
     const gray = new Uint8ClampedArray(w*h);
     for(let i=0;i<w*h;i++){ const r=imgData.data[i*4], g=imgData.data[i*4+1], b=imgData.data[i*4+2]; gray[i] = (0.299*r + 0.587*g + 0.114*b)|0; }
-
     const edges = sobel(gray, w, h);
 
-    // Special logic for contour and crosscontour styles
-    if (style === 'contour') {
-      // Contour: strong threshold, only main edges, no hatching
-      const thr = 40 + (11-intensity)*18;
-      const overlay = ctx.createImageData(w,h);
-      for(let i=0;i<w*h;i++){
-        let e = edges[i];
-        const v = (e > thr) ? 0 : 255;
-        overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v; overlay.data[i*4+3]=255;
-      }
-      ctx.putImageData(overlay,0,0);
-      return;
+    // Route to style-specific rendering
+    switch(style) {
+      case 'contour': renderContour(ctx, w, h, edges, gray, intensity); break;
+      case 'gesture': renderGesture(ctx, w, h, edges, gray, intensity, stroke, rand); break;
+      case 'lineart': renderLineArt(ctx, w, h, edges, gray, intensity, stroke, rand); break;
+      case 'crosscontour': renderCrossContour(ctx, w, h, edges, gray, intensity); break;
+      case 'hatching': renderHatching(ctx, w, h, edges, gray, intensity, stroke, rand); break;
+      case 'crosshatching': renderCrossHatching(ctx, w, h, edges, gray, intensity, stroke, rand); break;
+      case 'scribble': renderScribble(ctx, w, h, edges, gray, intensity, stroke, rand); break;
+      case 'stippling': renderStippling(ctx, w, h, edges, gray, intensity, stroke, rand); break;
+      case 'tonalpencil': renderTonalPencil(ctx, w, h, edges, gray, intensity, stroke, rand); break;
+      case 'charcoal': renderCharcoal(ctx, w, h, edges, gray, intensity, stroke, rand); break;
+      case 'drybrush': renderDryBrush(ctx, w, h, edges, gray, intensity, stroke, rand); break;
+      case 'inkwash': renderInkWash(ctx, w, h, edges, gray, intensity, stroke, rand); break;
+      case 'comic': renderComic(ctx, w, h, edges, gray, intensity, stroke, rand); break;
+      case 'fashion': renderFashion(ctx, w, h, edges, gray, intensity, stroke, rand); break;
+      case 'urban': renderUrban(ctx, w, h, edges, gray, intensity, stroke, rand); break;
+      case 'architectural': renderArchitectural(ctx, w, h, edges, gray, intensity, stroke, rand); break;
+      case 'academic': renderAcademic(ctx, w, h, edges, gray, intensity, stroke, rand); break;
+      case 'etching': renderEtching(ctx, w, h, edges, gray, intensity, stroke, rand); break;
+      case 'minimalist': renderMinimalist(ctx, w, h, edges, gray, intensity); break;
+      case 'glitch': renderGlitch(ctx, w, h, edges, gray, intensity, stroke, rand); break;
+      case 'mixedmedia': renderMixedMedia(ctx, w, h, edges, gray, intensity, stroke, rand); break;
+      default: renderDefault(ctx, w, h, edges, gray, intensity, stroke, rand); break;
     }
-    if (style === 'crosscontour') {
-      // Cross contour: overlay two edge maps at different angles
-      // First, normal sobel
-      const thr = 10 + (11-intensity)*12;
-      const overlay = ctx.createImageData(w,h);
-      for(let i=0;i<w*h;i++){
-        let e = edges[i];
-        const v = 255 - Math.min(255, Math.max(0, e - thr));
-        overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v; overlay.data[i*4+3]=255;
-      }
-      ctx.putImageData(overlay,0,0);
-      // Now, a second pass with rotated sobel (simulate cross contour)
-      // Simple trick: shift image and re-run sobel
-      const shifted = new Uint8ClampedArray(w*h);
-      for(let y=0;y<h-2;y++) for(let x=0;x<w-2;x++) shifted[y*w+x] = gray[(y+2)*w + (x+2)];
-      const edges2 = sobel(shifted, w, h);
-      const overlay2 = ctx.createImageData(w,h);
-      for(let i=0;i<w*h;i++){
-        let e = edges2[i];
-        const v = 255 - Math.min(255, Math.max(0, e - thr));
-        overlay2.data[i*4]=0; overlay2.data[i*4+1]=v; overlay2.data[i*4+2]=0; overlay2.data[i*4+3]=80;
-      }
-      ctx.putImageData(overlay2,0,0);
-      return;
+  }
+
+  function renderContour(ctx, w, h, edges, gray, intensity) {
+    const thr = 40 + (11-intensity)*18;
+    const overlay = ctx.createImageData(w,h);
+    for(let i=0;i<w*h;i++){
+      const v = (edges[i] > thr) ? 0 : 255;
+      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v; overlay.data[i*4+3]=255;
     }
-    // Default logic
+    ctx.putImageData(overlay,0,0);
+  }
+
+  function renderGesture(ctx, w, h, edges, gray, intensity, stroke, rand) {
     const thr = 10 + (11-intensity)*12;
     const overlay = ctx.createImageData(w,h);
-    for(let i=0;i<w*h;i++){ let e = edges[i]; if(art==='pencil') e *= (0.8 + rand()*0.6); if(art==='ink') e *= (1.4 + rand()*0.8); if(art==='marker') e = Math.min(255, e*1.2); if(art==='pen') e *= 1.6; const v = 255 - Math.min(255, Math.max(0, e - thr)); overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v; overlay.data[i*4+3]=255; }
+    for(let i=0;i<w*h;i++){
+      let e = edges[i] * (0.7 + rand()*0.5);
+      const v = 255 - Math.min(255, Math.max(0, e - thr));
+      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v; overlay.data[i*4+3]=255;
+    }
     ctx.putImageData(overlay,0,0);
+    // Add loose, energetic strokes
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.strokeStyle = '#222';
+    ctx.lineCap = 'round';
+    const step = Math.max(6, 18 - stroke);
+    for(let y=0; y<h; y+=step) {
+      for(let x=0; x<w; x+=step) {
+        const i = y*w+x;
+        if(edges[i]/255 < 0.15) continue;
+        ctx.lineWidth = 1 + Math.random()*stroke;
+        const angle = (rand()-0.5)*Math.PI/2;
+        const len = step * (0.5 + rand());
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + Math.cos(angle)*len, y + Math.sin(angle)*len);
+        ctx.stroke();
+      }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
 
-    // Always apply brush strokes, using the selected brush type
+  function renderLineArt(ctx, w, h, edges, gray, intensity, stroke, rand) {
+    const thr = 15 + (11-intensity)*10;
+    const overlay = ctx.createImageData(w,h);
+    for(let i=0;i<w*h;i++){
+      const v = (edges[i] > thr) ? 0 : 255;
+      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v; overlay.data[i*4+3]=255;
+    }
+    ctx.putImageData(overlay,0,0);
+  }
+
+  function renderCrossContour(ctx, w, h, edges, gray, intensity) {
+    const thr = 10 + (11-intensity)*12;
+    const overlay = ctx.createImageData(w,h);
+    for(let i=0;i<w*h;i++){
+      const v = 255 - Math.min(255, Math.max(0, edges[i] - thr));
+      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v; overlay.data[i*4+3]=255;
+    }
+    ctx.putImageData(overlay,0,0);
+    // Add contour lines at different angles
+    ctx.globalCompositeOperation = 'overlay';
+    ctx.strokeStyle = 'rgba(100,100,200,0.3)';
+    ctx.lineCap = 'round';
+    const step = Math.max(8, 16 - intensity);
+    for(let angle of [0, Math.PI/6]) {
+      for(let t = -h; t<h; t+=step) {
+        ctx.lineWidth = 0.5 + intensity/5;
+        ctx.beginPath();
+        ctx.moveTo(0 + t*Math.cos(angle), 0 + t*Math.sin(angle));
+        ctx.lineTo(w + t*Math.cos(angle), h + t*Math.sin(angle));
+        ctx.stroke();
+      }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  function renderHatching(ctx, w, h, edges, gray, intensity, stroke, rand) {
+    const thr = 10 + (11-intensity)*12;
+    const overlay = ctx.createImageData(w,h);
+    for(let i=0;i<w*h;i++){
+      const v = 255 - Math.min(255, Math.max(0, edges[i] - thr));
+      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v; overlay.data[i*4+3]=255;
+    }
+    ctx.putImageData(overlay,0,0);
+    // Vertical hatching lines
     ctx.globalCompositeOperation = 'multiply';
     ctx.strokeStyle = '#111';
     ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    // Make stroke more visually impactful: scale line width from 1 to 10
-    const baseLineWidth = 0.5 + stroke * 1.5; // stroke 1 = 2px, stroke 10 = 15.5px
-    let passes = 1;
-    let step = Math.max(4, 20 - stroke * 1.5); // smaller step for higher stroke, more lines
-    if (brush === 'hatch' || brush === 'crosshatch' || brush === 'charcoal' || brush === 'inkWash') {
-      passes = Math.max(1, Math.floor(intensity / 3));
-      step = Math.max(4, 12 - stroke);
+    const step = Math.max(3, 12-stroke);
+    ctx.lineWidth = 0.5 + stroke*0.3;
+    for(let x=0; x<w; x+=step) {
+      for(let y=0; y<h; y+=step*2) {
+        const i = y*w+x;
+        if(edges[i]/255 < 0.1) continue;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x, y+step);
+        ctx.stroke();
+      }
     }
-    for (let pass = 0; pass < passes; pass++) {
-      ctx.lineWidth = baseLineWidth * (1 - pass * 0.12);
-      for (let y = 0; y < h; y += step) {
-        for (let x = 0; x < w; x += step) {
-          const i = y * w + x;
-          const s = edges[i] / 255;
-          if (s < 0.2) continue;
-          // Determine angle based on brush type
-          let angle;
-          if (brush === 'crosshatch') angle = (pass % 2 === 0) ? 0 : Math.PI / 2;
-          else if (brush === 'hatch') angle = -Math.PI / 6;
-          else if (brush === 'charcoal') angle = (rand() - 0.5) * Math.PI / 8;
-          else if (brush === 'inkWash') angle = (rand() - 0.5) * Math.PI / 12;
-          else angle = (rand() - 0.5) * Math.PI / 4; // 'line' - more randomness
-          const len = Math.round(step * (0.6 + s));
-          const dx = Math.cos(angle) * len;
-          const dy = Math.sin(angle) * len;
-          const jitterX = Math.round((rand() - 0.5) * baseLineWidth * 2);
-          const jitterY = Math.round((rand() - 0.5) * baseLineWidth * 2);
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  function renderCrossHatching(ctx, w, h, edges, gray, intensity, stroke, rand) {
+    const thr = 10 + (11-intensity)*12;
+    const overlay = ctx.createImageData(w,h);
+    for(let i=0;i<w*h;i++){
+      const v = 255 - Math.min(255, Math.max(0, edges[i] - thr));
+      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v; overlay.data[i*4+3]=255;
+    }
+    ctx.putImageData(overlay,0,0);
+    // Cross-hatching (perpendicular passes)
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.strokeStyle = '#111';
+    ctx.lineCap = 'round';
+    const step = Math.max(4, 14-stroke);
+    ctx.lineWidth = 0.5 + stroke*0.25;
+    for(let angle of [0, Math.PI/4]) {
+      for(let i=0; i<w+h; i+=step) {
+        ctx.beginPath();
+        ctx.moveTo(i*Math.cos(angle), i*Math.sin(angle));
+        ctx.lineTo((i-w)*Math.cos(angle) + h*Math.sin(angle), (i-w)*Math.sin(angle) + h*Math.cos(angle));
+        ctx.stroke();
+      }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  function renderScribble(ctx, w, h, edges, gray, intensity, stroke, rand) {
+    const thr = 10 + (11-intensity)*12;
+    const overlay = ctx.createImageData(w,h);
+    for(let i=0;i<w*h;i++){
+      const v = 255 - Math.min(255, Math.max(0, edges[i] - thr));
+      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v; overlay.data[i*4+3]=255;
+    }
+    ctx.putImageData(overlay,0,0);
+    // Chaotic scribble strokes
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    const step = Math.max(3, 10-stroke);
+    for(let y=0; y<h; y+=step) {
+      for(let x=0; x<w; x+=step) {
+        const i = y*w+x;
+        if(edges[i]/255 < 0.1) continue;
+        const loopCount = 2 + Math.floor(intensity/3);
+        for(let loop=0; loop<loopCount; loop++) {
+          ctx.lineWidth = 0.5 + rand()*stroke*0.4;
           ctx.beginPath();
-          ctx.moveTo(x + jitterX, y + jitterY);
-          ctx.lineTo(x + dx + jitterX, y + dy + jitterY);
+          let cx = x + (rand()-0.5)*step;
+          let cy = y + (rand()-0.5)*step;
+          ctx.moveTo(cx, cy);
+          for(let j=0; j<3; j++) {
+            cx += (rand()-0.5)*step;
+            cy += (rand()-0.5)*step;
+            ctx.lineTo(cx, cy);
+          }
           ctx.stroke();
         }
       }
     }
     ctx.globalCompositeOperation = 'source-over';
+  }
 
-    if(style !== 'line'){
-      const imgD = ctx.getImageData(0,0,w,h);
-      if(style === 'cubist') posterize(imgD, 6);
-      if(style === 'modern') posterize(imgD, 10);
-      if(style === 'naive') posterize(imgD, 4);
-      ctx.putImageData(imgD,0,0);
+  function renderStippling(ctx, w, h, edges, gray, intensity, stroke, rand) {
+    const overlay = ctx.createImageData(w,h);
+    for(let i=0; i<w*h; i++) {
+      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=255;
+      overlay.data[i*4+3]=255;
     }
+    ctx.putImageData(overlay,0,0);
+    // Dots for stippling
+    ctx.fillStyle = '#000';
+    const step = Math.max(2, 8-stroke);
+    for(let y=0; y<h; y+=step) {
+      for(let x=0; x<w; x+=step) {
+        const i = y*w+x;
+        const val = edges[i]/255;
+        if(val > 0.1) {
+          const r = Math.max(0.5, val*(0.5+stroke*0.3));
+          ctx.beginPath();
+          ctx.arc(x, y, r, 0, Math.PI*2);
+          ctx.fill();
+        }
+      }
+    }
+  }
+
+  function renderTonalPencil(ctx, w, h, edges, gray, intensity, stroke, rand) {
+    // Smooth, blended tonal rendering
+    const overlay = ctx.createImageData(w,h);
+    for(let i=0; i<w*h; i++) {
+      const e = edges[i];
+      const g = gray[Math.floor(Math.random()*i)];
+      const blended = Math.max(e, g*0.5);
+      const v = 255 - Math.min(255, blended);
+      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v;
+      overlay.data[i*4+3]=255;
+    }
+    ctx.putImageData(overlay,0,0);
+  }
+
+  function renderCharcoal(ctx, w, h, edges, gray, intensity, stroke, rand) {
+    const thr = Math.max(0, 20 - intensity*2);
+    const overlay = ctx.createImageData(w,h);
+    for(let i=0; i<w*h; i++) {
+      const e = edges[i];
+      const g = gray[i];
+      let v = 255;
+      if(e>thr || g<100) v = Math.max(0, 150 - (e+g)/3);
+      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v;
+      overlay.data[i*4+3]=255;
+    }
+    ctx.putImageData(overlay,0,0);
+    // Charcoal smudging effect
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+    const step = Math.max(5, 15-stroke);
+    for(let y=0; y<h; y+=step) {
+      for(let x=0; x<w; x+=step) {
+        ctx.lineWidth = 2 + stroke*0.5;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + (rand()-0.5)*step*2, y + (rand()-0.5)*step*2);
+        ctx.stroke();
+      }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  function renderDryBrush(ctx, w, h, edges, gray, intensity, stroke, rand) {
+    const thr = 10 + (11-intensity)*12;
+    const overlay = ctx.createImageData(w,h);
+    for(let i=0; i<w*h; i++) {
+      const v = 255 - Math.min(255, Math.max(0, edges[i] - thr));
+      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v;
+      overlay.data[i*4+3]=255;
+    }
+    ctx.putImageData(overlay,0,0);
+    // Broken, textured strokes
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+    ctx.lineCap = 'butt';
+    ctx.lineJoin = 'bevel';
+    const step = Math.max(3, 10-stroke);
+    for(let y=0; y<h; y+=step) {
+      for(let x=0; x<w; x+=step) {
+        const i = y*w+x;
+        if(edges[i]/255 < 0.15) continue;
+        ctx.lineWidth = 1 + stroke*0.5 + rand()*0.5;
+        ctx.beginPath();
+        ctx.moveTo(x + rand()*2, y + rand()*2);
+        ctx.lineTo(x + step + rand()*2, y + step + rand()*2);
+        ctx.stroke();
+      }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  function renderInkWash(ctx, w, h, edges, gray, intensity, stroke, rand) {
+    const thr = 20 + (11-intensity)*15;
+    const overlay = ctx.createImageData(w,h);
+    for(let i=0; i<w*h; i++) {
+      const v = 255 - Math.min(255, Math.max(0, edges[i] - thr/2));
+      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v;
+      overlay.data[i*4+3]=255;
+    }
+    ctx.putImageData(overlay,0,0);
+    // Add diluted ink washes
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    const step = Math.max(6, 14-stroke);
+    for(let y=0; y<h; y+=step*1.5) {
+      for(let x=0; x<w; x+=step*1.5) {
+        const i = y*w+x;
+        if(edges[i]/255 > 0.2) {
+          ctx.fillRect(x - step/2, y - step/2, step*1.2, step*1.2);
+        }
+      }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  function renderComic(ctx, w, h, edges, gray, intensity, stroke, rand) {
+    const thr = 5 + (11-intensity)*8;
+    const overlay = ctx.createImageData(w,h);
+    for(let i=0; i<w*h; i++) {
+      const v = (edges[i]>thr) ? 0 : 255;
+      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v;
+      overlay.data[i*4+3]=255;
+    }
+    ctx.putImageData(overlay,0,0);
+    // Add spot blacks and varied line weights
+    ctx.globalCompositeOperation = 'darken';
+    ctx.fillStyle = '#000';
+    const step = Math.max(8, 16-stroke);
+    for(let y=0; y<h; y+=step*2) {
+      for(let x=0; x<w; x+=step*2) {
+        if(rand()>0.7) {
+          const r = 2 + rand()*stroke;
+          ctx.fillRect(x, y, r*2, r*2);
+        }
+      }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  function renderFashion(ctx, w, h, edges, gray, intensity, stroke, rand) {
+    const thr = 20 + (11-intensity)*12;
+    const overlay = ctx.createImageData(w,h);
+    for(let i=0; i<w*h; i++) {
+      const v = (edges[i]>thr) ? 0 : 255;
+      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v;
+      overlay.data[i*4+3]=255;
+    }
+    ctx.putImageData(overlay,0,0);
+    // Add flowing, elongated strokes
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.strokeStyle = '#333';
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    const step = Math.max(4, 12-stroke);
+    for(let y=0; y<h; y+=step*2) {
+      for(let x=0; x<w; x+=step*2) {
+        ctx.lineWidth = 0.5 + stroke*0.4;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.quadraticCurveTo(x + step, y + step/2, x + step*1.5, y - step);
+        ctx.stroke();
+      }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  function renderUrban(ctx, w, h, edges, gray, intensity, stroke, rand) {
+    const thr = 15 + (11-intensity)*12;
+    const overlay = ctx.createImageData(w,h);
+    for(let i=0; i<w*h; i++) {
+      const v = 255 - Math.min(255, Math.max(0, edges[i] - thr));
+      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v;
+      overlay.data[i*4+3]=255;
+    }
+    ctx.putImageData(overlay,0,0);
+    // Add quick wash overlays
+    ctx.globalCompositeOperation = 'overlay';
+    ctx.fillStyle = 'rgba(100,150,200,0.2)';
+    const step = Math.max(10, 20-stroke);
+    for(let y=0; y<h; y+=step) {
+      for(let x=0; x<w; x+=step) {
+        ctx.fillRect(x, y, step, step);
+      }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  function renderArchitectural(ctx, w, h, edges, gray, intensity, stroke, rand) {
+    const thr = 10 + (11-intensity)*10;
+    const overlay = ctx.createImageData(w,h);
+    for(let i=0; i<w*h; i++) {
+      const v = (edges[i]>thr) ? 0 : 255;
+      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v;
+      overlay.data[i*4+3]=255;
+    }
+    ctx.putImageData(overlay,0,0);
+  }
+
+  function renderAcademic(ctx, w, h, edges, gray, intensity, stroke, rand) {
+    const thr = 8 + (11-intensity)*10;
+    const overlay = ctx.createImageData(w,h);
+    for(let i=0; i<w*h; i++) {
+      let e = edges[i];
+      if(intensity<5) e *= (0.8 + rand()*0.3);
+      const v = 255 - Math.min(255, Math.max(0, e - thr));
+      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v;
+      overlay.data[i*4+3]=255;
+    }
+    ctx.putImageData(overlay,0,0);
+    // Subtle shading
+    ctx.globalCompositeOperation = 'overlay';
+    ctx.fillStyle = 'rgba(0,0,0,0.1)';
+    const step = Math.max(6, 14-stroke);
+    for(let y=0; y<h; y+=step*2) {
+      for(let x=0; x<w; x+=step*2) {
+        const i = y*w+x;
+        if(edges[i]/255 > 0.15) {
+          ctx.fillRect(x, y, step, step);
+        }
+      }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  function renderEtching(ctx, w, h, edges, gray, intensity, stroke, rand) {
+    const thr = 5 + (11-intensity)*5;
+    const overlay = ctx.createImageData(w,h);
+    for(let i=0; i<w*h; i++) {
+      const v = (edges[i]>thr) ? 0 : 255;
+      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v;
+      overlay.data[i*4+3]=255;
+    }
+    ctx.putImageData(overlay,0,0);
+    // Dense hatching
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.strokeStyle = '#111';
+    ctx.lineCap = 'round';
+    const step = Math.max(2, 8-stroke);
+    ctx.lineWidth = 0.3 + stroke*0.2;
+    for(let angle of [0, Math.PI/6]) {
+      for(let i=0; i<w+h; i+=step) {
+        ctx.beginPath();
+        ctx.moveTo(i*Math.cos(angle), i*Math.sin(angle));
+        ctx.lineTo((i+h)*Math.cos(angle), (i+h)*Math.sin(angle));
+        ctx.stroke();
+      }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  function renderMinimalist(ctx, w, h, edges, gray, intensity) {
+    const thr = 60 + (11-intensity)*20;
+    const overlay = ctx.createImageData(w,h);
+    for(let i=0; i<w*h; i++) {
+      const v = (edges[i]>thr) ? 0 : 255;
+      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v;
+      overlay.data[i*4+3]=255;
+    }
+    ctx.putImageData(overlay,0,0);
+  }
+
+  function renderGlitch(ctx, w, h, edges, gray, intensity, stroke, rand) {
+    const thr = 10 + (11-intensity)*12;
+    const overlay = ctx.createImageData(w,h);
+    for(let i=0; i<w*h; i++) {
+      let e = edges[i];
+      if(rand()<0.1) e = rand()*255;
+      const v = 255 - Math.min(255, Math.max(0, e - thr));
+      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v;
+      overlay.data[i*4+3]=255;
+    }
+    ctx.putImageData(overlay,0,0);
+    // Add scanlines and jitter
+    ctx.globalCompositeOperation = 'overlay';
+    ctx.strokeStyle = 'rgba(200,50,50,0.2)';
+    for(let y=0; y<h; y+=2) {
+      ctx.beginPath();
+      ctx.moveTo(0 + rand()*3, y);
+      ctx.lineTo(w + rand()*3, y);
+      ctx.stroke();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  function renderMixedMedia(ctx, w, h, edges, gray, intensity, stroke, rand) {
+    const thr = 10 + (11-intensity)*12;
+    const overlay = ctx.createImageData(w,h);
+    for(let i=0; i<w*h; i++) {
+      const v = 255 - Math.min(255, Math.max(0, edges[i] - thr));
+      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v;
+      overlay.data[i*4+3]=255;
+    }
+    ctx.putImageData(overlay,0,0);
+    // Mix of techniques
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.strokeStyle = 'rgba(100,0,0,0.3)';
+    const step = Math.max(5, 12-stroke);
+    for(let y=0; y<h; y+=step*1.5) {
+      for(let x=0; x<w; x+=step*1.5) {
+        if(rand()>0.5) {
+          ctx.fillRect(x, y, step/2, step/2);
+        } else {
+          ctx.beginPath();
+          ctx.arc(x, y, step/3, 0, Math.PI*2);
+          ctx.stroke();
+        }
+      }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  function renderDefault(ctx, w, h, edges, gray, intensity, stroke, rand) {
+    const thr = 10 + (11-intensity)*12;
+    const overlay = ctx.createImageData(w,h);
+    for(let i=0;i<w*h;i++){
+      const v = 255 - Math.min(255, Math.max(0, edges[i] - thr));
+      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v;
+      overlay.data[i*4+3]=255;
+    }
+    ctx.putImageData(overlay,0,0);
   }
 
   function posterize(imageData, levels){ const d = imageData.data; const step = 255/(levels-1); for(let i=0;i<d.length;i+=4){ d[i] = Math.round(d[i]/step)*step; d[i+1] = Math.round(d[i+1]/step)*step; d[i+2] = Math.round(d[i+2]/step)*step; } }
