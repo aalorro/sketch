@@ -4,11 +4,15 @@
     resetBtn.addEventListener('click', () => {
       // Set all controls to their default values
       document.getElementById('artStyle').value = 'pencil';
-      document.getElementById('style').value = 'line';
+      document.getElementById('style').value = 'contour';
       document.getElementById('brush').value = 'line';
       document.getElementById('intensity').value = 6;
       document.getElementById('stroke').value = 3;
       document.getElementById('skipHatching').checked = true;
+      document.getElementById('colorize').checked = false;
+      document.getElementById('contrast').value = 1;
+      document.getElementById('saturation').value = 1;
+      document.getElementById('hueShift').value = 0;
       document.getElementById('prompt').value = '';
       document.getElementById('seed').value = '';
       document.getElementById('resolution').value = '1024';
@@ -272,6 +276,10 @@
       fd.append('intensity', document.getElementById('intensity').value);
       fd.append('stroke', document.getElementById('stroke').value);
       fd.append('skipHatching', document.getElementById('skipHatching').checked);
+      fd.append('colorize', document.getElementById('colorize').checked);
+      fd.append('contrast', document.getElementById('contrast').value);
+      fd.append('saturation', document.getElementById('saturation').value);
+      fd.append('hueShift', document.getElementById('hueShift').value);
       try{
         const resp = await fetch(mlUrl, {method:'POST', body:fd});
         console.log('ML response:', resp.status);
@@ -293,6 +301,10 @@
       fd.append('intensity', document.getElementById('intensity').value);
       fd.append('stroke', document.getElementById('stroke').value);
       fd.append('skipHatching', document.getElementById('skipHatching').checked);
+      fd.append('colorize', document.getElementById('colorize').checked);
+      fd.append('contrast', document.getElementById('contrast').value);
+      fd.append('saturation', document.getElementById('saturation').value);
+      fd.append('hueShift', document.getElementById('hueShift').value);
       try{
         const resp = await fetch(serverUrl, {method:'POST', body:fd});
         console.log('Server response:', resp.status);
