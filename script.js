@@ -1,3 +1,30 @@
+  // Reset all controls to their default values
+  const resetBtn = document.getElementById('resetAll');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      // Set all controls to their default values
+      document.getElementById('artStyle').value = 'pencil';
+      document.getElementById('style').value = 'line';
+      document.getElementById('brush').value = 'line';
+      document.getElementById('intensity').value = 6;
+      document.getElementById('stroke').value = 3;
+      document.getElementById('skipHatching').checked = true;
+      document.getElementById('prompt').value = '';
+      document.getElementById('seed').value = '';
+      document.getElementById('resolution').value = '1024';
+      document.getElementById('aspect').value = '1:1';
+      document.getElementById('outputName').value = 'sketch';
+      document.getElementById('useWebGL').checked = false;
+      document.getElementById('useML').checked = false;
+      document.getElementById('mlUrl').value = 'https://api.example.com/ml-sketch';
+      document.getElementById('useServer').checked = true;
+      document.getElementById('serverUrl').value = 'http://localhost:5001/api/style-transfer-advanced';
+      // Optionally clear file input (cannot set value for security reasons)
+      // document.getElementById('file').value = '';
+      // Redraw preview if an image is loaded
+      if (typeof singleImage !== 'undefined' && singleImage) drawPreview();
+    });
+  }
 // Sketchify - client-side image to sketch transformations
 (function(){
   // Elements
