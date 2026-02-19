@@ -440,6 +440,167 @@
       case 'mixedmedia': renderMixedMedia(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       default: renderDefault(ctx, w, h, edges, gray, intensity, stroke, rand); break;
     }
+
+    // Apply Medium (artStyle) effects
+    applyMediumEffect(ctx, w, h, art);
+    
+    // Apply Brush effects
+    applyBrushEffect(ctx, w, h, brush, stroke, intensity, edges, rand);
+  }
+
+  function applyMediumEffect(ctx, w, h, medium){
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const d = imgData.data;
+    
+    if(medium === 'pencil'){
+      // Pencil: lighter, slightly grainy, more delicate
+      for(let i=0; i<d.length; i+=4){
+        d[i] = Math.min(255, d[i] + 30);     // lighter R
+        d[i+1] = Math.min(255, d[i+1] + 30); // lighter G
+        d[i+2] = Math.min(255, d[i+2] + 30); // lighter B
+      }
+      // Add slight grain texture
+      for(let i=0; i<d.length; i+=4){
+        const noise = Math.random() * 20 - 10;
+        d[i] = Math.max(0, Math.min(255, d[i] + noise));
+        d[i+1] = Math.max(0, Math.min(255, d[i+1] + noise));
+        d[i+2] = Math.max(0, Math.min(255, d[i+2] + noise));
+      }
+    } else if(medium === 'ink'){
+      // Ink: darker, more saturated, crisp
+      for(let i=0; i<d.length; i+=4){
+        const avg = (d[i] + d[i+1] + d[i+2]) / 3;
+        d[i] = Math.max(0, d[i] - 40);     // darker R
+        d[i+1] = Math.max(0, d[i+1] - 40); // darker G
+        d[i+2] = Math.max(0, d[i+2] - 40); // darker B
+      }
+    } else if(medium === 'marker'){
+      // Marker: bold, slightly softer edges, more opaque
+      for(let i=0; i<d.length; i+=4){
+        if(d[i+3] > 100){  // only if not transparent
+          d[i] = Math.max(0, d[i] - 15);     // slightly darker
+          d[i+1] = Math.max(0, d[i+1] - 15);
+          d[i+2] = Math.max(0, d[i+2] - 15);
+        }
+      }
+      // Add slight blur/softness by averaging with neighbors (simple box)
+      const newData = new Uint8ClampedArray(d);
+      for(let y=1; y<h-1; y++){
+        for(let x=1; x<w-1; x++){
+          const idx = (y*w + x) * 4;
+          const up = ((y-1)*w + x) * 4;
+          const down = ((y+1)*w + x) * 4;
+          const left = (y*w + (x-1)) * 4;
+          const right = (y*w + (x+1)) * 4;
+          newData[idx] = (d[idx] + d[up] + d[down] + d[left] + d[right]) / 5;
+          newData[idx+1] = (d[idx+1] + d[up+1] + d[down+1] + d[left+1] + d[right+1]) / 5;
+          newData[idx+2] = (d[idx+2] + d[up+2] + d[down+2] + d[left+2] + d[right+2]) / 5;
+        }
+      }
+      for(let i=0; i<d.length; i++) d[i] = newData[i];
+    } else if(medium === 'pen'){
+      // Pen: crisp, slight pressure variation, very dark
+      for(let i=0; i<d.length; i+=4){
+        d[i] = Math.max(0, d[i] - 50);     // very dark
+        d[i+1] = Math.max(0, d[i+1] - 50);
+        d[i+2] = Math.max(0, d[i+2] - 50);
+      }
+    }
+    
+    ctx.putImageData(imgData, 0, 0);
+  }
+
+  function applyBrushEffect(ctx, w, h, brush, stroke, intensity, edges, rand){
+    if(brush === 'line') return;  // line is default, no additional effect
+    
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const overlay = ctx.createImageData(w, h);
+    
+    // Copy current canvas to overlay
+    for(let i=0; i<imgData.data.length; i++) overlay.data[i] = imgData.data[i];
+    
+    if(brush === 'hatch'){
+      // Add diagonal hatching pattern
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.strokeStyle = 'rgba(80, 80, 80, 0.3)';
+      ctx.lineWidth = 0.5 + stroke*0.3;
+      const spacing = Math.max(6, 16 - stroke);
+      for(let y=-h; y<h*2; y+=spacing){
+        ctx.beginPath();
+        ctx.moveTo(-w, y);
+        ctx.lineTo(w*2, y + w); 
+        ctx.stroke();
+      }
+      ctx.globalCompositeOperation = 'source-over';
+    } else if(brush === 'crosshatch'){
+      // Add perpendicular hatching
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.strokeStyle = 'rgba(80, 80, 80, 0.25)';
+      ctx.lineWidth = 0.5 + stroke*0.25;
+      const spacing = Math.max(8, 18 - stroke);
+      // Diagonal 1
+      for(let y=-h; y<h*2; y+=spacing){
+        ctx.beginPath();
+        ctx.moveTo(-w, y);
+        ctx.lineTo(w*2, y + w);
+        ctx.stroke();
+      }
+      // Diagonal 2 (perpendicular)
+      for(let y=-h; y<h*2; y+=spacing){
+        ctx.beginPath();
+        ctx.moveTo(w*2, y);
+        ctx.lineTo(-w, y + w);
+        ctx.stroke();
+      }
+      ctx.globalCompositeOperation = 'source-over';
+    } else if(brush === 'charcoal'){
+      // Add soft charcoal smudging/blending
+      const d = overlay.data;
+      // Increase darkness and reduce contrast for softer look
+      for(let i=0; i<d.length; i+=4){
+        const avg = (d[i] + d[i+1] + d[i+2]) / 3;
+        d[i] = Math.round(avg * 0.8 + d[i] * 0.2);
+        d[i+1] = Math.round(avg * 0.8 + d[i+1] * 0.2);
+        d[i+2] = Math.round(avg * 0.8 + d[i+2] * 0.2);
+      }
+      ctx.putImageData(overlay, 0, 0);
+      // Apply slight blur for softer edges
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+      const step = Math.max(4, 12 - stroke);
+      for(let y=0; y<h; y+=step){
+        for(let x=0; x<w; x+=step){
+          const idx = (y*w + x) * 4;
+          if(overlay.data[idx+3] > 50){
+            const radius = 2 + stroke*0.5;
+            ctx.fillRect(x-radius, y-radius, radius*2, radius*2);
+          }
+        }
+      }
+      ctx.globalCompositeOperation = 'source-over';
+    } else if(brush === 'inkWash'){
+      // Add diluted ink wash effect with transparency
+      const d = overlay.data;
+      for(let i=0; i<d.length; i+=4){
+        // Reduce opacity for wash effect
+        d[i+3] = Math.round(d[i+3] * 0.7);
+      }
+      ctx.putImageData(overlay, 0, 0);
+      // Add soft wash overlays
+      ctx.globalCompositeOperation = 'lighten';
+      ctx.fillStyle = 'rgba(200, 200, 200, 0.15)';
+      const step = Math.max(8, 20 - stroke);
+      for(let y=0; y<h; y+=step){
+        for(let x=0; x<w; x+=step){
+          const idx = (y*w + x) * 4;
+          if(overlay.data[idx+3] > 0){
+            const size = 15 + stroke*2;
+            ctx.fillRect(x-size/2, y-size/2, size, size);
+          }
+        }
+      }
+      ctx.globalCompositeOperation = 'source-over';
+    }
   }
 
   function renderContour(ctx, w, h, edges, gray, intensity) {
