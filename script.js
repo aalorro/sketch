@@ -17,7 +17,7 @@
       document.getElementById('useWebGL').checked = false;
       document.getElementById('useML').checked = false;
       document.getElementById('mlUrl').value = 'https://api.example.com/ml-sketch';
-      document.getElementById('useServer').checked = true;
+      document.getElementById('useServer').checked = false;
       document.getElementById('serverUrl').value = 'http://localhost:5001/api/style-transfer-advanced';
       // Clear file input (cannot set value for security reasons)
       // document.getElementById('file').value = '';
