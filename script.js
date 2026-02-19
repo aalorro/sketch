@@ -417,6 +417,45 @@
 
     const edges = sobel(gray, w, h);
 
+    // Special logic for contour and crosscontour styles
+    if (style === 'contour') {
+      // Contour: strong threshold, only main edges, no hatching
+      const thr = 40 + (11-intensity)*18;
+      const overlay = ctx.createImageData(w,h);
+      for(let i=0;i<w*h;i++){
+        let e = edges[i];
+        const v = (e > thr) ? 0 : 255;
+        overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v; overlay.data[i*4+3]=255;
+      }
+      ctx.putImageData(overlay,0,0);
+      return;
+    }
+    if (style === 'crosscontour') {
+      // Cross contour: overlay two edge maps at different angles
+      // First, normal sobel
+      const thr = 10 + (11-intensity)*12;
+      const overlay = ctx.createImageData(w,h);
+      for(let i=0;i<w*h;i++){
+        let e = edges[i];
+        const v = 255 - Math.min(255, Math.max(0, e - thr));
+        overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v; overlay.data[i*4+3]=255;
+      }
+      ctx.putImageData(overlay,0,0);
+      // Now, a second pass with rotated sobel (simulate cross contour)
+      // Simple trick: shift image and re-run sobel
+      const shifted = new Uint8ClampedArray(w*h);
+      for(let y=0;y<h-2;y++) for(let x=0;x<w-2;x++) shifted[y*w+x] = gray[(y+2)*w + (x+2)];
+      const edges2 = sobel(shifted, w, h);
+      const overlay2 = ctx.createImageData(w,h);
+      for(let i=0;i<w*h;i++){
+        let e = edges2[i];
+        const v = 255 - Math.min(255, Math.max(0, e - thr));
+        overlay2.data[i*4]=0; overlay2.data[i*4+1]=v; overlay2.data[i*4+2]=0; overlay2.data[i*4+3]=80;
+      }
+      ctx.putImageData(overlay2,0,0);
+      return;
+    }
+    // Default logic
     const thr = 10 + (11-intensity)*12;
     const overlay = ctx.createImageData(w,h);
     for(let i=0;i<w*h;i++){ let e = edges[i]; if(art==='pencil') e *= (0.8 + rand()*0.6); if(art==='ink') e *= (1.4 + rand()*0.8); if(art==='marker') e = Math.min(255, e*1.2); if(art==='pen') e *= 1.6; const v = 255 - Math.min(255, Math.max(0, e - thr)); overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v; overlay.data[i*4+3]=255; }
