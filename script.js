@@ -19,10 +19,21 @@
       document.getElementById('mlUrl').value = 'https://api.example.com/ml-sketch';
       document.getElementById('useServer').checked = true;
       document.getElementById('serverUrl').value = 'http://localhost:5001/api/style-transfer-advanced';
-      // Optionally clear file input (cannot set value for security reasons)
+      // Clear file input (cannot set value for security reasons)
       // document.getElementById('file').value = '';
-      // Redraw preview if an image is loaded
-      if (typeof singleImage !== 'undefined' && singleImage) drawPreview();
+      // Clear loaded image and canvases
+      singleImage = null;
+      currentFiles = [];
+      // Clear preview canvas
+      if (typeof preview !== 'undefined' && preview) {
+        const ctx = preview.getContext('2d');
+        ctx.clearRect(0, 0, preview.width, preview.height);
+      }
+      // Clear original canvas
+      if (typeof original !== 'undefined' && original) {
+        const octx = original.getContext('2d');
+        octx.clearRect(0, 0, original.width, original.height);
+      }
     });
   }
 // Sketchify - client-side image to sketch transformations
