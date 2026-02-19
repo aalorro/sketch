@@ -60,6 +60,8 @@
       <label>Intensity <input id="intensity" type="range" min="1" max="10" value="6"></label>
       <label>Stroke <input id="stroke" type="range" min="1" max="10" value="3"></label>
 
+  <label><input id="skipHatching" type="checkbox" checked> Skip hatching (clean edges only)</label>
+
       <label>Prompt (optional)
         <input id="prompt" type="text" placeholder="e.g. dramatic cross-hatching">
       </label>
@@ -86,28 +88,13 @@
         </select>
       </label>
 
-      <label>Intensity <input id="intensity" type="range" min="1" max="10" value="6"></label>
-      <label>Stroke <input id="stroke" type="range" min="1" max="10" value="3"></label>
-
-      <label><input id="skipHatching" type="checkbox" checked> Skip hatching (clean edges only)</label>
-
       <label>Output filename
         <input id="outputName" type="text" value="sketch" placeholder="sketch">
       </label>
 
-      <label>Brush
-        <select id="brush">
-          <option value="line">Line</option>
-          <option value="hatch">Hatch</option>
-          <option value="crosshatch">Cross-hatch</option>
-          <option value="charcoal">Charcoal</option>
-          <option value="inkWash">Ink Wash</option>
-        </select>
-      </label>
-
       <label><input id="useWebGL" type="checkbox"> Use GPU (WebGL experimental)</label>
       <small id="webglStatus" style="display:none;color:green">✓ GPU accelerated</small>
-      <label><input id="useML" type="checkbox" checked> Use external ML service (default)</label>
+      <label><input id="useML" type="checkbox"> Use external ML service (default)</label>
       <label>ML Service URL <input id="mlUrl" type="text" value="https://api.example.com/ml-sketch" placeholder="https://your-custom-ml-service.com/api"></label>
       <label><input id="useServer" type="checkbox" checked> Use server style-transfer (requires running server)</label>
       <label>Server API URL <input id="serverUrl" type="text" value="http://localhost:5001/api/style-transfer-advanced" placeholder="https://example.com/api/style-transfer"></label>

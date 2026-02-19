@@ -389,9 +389,10 @@
     ctx.strokeStyle = '#111';
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    const baseLineWidth = Math.max(1, stroke);
+    // Make stroke more visually impactful: scale line width from 1 to 10
+    const baseLineWidth = 0.5 + stroke * 1.5; // stroke 1 = 2px, stroke 10 = 15.5px
     let passes = 1;
-    let step = Math.max(8, 16 - stroke); // default for 'line'
+    let step = Math.max(4, 20 - stroke * 1.5); // smaller step for higher stroke, more lines
     if (brush === 'hatch' || brush === 'crosshatch' || brush === 'charcoal' || brush === 'inkWash') {
       passes = Math.max(1, Math.floor(intensity / 3));
       step = Math.max(4, 12 - stroke);
