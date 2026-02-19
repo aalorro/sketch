@@ -895,15 +895,19 @@
       overlay.data[i*4+3]=255;
     }
     ctx.putImageData(overlay,0,0);
-    // Add spot blacks and varied line weights
+    // Add spot blacks and varied line weights (smaller, more natural spots)
     ctx.globalCompositeOperation = 'darken';
     ctx.fillStyle = '#000';
-    const step = Math.max(8, 16-stroke);
-    for(let y=0; y<h; y+=step*2) {
-      for(let x=0; x<w; x+=step*2) {
-        if(rand()>0.7) {
-          const r = 2 + rand()*stroke;
-          ctx.fillRect(x, y, r*2, r*2);
+    const step = Math.max(6, 14-stroke);
+    for(let y=step/2; y<h; y+=step) {
+      for(let x=step/2; x<w; x+=step) {
+        const idx = (y*w + x) * 4;
+        // Only add spot blacks where there's shadow/dark areas
+        if(gray[Math.floor(y)*w + Math.floor(x)] < 120 && rand()>0.6) {
+          const radius = 0.8 + rand()*1.2;
+          ctx.beginPath();
+          ctx.arc(x, y, radius, 0, Math.PI*2);
+          ctx.fill();
         }
       }
     }
