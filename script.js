@@ -78,7 +78,11 @@
       useServer: document.getElementById('useServer').checked,
       serverUrl: document.getElementById('serverUrl').value,
       outputName: document.getElementById('outputName').value,
-      skipHatching: document.getElementById('skipHatching').checked
+      skipHatching: document.getElementById('skipHatching').checked,
+      contrast: document.getElementById('contrast').value,
+      saturation: document.getElementById('saturation').value,
+      hueShift: document.getElementById('hueShift').value,
+      colorize: document.getElementById('colorize').checked
     };
   }
   function restoreState(state){
@@ -148,9 +152,15 @@
   document.getElementById('aspect').addEventListener('change', ()=>{ pushUndo(); if(currentFiles.length) drawPreview(); });
   document.getElementById('resolution').addEventListener('change', ()=>{ pushUndo(); if(currentFiles.length) drawPreview(); });
   // Generic state capture for control changes
-  ['artStyle','style','intensity','stroke','brush','outputName','skipHatching','useWebGL'].forEach(id=>{
+  ['artStyle','style','intensity','stroke','brush','outputName','skipHatching','useWebGL','colorize'].forEach(id=>{
     const el = document.getElementById(id);
     if(el) el.addEventListener('change', ()=>{ pushUndo(); if(currentFiles.length) drawPreview(); });
+  });
+
+  // Real-time slider updates without undo/redo on every drag
+  ['intensity','stroke','contrast','saturation','hueShift'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.addEventListener('input', ()=>{ if(currentFiles.length) drawPreview(); });
   });
 
   downloadPng.addEventListener('click', ()=>{ 
@@ -411,6 +421,15 @@
     const seed = getSeed(); const rand = mulberry32(seed||Date.now());
 
     let imgData = srcImageData || ctx.getImageData(0,0,w,h);
+    
+    // Store original color data for colorization
+    const originalColors = new Uint8ClampedArray(w*h*3);
+    for(let i=0;i<w*h;i++){
+      originalColors[i*3] = imgData.data[i*4];     // R
+      originalColors[i*3+1] = imgData.data[i*4+1]; // G
+      originalColors[i*3+2] = imgData.data[i*4+2]; // B
+    }
+    
     const gray = new Uint8ClampedArray(w*h);
     for(let i=0;i<w*h;i++){ const r=imgData.data[i*4], g=imgData.data[i*4+1], b=imgData.data[i*4+2]; gray[i] = (0.299*r + 0.587*g + 0.114*b)|0; }
     const edges = sobel(gray, w, h);
@@ -438,6 +457,9 @@
       case 'minimalist': renderMinimalist(ctx, w, h, edges, gray, intensity); break;
       case 'glitch': renderGlitch(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       case 'mixedmedia': renderMixedMedia(ctx, w, h, edges, gray, intensity, stroke, rand); break;
+      case 'photorealism': renderPhotorealism(ctx, w, h, edges, gray, intensity, stroke, rand); break;
+      case 'oilpainting': renderOilPainting(ctx, w, h, edges, gray, intensity, stroke, rand); break;
+      case 'watercolor': renderWatercolor(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       default: renderDefault(ctx, w, h, edges, gray, intensity, stroke, rand); break;
     }
 
@@ -446,6 +468,18 @@
     
     // Apply Brush effects
     applyBrushEffect(ctx, w, h, brush, stroke, intensity, edges, rand);
+
+    // Apply Color adjustments
+    const contrast = parseFloat(document.getElementById('contrast').value);
+    const saturation = parseFloat(document.getElementById('saturation').value);
+    const hueShift = parseInt(document.getElementById('hueShift').value, 10);
+    applyColorAdjustments(ctx, w, h, contrast, saturation, hueShift);
+
+    // Apply colorization if enabled
+    const colorize = document.getElementById('colorize').checked;
+    if(colorize){
+      applyColorization(ctx, w, h, originalColors);
+    }
   }
 
   function applyMediumEffect(ctx, w, h, medium){
@@ -1085,6 +1119,252 @@
       }
     }
     ctx.globalCompositeOperation = 'source-over';
+  }
+
+  function applyColorAdjustments(ctx, w, h, contrast, saturation, hueShift){
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const d = imgData.data;
+
+    for(let i=0; i<d.length; i+=4){
+      let r = d[i], g = d[i+1], b = d[i+2];
+
+      // Apply contrast
+      if(contrast !== 1){
+        r = ((r - 128) * contrast) + 128;
+        g = ((g - 128) * contrast) + 128;
+        b = ((b - 128) * contrast) + 128;
+        r = Math.max(0, Math.min(255, r));
+        g = Math.max(0, Math.min(255, g));
+        b = Math.max(0, Math.min(255, b));
+      }
+
+      // Convert RGB to HSL for saturation and hue adjustments
+      const max = Math.max(r, g, b) / 255;
+      const min = Math.min(r, g, b) / 255;
+      let h, s, l = (max + min) / 2;
+      if(max === min){
+        h = s = 0;
+      } else {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch(max){
+          case r/255: h = (g - b) / d + (g < b ? 6 : 0); break;
+          case g/255: h = (b - r) / d + 2; break;
+          case b/255: h = (r - g) / d + 4; break;
+        }
+        h /= 6;
+      }
+
+      // Apply hue shift
+      h = (h * 360 + hueShift) % 360 / 360;
+      if(h < 0) h += 1;
+
+      // Apply saturation
+      s = Math.min(1, s * saturation);
+
+      // Convert HSL back to RGB
+      function hsl2rgb(h, s, l){
+        let r, g, b;
+        if(s === 0){
+          r = g = b = l;
+        } else {
+          const hue2rgb = (p, q, t) => {
+            if(t < 0) t += 1;
+            if(t > 1) t -= 1;
+            if(t < 1/6) return p + (q - p) * 6 * t;
+            if(t < 1/2) return q;
+            if(t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+            return p;
+          };
+          const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+          const p = 2 * l - q;
+          r = hue2rgb(p, q, h + 1/3);
+          g = hue2rgb(p, q, h);
+          b = hue2rgb(p, q, h - 1/3);
+        }
+        return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+      }
+
+      const [nr, ng, nb] = hsl2rgb(h, s, l);
+      d[i] = nr;
+      d[i+1] = ng;
+      d[i+2] = nb;
+    }
+
+    ctx.putImageData(imgData, 0, 0);
+  }
+
+  function renderPhotorealism(ctx, w, h, edges, gray, intensity, stroke, rand){
+    // Photorealistic: preserve tonal values with enhanced edges
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const overlay = ctx.createImageData(w, h);
+    
+    // Keep original tones but enhance with edges
+    for(let i=0; i<w*h; i++){
+      const edgeStr = edges[i] / 255;
+      const grayVal = gray[i];
+      // Enhanced gray with edge emphasis
+      const v = Math.max(0, Math.min(255, grayVal - edgeStr * 40 * (intensity/6)));
+      overlay.data[i*4] = v;
+      overlay.data[i*4+1] = v;
+      overlay.data[i*4+2] = v;
+      overlay.data[i*4+3] = 255;
+    }
+    ctx.putImageData(overlay, 0, 0);
+    
+    // Add subtle edge definition
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.lineWidth = 0.5 + stroke * 0.3;
+    const step = Math.max(3, 8 - stroke);
+    for(let y=0; y<h; y+=step){
+      for(let x=0; x<w; x+=step){
+        const idx = y*w + x;
+        if(edges[idx] > 50){
+          ctx.fillStyle = 'rgba(0, 0, 0, ' + (0.15 * edges[idx]/255) + ')';
+          ctx.fillRect(x, y, step, step);
+        }
+      }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  function renderOilPainting(ctx, w, h, edges, gray, intensity, stroke, rand){
+    // Oil painting: thick, blended strokes with muted edges
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const overlay = ctx.createImageData(w, h);
+    
+    // Blend neighboring pixels for oil paint effect
+    for(let y=1; y<h-1; y++){
+      for(let x=1; x<w-1; x++){
+        const idx = (y*w + x) * 4;
+        const up = ((y-1)*w + x) * 4;
+        const down = ((y+1)*w + x) * 4;
+        const left = (y*w + (x-1)) * 4;
+        const right = (y*w + (x+1)) * 4;
+        
+        // Average with neighbors for thick paint look
+        const avg = (gray[y*w+x] + gray[(y-1)*w+x] + gray[(y+1)*w+x] + gray[y*w+(x-1)] + gray[y*w+(x+1)]) / 5;
+        const v = Math.round(avg);
+        overlay.data[idx] = v;
+        overlay.data[idx+1] = v;
+        overlay.data[idx+2] = v;
+        overlay.data[idx+3] = 255;
+      }
+    }
+    ctx.putImageData(overlay, 0, 0);
+    
+    // Add oil paint texture strokes
+    ctx.globalCompositeOperation = 'overlay';
+    const step = Math.max(8, 20 - stroke*2);
+    for(let y=step; y<h; y+=step){
+      for(let x=step; x<w; x+=step){
+        const idx = y*w + x;
+        const opacity = (edges[idx] / 255) * 0.3;
+        ctx.strokeStyle = 'rgba(0, 0, 0, ' + opacity + ')';
+        ctx.lineWidth = 1.5 + stroke * 0.4;
+        ctx.beginPath();
+        ctx.ellipse(x, y, step/2 + rand()*step/4, step/3 + rand()*step/6, rand()*Math.PI, 0, Math.PI*2);
+        ctx.stroke();
+      }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  function renderWatercolor(ctx, w, h, edges, gray, intensity, stroke, rand){
+    // Watercolor: soft edges, flowing transparency, light pigment
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const overlay = ctx.createImageData(w, h);
+    
+    // Make image lighter and more transparent
+    for(let i=0; i<w*h; i++){
+      const v = Math.round(gray[i] * 0.8 + 50); // Lighten and reduce contrast
+      overlay.data[i*4] = v;
+      overlay.data[i*4+1] = v;
+      overlay.data[i*4+2] = v;
+      overlay.data[i*4+3] = Math.round(200 + edges[i] * 0.2); // Variable transparency
+    }
+    ctx.putImageData(overlay, 0, 0);
+    
+    // Add watercolor wash effects with soft edges
+    ctx.globalCompositeOperation = 'lighten';
+    const step = Math.max(10, 24 - stroke*2);
+    for(let y=0; y<h; y+=step){
+      for(let x=0; x<w; x+=step){
+        const idx = y*w + x;
+        const intensity_val = 0.1 + (gray[idx] / 255) * 0.2;
+        const size = step * 1.5 + rand() * step;
+        ctx.fillStyle = 'rgba(150, 150, 150, ' + intensity_val + ')';
+        ctx.beginPath();
+        ctx.ellipse(x + rand()*step, y + rand()*step, size/2, size/2, rand()*Math.PI, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  function applyColorization(ctx, w, h, originalColors){
+    // Blend original image colors with the grayscale sketch
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const d = imgData.data;
+    
+    for(let i=0; i<w*h; i++){
+      // Get current grayscale sketch value
+      const sketchGray = d[i*4]; // R, G, B should all be same (grayscale)
+      
+      // Get original colors
+      const origR = originalColors[i*3];
+      const origG = originalColors[i*3+1];
+      const origB = originalColors[i*3+2];
+      
+      // Convert original colors to HSL
+      const max = Math.max(origR, origG, origB) / 255;
+      const min = Math.min(origR, origG, origB) / 255;
+      let h, s, l = (max + min) / 2;
+      
+      if(max === min){
+        h = s = 0;
+      } else {
+        const diff = max - min;
+        s = l > 0.5 ? diff / (2 - max - min) : diff / (max + min);
+        switch(max){
+          case origR/255: h = (origG - origB) / diff + (origG < origB ? 6 : 0); break;
+          case origG/255: h = (origB - origR) / diff + 2; break;
+          case origB/255: h = (origR - origG) / diff + 4; break;
+        }
+        h /= 6;
+      }
+      
+      // Use sketch's brightness with original hue/saturation
+      const newL = sketchGray / 255;
+      
+      // Convert back to RGB
+      const hue2rgb = (p, q, t) => {
+        if(t < 0) t += 1;
+        if(t > 1) t -= 1;
+        if(t < 1/6) return p + (q - p) * 6 * t;
+        if(t < 1/2) return q;
+        if(t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+        return p;
+      };
+      
+      let r, g, b;
+      if(s === 0){
+        r = g = b = newL;
+      } else {
+        const q = newL < 0.5 ? newL * (1 + s) : newL + s - newL * s;
+        const p = 2 * newL - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+      }
+      
+      d[i*4] = Math.round(r * 255);
+      d[i*4+1] = Math.round(g * 255);
+      d[i*4+2] = Math.round(b * 255);
+    }
+    
+    ctx.putImageData(imgData, 0, 0);
   }
 
   function renderDefault(ctx, w, h, edges, gray, intensity, stroke, rand) {
