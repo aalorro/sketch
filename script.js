@@ -1,46 +1,3 @@
-  // Reset all controls to their default values
-  const resetBtn = document.getElementById('resetAll');
-  if (resetBtn) {
-    resetBtn.addEventListener('click', () => {
-      // Set all controls to their default values
-      document.getElementById('artStyle').value = 'pencil';
-      document.getElementById('style').value = 'contour';
-      document.getElementById('brush').value = 'line';
-      document.getElementById('intensity').value = 6;
-      document.getElementById('stroke').value = 3;
-      document.getElementById('skipHatching').checked = true;
-      document.getElementById('colorize').checked = false;
-      document.getElementById('contrast').value = 1;
-      document.getElementById('saturation').value = 1;
-      document.getElementById('hueShift').value = 0;
-      document.getElementById('prompt').value = '';
-      document.getElementById('seed').value = '';
-      document.getElementById('resolution').value = '1024';
-      document.getElementById('aspect').value = '1:1';
-      document.getElementById('outputName').value = '';
-      updateOutputNamePlaceholder();
-      document.getElementById('useWebGL').checked = false;
-      document.getElementById('useML').checked = false;
-      document.getElementById('mlUrl').value = 'https://api.example.com/ml-sketch';
-      document.getElementById('useServer').checked = false;
-      document.getElementById('serverUrl').value = 'http://localhost:5001/api/style-transfer-advanced';
-      // Clear file input (cannot set value for security reasons)
-      // document.getElementById('file').value = '';
-      // Clear loaded image and canvases
-      singleImage = null;
-      currentFiles = [];
-      // Clear preview canvas
-      if (typeof preview !== 'undefined' && preview) {
-        const ctx = preview.getContext('2d');
-        ctx.clearRect(0, 0, preview.width, preview.height);
-      }
-      // Clear original canvas
-      if (typeof original !== 'undefined' && original) {
-        const octx = original.getContext('2d');
-        octx.clearRect(0, 0, original.width, original.height);
-      }
-    });
-  }
 // Sketchify - client-side image to sketch transformations
 (function(){
   // Elements
@@ -274,6 +231,48 @@
     }
   });
   downloadZip.addEventListener('click', downloadAllZip);
+
+  // Reset button
+  document.getElementById('resetAll').addEventListener('click', () => {
+    // Set all controls to their default values
+    document.getElementById('artStyle').value = 'pencil';
+    document.getElementById('style').value = 'contour';
+    document.getElementById('brush').value = 'line';
+    document.getElementById('intensity').value = 6;
+    document.getElementById('stroke').value = 3;
+    document.getElementById('skipHatching').checked = true;
+    document.getElementById('colorize').checked = false;
+    document.getElementById('contrast').value = 1;
+    document.getElementById('saturation').value = 1;
+    document.getElementById('hueShift').value = 0;
+    document.getElementById('prompt').value = '';
+    document.getElementById('seed').value = '';
+    document.getElementById('resolution').value = '1024';
+    document.getElementById('aspect').value = '1:1';
+    document.getElementById('outputName').value = '';
+    updateOutputNamePlaceholder();
+    document.getElementById('useWebGL').checked = false;
+    document.getElementById('useML').checked = false;
+    document.getElementById('mlUrl').value = 'https://api.example.com/ml-sketch';
+    document.getElementById('useServer').checked = false;
+    document.getElementById('serverUrl').value = 'http://localhost:5001/api/style-transfer-advanced';
+    // Clear loaded image and canvases
+    singleImage = null;
+    currentFiles = [];
+    currentImageIndex = 0;
+    // Clear preview canvas
+    const ctx = preview.getContext('2d');
+    ctx.clearRect(0, 0, preview.width, preview.height);
+    // Clear original canvas
+    const octx = original.getContext('2d');
+    octx.clearRect(0, 0, original.width, original.height);
+    // Update UI
+    updateImageNavDisplay();
+    updateFileInfo();
+    undoStack = [];
+    redoStack = [];
+    pushUndo();
+  });
 
   // Preset management event listeners
   document.getElementById('savePreset').addEventListener('click', ()=>{
