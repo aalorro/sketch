@@ -60,6 +60,7 @@ Implemented features
 - External ML service: POST to custom ML endpoints for advanced transformations
 - Server integration: Optional local/remote Flask server for custom processing
 - Reproducibility: Seed input for deterministic random effects
+- Preset management: Save and load custom configuration presets locally (stored in browser localStorage)
 
 **Optimizations:**
 - Sequential batch processing to limit peak memory usage
@@ -123,6 +124,25 @@ Prompt Field
   4. The prompt will be sent to your server/ML endpoint for processing
 - **Example:** If you have a custom server that uses prompts for guided image-to-image style transfer, set the Prompt field to describe the desired visual style and let your server use it to enhance the result.
 - **Note:** Your server/ML endpoint must be configured to read and use the `prompt` field from the request for this to have any effect.
+
+Preset Management (Local Storage)
+- **What it is:** Save and load your custom configuration presets (all settings, sliders, etc.) locally in your browser using localStorage. No cloud required — everything stays on your device.
+- **How to save a preset:**
+  1. Adjust all settings to your liking (Medium, Style, Brush, Intensity, etc.)
+  2. Enter a preset name in the **Preset name** field (e.g., "my-charcoal-sketch" or "dramatic-hatching")
+  3. Click **Save Preset**
+  4. The preset is saved locally and added to the dropdown
+- **How to load a preset:**
+  1. Select a preset from the **Load preset** dropdown
+  2. Click **Load Preset**
+  3. All settings are restored instantly
+- **How to delete a preset:**
+  1. Select the preset from the dropdown
+  2. Click **Delete**
+  3. Confirm the deletion — the preset is removed from localStorage
+- **Storage:** Presets are stored in your browser's localStorage and persist across sessions. Clearing your browser data will delete saved presets.
+- **Preset naming:** Preset names are automatically sanitized (spaces/special chars converted to underscores) for safe storage.
+- **Example workflow:** Save "pencil-light-sketch", "ink-bold-style", "marker-soft-sketch", and quickly switch between them while exploring the same image.
 
 Security & performance
 - **Default behavior:** All sketch processing runs in your browser — no data leaves your device unless you explicitly enable server or ML options.

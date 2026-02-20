@@ -122,8 +122,25 @@
       </label>
 
       <label>Output filename
-        <input id="outputName" type="text" value="sketch" placeholder="sketch">
+        <input id="outputName" type="text" placeholder="sketchify_20260220_143045">
       </label>
+
+      <fieldset style="border:1px solid var(--border);border-radius:4px;padding:8px;margin:8px 0">
+        <legend style="padding:0 4px;font-size:0.9em;font-weight:600">Presets</legend>
+        <label>Preset name
+          <input id="presetName" type="text" placeholder="e.g. my-charcoal-style">
+        </label>
+        <div style="display:flex;gap:4px;margin-bottom:8px">
+          <button id="savePreset" type="button" style="flex:1">Save Preset</button>
+          <button id="deletePreset" type="button" style="flex:1">Delete</button>
+        </div>
+        <label>Load preset
+          <select id="presetSelect">
+            <option value="">-- No presets --</option>
+          </select>
+        </label>
+        <button id="loadPreset" type="button" style="width:100%;margin-top:4px">Load Preset</button>
+      </fieldset>
 
       <label><input id="useWebGL" type="checkbox"> Use GPU (WebGL experimental)</label>
       <small id="webglStatus" style="display:none;color:green">✓ GPU accelerated</small>

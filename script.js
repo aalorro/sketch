@@ -17,7 +17,8 @@
       document.getElementById('seed').value = '';
       document.getElementById('resolution').value = '1024';
       document.getElementById('aspect').value = '1:1';
-      document.getElementById('outputName').value = getDefaultFilename();
+      document.getElementById('outputName').value = '';
+      updateOutputNamePlaceholder();
       document.getElementById('useWebGL').checked = false;
       document.getElementById('useML').checked = false;
       document.getElementById('mlUrl').value = 'https://api.example.com/ml-sketch';
@@ -65,6 +66,67 @@
     const minutes = String(now.getMinutes()).padStart(2, '0');
     const seconds = String(now.getSeconds()).padStart(2, '0');
     return `sketchify_${year}${month}${day}_${hours}${minutes}${seconds}`;
+  }
+
+  // Update placeholder to show current default format
+  function updateOutputNamePlaceholder(){
+    document.getElementById('outputName').placeholder = getDefaultFilename();
+  }
+
+  // Preset management with localStorage
+  const PRESET_PREFIX = 'sketchify_preset_';
+
+  function savePresetLocally(name){
+    if(!name || name.trim() === ''){ alert('Please enter a preset name.'); return; }
+    const sanitizedName = name.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+    const key = PRESET_PREFIX + sanitizedName;
+    const state = captureState();
+    try{
+      localStorage.setItem(key, JSON.stringify(state));
+      alert(`Preset "${sanitizedName}" saved!`);
+      document.getElementById('presetName').value = '';
+      refreshPresetList();
+    }catch(err){
+      alert('Failed to save preset: ' + err.message);
+    }
+  }
+
+  function loadPresetLocally(name){
+    if(!name){ alert('Please select a preset.'); return; }
+    const key = PRESET_PREFIX + name;
+    try{
+      const json = localStorage.getItem(key);
+      if(!json){ alert('Preset not found.'); return; }
+      const state = JSON.parse(json);
+      restoreState(state);
+      pushUndo();
+    }catch(err){
+      alert('Failed to load preset: ' + err.message);
+    }
+  }
+
+  function deletePresetLocally(name){
+    if(!name){ alert('Please select a preset to delete.'); return; }
+    if(!confirm('Delete preset "' + name + '"?')) return;
+    const key = PRESET_PREFIX + name;
+    try{
+      localStorage.removeItem(key);
+      alert('Preset deleted!');
+      document.getElementById('presetSelect').value = '';
+      document.getElementById('presetName').value = '';
+      refreshPresetList();
+    }catch(err){
+      alert('Failed to delete preset: ' + err.message);
+    }
+  }
+
+  function refreshPresetList(){
+    const select = document.getElementById('presetSelect');
+    const keys = Object.keys(localStorage).filter(k => k.startsWith(PRESET_PREFIX));
+    const names = keys.map(k => k.substring(PRESET_PREFIX.length));
+    select.innerHTML = names.length === 0 
+      ? '<option value="">-- No presets --</option>' 
+      : '<option value="">-- Select a preset --</option>' + names.map(n => '<option value="' + n + '">' + n + '</option>').join('');
   }
 
   let currentFiles = [];
@@ -140,8 +202,12 @@
     if((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z'))){ e.preventDefault(); redoBtn.click(); }
   });
 
-  // presets removed per user request
-  
+  // initialize output name placeholder with current timestamp
+  updateOutputNamePlaceholder();
+
+  // initialize preset list from localStorage
+  refreshPresetList();
+
   // Processing queue for batch
   generateBtn.addEventListener('click', ()=>{
     console.log('Generate clicked. currentFiles:', currentFiles.length, 'singleImage:', !!singleImage);
@@ -181,6 +247,20 @@
     }
   });
   downloadZip.addEventListener('click', downloadAllZip);
+
+  // Preset management event listeners
+  document.getElementById('savePreset').addEventListener('click', ()=>{
+    const name = document.getElementById('presetName').value.trim();
+    savePresetLocally(name);
+  });
+  document.getElementById('loadPreset').addEventListener('click', ()=>{
+    const name = document.getElementById('presetSelect').value;
+    loadPresetLocally(name);
+  });
+  document.getElementById('deletePreset').addEventListener('click', ()=>{
+    const name = document.getElementById('presetSelect').value;
+    deletePresetLocally(name);
+  });
 
   // Keep a single image loaded for preview when batch processing
   let singleImage = null;
