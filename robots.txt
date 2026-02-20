@@ -1,0 +1,23 @@
+# Sketchify robots.txt
+# Allow all search engines to crawl the site
+
+User-agent: *
+Allow: /
+Disallow: /private/
+
+# Specific crawl delays and rate limits
+Crawl-delay: 1
+Request-rate: 1/10s
+
+# Sitemap location
+Sitemap: https://sketchify.app/sitemap.xml
+
+# Specific rules for googlebot
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 0
+
+# Specific rules for bingbot
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 1
