@@ -10,7 +10,7 @@ Crawl-delay: 1
 Request-rate: 1/10s
 
 # Sitemap location
-Sitemap: https://sketchify.app/sitemap.xml
+Sitemap: https://sketchify.work/sitemap.xml
 
 # Specific rules for googlebot
 User-agent: Googlebot
