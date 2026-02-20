@@ -113,6 +113,17 @@ External ML Service Integration (optional)
 - Your endpoint should accept the same form-data as the server API and return a processed image blob.
 - **Privacy note:** Using an external ML service will upload your images to that service — use only with trusted endpoints.
 
+Prompt Field
+- **When it works:** The Prompt field is an **optional** parameter that is only sent to external services (server or ML endpoint) when you enable either `Use server style-transfer` or `Use external ML service`.
+- **When it doesn't work:** The Prompt field has **no effect** during client-side processing (the default mode). If you're using only the built-in sketch styles, the Prompt field will be ignored.
+- **How to use it:** 
+  1. Enable either `Use server style-transfer` or `Use external ML service`
+  2. Enter a prompt like *"dramatic cross-hatching"* or *"watercolor wash"*
+  3. Upload an image and click Generate
+  4. The prompt will be sent to your server/ML endpoint for processing
+- **Example:** If you have a custom server that uses prompts for guided image-to-image style transfer, set the Prompt field to describe the desired visual style and let your server use it to enhance the result.
+- **Note:** Your server/ML endpoint must be configured to read and use the `prompt` field from the request for this to have any effect.
+
 Security & performance
 - **Default behavior:** All sketch processing runs in your browser — no data leaves your device unless you explicitly enable server or ML options.
 - **For large images:** Enable the WebGL option for faster preview, or use a server-side model to offload computation.
