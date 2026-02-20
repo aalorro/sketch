@@ -256,21 +256,19 @@
     document.getElementById('mlUrl').value = 'https://api.example.com/ml-sketch';
     document.getElementById('useServer').checked = false;
     document.getElementById('serverUrl').value = 'http://localhost:5001/api/style-transfer-advanced';
-    // Clear loaded image and canvases
-    singleImage = null;
-    currentFiles = [];
-    currentImageIndex = 0;
-    // Clear preview canvas
-    const ctx = preview.getContext('2d');
-    ctx.clearRect(0, 0, preview.width, preview.height);
-    // Clear original canvas
-    const octx = original.getContext('2d');
-    octx.clearRect(0, 0, original.width, original.height);
-    // Update UI
-    updateImageNavDisplay();
-    updateFileInfo();
+    // Reset undo/redo
     undoStack = [];
     redoStack = [];
+    // Re-render the preview with the original image and default settings
+    if(currentFiles.length > 0){
+      drawPreview();
+    } else {
+      // Only clear canvases if no files are loaded
+      const ctx = preview.getContext('2d');
+      ctx.clearRect(0, 0, preview.width, preview.height);
+      const octx = original.getContext('2d');
+      octx.clearRect(0, 0, original.width, original.height);
+    }
     pushUndo();
   });
 
