@@ -362,6 +362,12 @@
   function setProgress(p, text){ progressWrap.hidden = false; progressFill.style.width = (p*100|0) + '%'; progressText.textContent = text || '' }
   function resetProgress(){ progressWrap.hidden = true; progressFill.style.width = '0%'; progressText.textContent = 'Idle' }
 
+  function showNotification(){ 
+    const notif = document.getElementById('notification');
+    notif.style.display = 'block';
+    setTimeout(()=>{ notif.style.display = 'none'; }, 5000);
+  }
+
   function disableControls(){ document.querySelector('.controls').classList.add('disabled'); }
   function enableControls(){ document.querySelector('.controls').classList.remove('disabled'); }
 
@@ -385,6 +391,7 @@
       }catch(err){ console.error('process error', err); }
     }
     setProgress(1, 'Completed');
+    showNotification();
     enableControls();
     setTimeout(resetProgress, 800);
   }

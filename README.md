@@ -47,6 +47,7 @@ Implemented features
 **Batch & export:**
 - Batch file processing: Select multiple images and process sequentially
 - File count indicator: Shows how many images are selected and warns if processing 20+ (may take several minutes)
+- Completion notification: Green notification alert slides in when batch processing finishes, ready to download results
 - Image navigation: Use Prev/Next buttons to browse and adjust settings per image before batch processing
 - Output formats: PNG or JPG
 - ZIP download: Bundle all processed images into a single ZIP file

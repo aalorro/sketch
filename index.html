@@ -190,6 +190,23 @@
         <div id="progressText" class="note">Idle</div>
       </div>
 
+      <div id="notification" style="display:none;position:fixed;top:20px;right:20px;background:#4caf50;color:#fff;padding:16px 24px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:9999;font-size:14px;max-width:400px;animation:slideIn 0.3s ease">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-size:20px">✓</span>
+          <div>
+            <strong>Batch processing complete!</strong>
+            <div style="font-size:12px;margin-top:4px;opacity:0.95">Ready to download ZIP or individual images.</div>
+          </div>
+        </div>
+      </div>
+
+      <style>
+        @keyframes slideIn {
+          from { transform: translateX(450px); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+      </style>
+
     </section>
 
     <section class="preview" style="display:flex; flex-direction:row; gap:16px; align-items:flex-start;">
