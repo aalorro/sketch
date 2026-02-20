@@ -21,8 +21,8 @@ main{display:flex;gap:24px;padding:24px;align-items:flex-start}
 .controls input[type=text], .controls input[type=number], .controls select{width:100%;padding:10px;margin-top:6px;border:1px solid var(--border);border-radius:8px;font-size:16px;transition:border-color 0.2s}
 .controls input[type=text]:focus, .controls input[type=number]:focus, .controls select:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(124, 58, 237, 0.1)}
 .controls input[type=range]{width:100%;cursor:pointer}
-.buttons{display:flex;gap:8px;margin-top:12px;width:100%;flex-wrap:wrap}
-.buttons button{flex:1;min-width:80px;padding:10px 8px;border-radius:8px;border:0;background:var(--primary);color:#fff;cursor:pointer;font-weight:600;font-size:15px;transition:all 0.2s;white-space:nowrap}
+.buttons{display:flex;flex-direction:column;gap:8px;margin-top:12px;width:100%}
+.buttons button{padding:11px 12px;border-radius:8px;border:0;background:var(--primary);color:#fff;cursor:pointer;font-weight:600;font-size:15px;transition:all 0.2s}
 .buttons button:hover:not(:disabled){background:linear-gradient(135deg, var(--primary) 0%, #6d28d9 100%);transform:translateY(-2px);box-shadow:0 4px 12px rgba(124, 58, 237, 0.3)}
 .buttons button:nth-child(2){background:var(--secondary)}
 .buttons button:nth-child(2):hover:not(:disabled){background:#0891b2;transform:translateY(-2px);box-shadow:0 4px 12px rgba(6, 182, 212, 0.3)}
