@@ -259,9 +259,9 @@
     // Reset undo/redo
     undoStack = [];
     redoStack = [];
-    // If image is loaded, redraw with default settings
-    if(singleImage){
-      drawPreview();
+    // If image is loaded, immediately generate with default settings
+    if(currentFiles.length > 0){
+      processBatch();
     } else {
       // Only clear canvases if no files are loaded
       const ctx = preview.getContext('2d');
