@@ -50,6 +50,8 @@ legend{color:var(--primary);font-weight:600}
 
 .buttons button:disabled{opacity:0.5;cursor:not-allowed}
 
+#undo, #redo{font-size:24px;font-weight:900;line-height:1;text-shadow:0 0 1px currentColor}
+
 .dark-mode-toggle{position:fixed;top:16px;right:16px;background:#fff;border:2px solid var(--primary);color:var(--primary);width:48px;height:48px;border-radius:50%;cursor:pointer;font-size:24px;display:flex;align-items:center;justify-content:center;transition:all 0.3s;padding:0;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,0.15)}
 .dark-mode-toggle:hover{background:rgba(255,255,255,0.3);transform:scale(1.05)}
 
