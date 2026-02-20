@@ -649,32 +649,62 @@
   }
 
   function renderGesture(ctx, w, h, edges, gray, intensity, stroke, rand) {
-    const thr = 10 + (11-intensity)*12;
     const overlay = ctx.createImageData(w,h);
-    for(let i=0;i<w*h;i++){
-      let e = edges[i] * (0.7 + rand()*0.5);
-      const v = 255 - Math.min(255, Math.max(0, e - thr));
-      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v; overlay.data[i*4+3]=255;
+    const d = overlay.data;
+    
+    // Light base with edge emphasis
+    for(let i=0; i<w*h; i++) {
+      const edgeVal = edges[i];
+      const grayVal = gray[i];
+      
+      // Emphasize edges strongly, keep light areas light
+      let v = 250;
+      if(edgeVal > 50) {
+        v = 230 - (edgeVal / 255) * 150; // Strong edge darkening
+      } else if(grayVal > 150) {
+        v = 245; // Keep highlights very light
+      } else {
+        v = Math.max(60, 250 - (grayVal / 255) * 120);
+      }
+      
+      d[i*4] = Math.round(v);
+      d[i*4+1] = Math.round(v);
+      d[i*4+2] = Math.round(v);
+      d[i*4+3] = 255;
     }
-    ctx.putImageData(overlay,0,0);
-    // Add loose, energetic strokes
+    ctx.putImageData(overlay, 0, 0);
+    
+    // Add flowing gesture lines only at edges
     ctx.globalCompositeOperation = 'multiply';
-    ctx.strokeStyle = '#222';
+    ctx.strokeStyle = '#1a1a1a';
     ctx.lineCap = 'round';
-    const step = Math.max(6, 18 - stroke);
-    for(let y=0; y<h; y+=step) {
-      for(let x=0; x<w; x+=step) {
-        const i = y*w+x;
-        if(edges[i]/255 < 0.15) continue;
-        ctx.lineWidth = 1 + Math.random()*stroke;
-        const angle = (rand()-0.5)*Math.PI/2;
-        const len = step * (0.5 + rand());
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x + Math.cos(angle)*len, y + Math.sin(angle)*len);
-        ctx.stroke();
+    ctx.lineJoin = 'round';
+    
+    const lineStep = Math.max(8, 18 - stroke * 0.6);
+    const lineLength = Math.max(10, 25 - stroke);
+    
+    for(let y=0; y<h; y+=lineStep) {
+      for(let x=0; x<w; x+=lineStep) {
+        const idx = y*w + x;
+        if(idx < w*h && edges[idx] > 60) {
+          ctx.globalAlpha = Math.min(1, edges[idx] / 200);
+          ctx.lineWidth = 0.8 + (edges[idx] / 255) * 2;
+          
+          // Flowing direction based on position
+          const angle = (Math.sin(x * 0.03) + Math.cos(y * 0.03)) * Math.PI;
+          
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(
+            x + Math.cos(angle) * lineLength,
+            y + Math.sin(angle) * lineLength
+          );
+          ctx.stroke();
+        }
       }
     }
+    
+    ctx.globalAlpha = 1.0;
     ctx.globalCompositeOperation = 'source-over';
   }
 
@@ -841,57 +871,34 @@
   }
 
   function renderCharcoal(ctx, w, h, edges, gray, intensity, stroke, rand) {
-    const thr = Math.max(15, 40 - intensity*3);
     const overlay = ctx.createImageData(w,h);
+    const d = overlay.data;
     
-    // Light paper background
-    for(let i=0; i<w*h*4; i+=4) {
-      overlay.data[i] = 248;
-      overlay.data[i+1] = 248;
-      overlay.data[i+2] = 248;
-      overlay.data[i+3] = 255;
+    // Build tonal charcoal drawing from grayscale values
+    // Light paper (248) to dark charcoal (40)
+    for(let i=0; i<w*h; i++) {
+      const grayVal = gray[i];
+      // Map grayscale to charcoal tones
+      const tonalValue = 248 - (grayVal / 255) * 208;
+      
+      d[i*4] = Math.round(tonalValue);
+      d[i*4+1] = Math.round(tonalValue);
+      d[i*4+2] = Math.round(tonalValue);
+      d[i*4+3] = 255;
     }
     ctx.putImageData(overlay, 0, 0);
     
-    // Draw bold charcoal strokes only where there are edges or dark areas
+    // Add edge definition only where there are strong edges
     ctx.globalCompositeOperation = 'multiply';
-    ctx.strokeStyle = '#1a1a1a';
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
+    ctx.globalAlpha = 0.3;
+    ctx.fillStyle = '#1a1a1a';
     
-    const baseSpacing = Math.max(6, 14 - stroke*0.6);
-    
-    for(let y=0; y<h; y+=baseSpacing) {
-      for(let x=0; x<w; x+=baseSpacing) {
+    const edgeStep = Math.max(4, 10 - stroke * 0.4);
+    for(let y=0; y<h; y+=edgeStep) {
+      for(let x=0; x<w; x+=edgeStep) {
         const idx = y*w + x;
-        if(idx < w*h) {
-          const grayVal = gray[idx];
-          const edgeVal = edges[idx];
-          
-          // Only draw strokes at meaningful locations
-          const darkness = (255 - grayVal) / 255;
-          const edgeStrength = Math.min(1, edgeVal / 200);
-          
-          if(darkness > 0.15 || edgeVal > thr) {
-            // Bold, visible strokes
-            const opacity = 0.5 + (darkness + edgeStrength) * 0.5;
-            ctx.globalAlpha = Math.min(1, opacity);
-            
-            // Varying line width for character
-            ctx.lineWidth = 1.2 + darkness * 1.8;
-            
-            // Random but consistent flowing direction
-            const angle = (Math.sin(x*0.05) + Math.cos(y*0.05)) * Math.PI;
-            const length = baseSpacing * (1 + darkness * 0.8);
-            
-            ctx.beginPath();
-            ctx.moveTo(x, y);
-            ctx.lineTo(
-              x + Math.cos(angle) * length,
-              y + Math.sin(angle) * length
-            );
-            ctx.stroke();
-          }
+        if(idx < w*h && edges[idx] > 70) {
+          ctx.fillRect(x, y, 2, 2);
         }
       }
     }
