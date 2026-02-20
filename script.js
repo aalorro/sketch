@@ -130,12 +130,39 @@
   }
 
   let currentFiles = [];
+  let currentImageIndex = 0;
   let lastResults = [];
   const undoStack = [];
   const redoStack = [];
   const MAX_HISTORY = 50;
   const undoBtn = document.getElementById('undo');
   const redoBtn = document.getElementById('redo');
+
+  // Image navigation
+  function updateImageNavDisplay(){
+    const nav = document.getElementById('imageNav');
+    const info = document.getElementById('currentImageInfo');
+    if(currentFiles.length > 1){
+      nav.style.display = 'block';
+      const filename = currentFiles[currentImageIndex].name;
+      info.textContent = `Image ${currentImageIndex + 1} of ${currentFiles.length}: ${filename}`;
+      document.getElementById('prevImage').disabled = currentImageIndex === 0;
+      document.getElementById('nextImage').disabled = currentImageIndex === currentFiles.length - 1;
+    } else {
+      nav.style.display = 'none';
+    }
+  }
+
+  function navigateImage(delta){
+    const newIndex = currentImageIndex + delta;
+    if(newIndex >= 0 && newIndex < currentFiles.length){
+      currentImageIndex = newIndex;
+      loadImageFromFile(currentFiles[currentImageIndex]).then(img=>{ singleImage = img; drawPreview(); updateImageNavDisplay(); }).catch(err=>console.error('Failed to load image', err));
+    }
+  }
+
+  document.getElementById('prevImage').addEventListener('click', ()=>navigateImage(-1));
+  document.getElementById('nextImage').addEventListener('click', ()=>navigateImage(1));
 
   // helper RNG
   function getSeed(){ return parseInt(document.getElementById('seed').value) || 0; }
@@ -270,10 +297,32 @@
   }
   
   // Override the file event handler to capture first image for real-time preview
+  // Update file count display and warning
+  function updateFileInfo(){
+    const fileInfoDiv = document.getElementById('fileInfo');
+    const fileCountDiv = document.getElementById('fileCount');
+    const fileWarningDiv = document.getElementById('fileWarning');
+    
+    if(currentFiles.length === 0){
+      fileInfoDiv.style.display = 'none';
+    } else {
+      fileInfoDiv.style.display = 'block';
+      fileCountDiv.textContent = currentFiles.length + ' image' + (currentFiles.length === 1 ? '' : 's') + ' selected';
+      if(currentFiles.length > 20){
+        fileWarningDiv.style.display = 'block';
+      } else {
+        fileWarningDiv.style.display = 'none';
+      }
+    }
+  }
+
   fileEl.addEventListener('change', e=>{
     currentFiles = Array.from(e.target.files || []);
+    currentImageIndex = 0;
+    updateFileInfo();
     if(currentFiles.length){
       enableControls();
+      updateImageNavDisplay();
       loadImageFromFile(currentFiles[0]).then(img=>{ singleImage = img; drawPreview(); }).catch(err=>console.error('Failed to load first image', err));
     }
   });

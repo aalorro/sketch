@@ -4,9 +4,11 @@ This repository contains a sophisticated, client-side web app that creates stunn
 
 How to use
 - Open `index.html` in a browser, or enable GitHub Pages for this repository to serve it directly from GitHub.
-- Upload an image and explore the wide range of sketch styles in real-time.
+- Upload one or more images and explore the wide range of sketch styles in real-time.
+- If uploading multiple images, use the **Prev/Next** buttons to browse and preview each one individually.
+- **File count indicator:** Shows selected file count; warns if processing 20+ images (may take several minutes).
 - Adjust Medium (pencil, ink, marker, pen), Brush type, Intensity, and other parameters to fine-tune your result.
-- Click `Generate` to batch-process files or download your sketch.
+- Click `Generate` to batch-process all uploaded files or download your sketch.
 
 Notes & features overview
 - **Core rendering:** 20+ unique sketch styles (contour, gesture, hatching, stippling, charcoal, ink wash, comic, etching, etc.) with style-specific algorithms for distinct visual results.
@@ -16,6 +18,7 @@ Notes & features overview
 - **Server integration:** Optional integration with local or remote servers for custom processing (Flask examples included).
 - **External ML service:** Optional hook to send images to custom ML endpoints for advanced style transfer.
 - **All processing:** Defaults to client-side Canvas operations with no external dependencies — privacy-friendly, offline-capable.
+- **Multi-image workflow:** Upload multiple images and browse with Prev/Next buttons to preview and adjust settings for each one before batch processing.
 
 Implemented features
 
@@ -43,6 +46,8 @@ Implemented features
 
 **Batch & export:**
 - Batch file processing: Select multiple images and process sequentially
+- File count indicator: Shows how many images are selected and warns if processing 20+ (may take several minutes)
+- Image navigation: Use Prev/Next buttons to browse and adjust settings per image before batch processing
 - Output formats: PNG or JPG
 - ZIP download: Bundle all processed images into a single ZIP file
 - Custom filename: Specify prefix for exported files, or leave blank for default `sketchify_YYYYMMdd_HHmmss` format
