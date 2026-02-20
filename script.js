@@ -234,6 +234,7 @@
 
   // Reset button
   document.getElementById('resetAll').addEventListener('click', () => {
+    console.log('Reset button clicked');
     // Set all controls to their default values
     document.getElementById('artStyle').value = 'pencil';
     document.getElementById('style').value = 'contour';
@@ -256,20 +257,42 @@
     document.getElementById('mlUrl').value = 'https://api.example.com/ml-sketch';
     document.getElementById('useServer').checked = false;
     document.getElementById('serverUrl').value = 'http://localhost:5001/api/style-transfer-advanced';
-    // Reset undo/redo
-    undoStack = [];
-    redoStack = [];
-    // If image is loaded, immediately generate with default settings
-    if(currentFiles.length > 0){
-      processBatch();
-    } else {
-      // Only clear canvases if no files are loaded
+    
+    // Clear images and canvases
+    currentFiles = [];
+    currentImageIndex = 0;
+    singleImage = null;
+    lastResults = [];
+    undoStack.length = 0;
+    redoStack.length = 0;
+    console.log('Cleared files and canvas');
+    
+    // Update nav display
+    if(typeof updateImageNavDisplay === 'function'){
+      updateImageNavDisplay();
+    }
+    
+    // Clear file input
+    if(fileEl){
+      fileEl.value = '';
+    }
+    
+    // Clear canvases
+    if(preview && original){
       const ctx = preview.getContext('2d');
       ctx.clearRect(0, 0, preview.width, preview.height);
       const octx = original.getContext('2d');
       octx.clearRect(0, 0, original.width, original.height);
+      console.log('Cleared canvases');
     }
-    pushUndo();
+    
+    // Show notification
+    const notification = document.createElement('div');
+    notification.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #7c3aed; color: white; padding: 30px 40px; border-radius: 12px; font-size: 18px; z-index: 9999; box-shadow: 0 8px 32px rgba(0,0,0,0.3); text-align: center; max-width: 500px;';
+    notification.textContent = 'Reset complete. Please re-upload images to start fresh.';
+    document.body.appendChild(notification);
+    console.log('Reset complete');
+    setTimeout(() => notification.remove(), 6000);
   });
 
   // Preset management event listeners
