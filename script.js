@@ -17,7 +17,7 @@
       document.getElementById('seed').value = '';
       document.getElementById('resolution').value = '1024';
       document.getElementById('aspect').value = '1:1';
-      document.getElementById('outputName').value = 'sketch';
+      document.getElementById('outputName').value = getDefaultFilename();
       document.getElementById('useWebGL').checked = false;
       document.getElementById('useML').checked = false;
       document.getElementById('mlUrl').value = 'https://api.example.com/ml-sketch';
@@ -54,6 +54,18 @@
   const progressFill = document.getElementById('progressFill');
   const progressText = document.getElementById('progressText');
   const presets = document.querySelectorAll('.preset');
+
+  // Generate default filename with date and time
+  function getDefaultFilename(){
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    return `sketchify_${year}${month}${day}_${hours}${minutes}${seconds}`;
+  }
 
   let currentFiles = [];
   let lastResults = [];
@@ -158,13 +170,13 @@
 
   downloadPng.addEventListener('click', ()=>{ 
     if(preview.toDataURL){
-      const name = document.getElementById('outputName').value.trim() || 'sketch';
+      const name = document.getElementById('outputName').value.trim() || getDefaultFilename();
       downloadDataURL(preview.toDataURL('image/png'), name + '.png');
     }
   });
   downloadJpg.addEventListener('click', ()=>{ 
     if(preview.toDataURL){
-      const name = document.getElementById('outputName').value.trim() || 'sketch';
+      const name = document.getElementById('outputName').value.trim() || getDefaultFilename();
       downloadDataURL(preview.toDataURL('image/jpeg',0.92), name + '.jpg');
     }
   });
@@ -336,7 +348,7 @@
     if(!lastResults.length){ alert('No processed images yet. Generate first.'); return; }
     if(typeof JSZip === 'undefined'){ alert('JSZip not loaded.'); return; }
     const zip = new JSZip();
-    const prefix = document.getElementById('outputName').value.trim() || 'sketch';
+    const prefix = document.getElementById('outputName').value.trim() || getDefaultFilename();
     lastResults.forEach((r, idx) => zip.file(prefix + '-' + idx + '-' + r.name.replace(/\s+/g,'_'), r.blob));
     zip.generateAsync({type:'blob'}).then(content=>{ 
       const url = URL.createObjectURL(content); 

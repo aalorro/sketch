@@ -45,7 +45,7 @@ Implemented features
 - Batch file processing: Select multiple images and process sequentially
 - Output formats: PNG or JPG
 - ZIP download: Bundle all processed images into a single ZIP file
-- Custom filename: Specify prefix for exported files
+- Custom filename: Specify prefix for exported files, or leave blank for default `sketchify_YYYYMMdd_HHmmss` format
 - Progress indicator with real-time status updates
 
 **UI & workflow:**
