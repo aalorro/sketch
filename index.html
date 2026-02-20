@@ -8,6 +8,7 @@
 </head>
 <body>
   <header>
+    <button class="dark-mode-toggle" id="darkModeToggle" type="button" title="Toggle dark mode">🌙</button>
     <img src="img/sketchify_banner.jpg" alt="Sketchify Banner" style="width:100%;max-height:200px;object-fit:cover;display:block;margin-bottom:16px;border-radius:8px">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
       <div style="font-size:28px">✏️</div>
@@ -490,11 +491,40 @@
     .modal-close:hover {
       color: var(--text);
     }
+
+    body.dark-mode .modal-content {
+      background: var(--card);
+      color: var(--text);
+    }
+
+    body.dark-mode .modal-content code {
+      background: rgba(148, 163, 184, 0.1);
+      color: #94a3b8;
+    }
   </style>
 
   <script src="jszip.min.js"></script>
   <script src="script.js"></script>
   <script>
+    // Dark mode toggle
+    const darkModeToggle = document.getElementById('darkModeToggle');
+    const htmlElement = document.documentElement;
+    
+    // Check localStorage for dark mode preference
+    const isDarkMode = localStorage.getItem('darkMode') === 'true';
+    if (isDarkMode) {
+      document.body.classList.add('dark-mode');
+      darkModeToggle.textContent = '☀️';
+    }
+    
+    // Toggle dark mode
+    darkModeToggle.addEventListener('click', () => {
+      document.body.classList.toggle('dark-mode');
+      const isNowDark = document.body.classList.contains('dark-mode');
+      localStorage.setItem('darkMode', isNowDark);
+      darkModeToggle.textContent = isNowDark ? '☀️' : '🌙';
+    });
+
     // Modal functionality
     document.querySelectorAll('.info-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
