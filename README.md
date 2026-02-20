@@ -18,7 +18,8 @@ How to use
 
 Notes & features overview
 - **Modern UI design:** Elegant purple-cyan gradient header, intuitive controls with smooth interactions, and professional visual hierarchy for a premium user experience.
-- **Core rendering:** 20+ unique sketch styles (contour, gesture, hatching, stippling, charcoal, ink wash, comic, etching, etc.) with style-specific algorithms for distinct visual results.
+- **Core rendering:** 20+ unique sketch styles (contour, gesture, hatching, stippling, charcoal, ink wash, comic, etching, etc.) wsudo apt-get install certbot python3-certbot-nginx
+sudo certbot certonly --standalone -d yourdomain.coms for distinct visual results.
 - **Medium control:** Pencil (light + grain), Ink (dark + crisp), Marker (soft edges), Pen (professional crisp) — affects stroke appearance on all styles.
 - **Brush effects:** Line, Hatch, Cross-hatch, Charcoal, Ink Wash — adds textures or patterns on top of the chosen style.
 - **GPU acceleration:** Optional WebGL-based Sobel edge detection for faster real-time preview on large images.
