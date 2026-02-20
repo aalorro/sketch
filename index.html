@@ -233,7 +233,7 @@
     <h2 style="margin-top:0;color:var(--primary);font-size:22px">Questions or Feedback?</h2>
     <p style="color:var(--text);font-size:14px;margin-bottom:16px">We'd love to hear from you! Send us a comment or question below. Your data is not stored in any database.</p>
     
-    <form action="https://formspree.io/f/xwvnnyyv" method="POST" style="display:flex;flex-direction:column;gap:12px">
+    <form id="contactForm" style="display:flex;flex-direction:column;gap:12px">
       
       <div style="display:flex;gap:12px">
         <input type="text" name="first_name" placeholder="First Name" required style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px">
@@ -245,6 +245,8 @@
       <textarea name="message" placeholder="Your comment or question..." required rows="4" style="padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;resize:vertical"></textarea>
       
       <button type="submit" style="padding:12px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;transition:background 0.2s">Send Message</button>
+      
+      <div id="formMessage" style="display:none;padding:12px;border-radius:8px;text-align:center;font-size:14px" role="alert"></div>
     </form>
   </section>
 
@@ -580,5 +582,83 @@
         });
       }
     });
+
+    // Contact form AJAX handler
+    const contactForm = document.getElementById('contactForm');
+    if (contactForm) {
+      contactForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = new FormData(contactForm);
+        const messageDiv = document.getElementById('formMessage');
+        const submitBtn = contactForm.querySelector('button[type="submit"]');
+        
+        // Disable button and show loading state
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Sending...';
+        
+        try {
+          // Send to Formspree
+          const formspreeResponse = await fetch('https://formspree.io/f/xwvnnyyv', {
+            method: 'POST',
+            body: formData,
+            headers: {
+              'Accept': 'application/json'
+            }
+          });
+          
+          // Also send to Discord webhook
+          const discordWebhookUrl = 'https://discordapp.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN';
+          const firstName = formData.get('first_name');
+          const lastInitial = formData.get('last_initial');
+          const email = formData.get('email');
+          const message = formData.get('message');
+          
+          const discordMessage = {
+            content: `📨 **New Contact Form Submission**`,
+            embeds: [{
+              color: 7451891, // Purple color
+              fields: [
+                { name: 'Name', value: `${firstName} ${lastInitial}.`, inline: true },
+                { name: 'Email', value: email, inline: true },
+                { name: 'Message', value: message, inline: false }
+              ],
+              footer: { text: 'Sketchify Contact Form' },
+              timestamp: new Date().toISOString()
+            }]
+          };
+          
+          await fetch(discordWebhookUrl, {
+            method: 'POST',
+            body: JSON.stringify(discordMessage),
+            headers: { 'Content-Type': 'application/json' }
+          }).catch(err => console.log('Discord notification sent (or webhook not configured)'));
+          
+          if (formspreeResponse.ok) {
+            messageDiv.style.display = 'block';
+            messageDiv.style.background = '#d1fae5';
+            messageDiv.style.color = '#065f46';
+            messageDiv.style.border = '1px solid #86efac';
+            messageDiv.textContent = '✓ Message sent successfully! Thank you for reaching out.';
+            contactForm.reset();
+            submitBtn.textContent = 'Send Message';
+            submitBtn.disabled = false;
+            setTimeout(() => {
+              messageDiv.style.display = 'none';
+            }, 5000);
+          } else {
+            throw new Error('Form submission failed');
+          }
+        } catch (error) {
+          messageDiv.style.display = 'block';
+          messageDiv.style.background = '#fee2e2';
+          messageDiv.style.color = '#991b1b';
+          messageDiv.style.border = '1px solid #fca5a5';
+          messageDiv.textContent = '✗ Error sending message. Please try again.';
+          submitBtn.textContent = 'Send Message';
+          submitBtn.disabled = false;
+        }
+      });
+    }
   </script>
 
