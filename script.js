@@ -127,20 +127,8 @@
     if((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z'))){ e.preventDefault(); redoBtn.click(); }
   });
 
-  // presets
-  const PRESET_MAP = {
-    sketchy: {artStyle:'pencil', style:'line', intensity:6, stroke:3, brush:'hatch'},
-    inked: {artStyle:'ink', style:'line', intensity:8, stroke:2, brush:'inkWash'},
-    marker: {artStyle:'marker', style:'modern', intensity:7, stroke:4, brush:'crosshatch'},
-    charcoal: {artStyle:'pencil', style:'naive', intensity:5, stroke:6, brush:'charcoal'}
-  };
-  presets.forEach(btn=>btn.addEventListener('click', ()=>{
-    const p = PRESET_MAP[btn.dataset.preset]; if(!p) return;
-    pushUndo();
-    Object.keys(p).forEach(k=>{ const el = document.getElementById(k); if(el) el.value = p[k]; });
-    if(currentFiles.length) drawPreview();
-  }));
-
+  // presets removed per user request
+  
   // Processing queue for batch
   generateBtn.addEventListener('click', ()=>{
     console.log('Generate clicked. currentFiles:', currentFiles.length, 'singleImage:', !!singleImage);
@@ -470,6 +458,7 @@
       case 'glitch': renderGlitch(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       case 'mixedmedia': renderMixedMedia(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       case 'photorealism': renderPhotorealism(ctx, w, h, edges, gray, intensity, stroke, rand); break;
+      case 'graphiteportrait': renderGraphitePortrait(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       case 'oilpainting': renderOilPainting(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       case 'watercolor': renderWatercolor(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       default: renderDefault(ctx, w, h, edges, gray, intensity, stroke, rand); break;
@@ -481,17 +470,17 @@
     // Apply Brush effects
     applyBrushEffect(ctx, w, h, brush, stroke, intensity, edges, rand);
 
-    // Apply Color adjustments
-    const contrast = parseFloat(document.getElementById('contrast').value);
-    const saturation = parseFloat(document.getElementById('saturation').value);
-    const hueShift = parseInt(document.getElementById('hueShift').value, 10);
-    applyColorAdjustments(ctx, w, h, contrast, saturation, hueShift);
-
-    // Apply colorization if enabled
+    // Apply colorization if enabled (BEFORE color adjustments so sliders work on colored image)
     const colorize = document.getElementById('colorize').checked;
     if(colorize){
       applyColorization(ctx, w, h, originalColors);
     }
+
+    // Apply Color adjustments (after colorization so hue/saturation/contrast work on colored image)
+    const contrast = parseFloat(document.getElementById('contrast').value);
+    const saturation = parseFloat(document.getElementById('saturation').value);
+    const hueShift = parseInt(document.getElementById('hueShift').value, 10);
+    applyColorAdjustments(ctx, w, h, contrast, saturation, hueShift);
   }
 
   function applyMediumEffect(ctx, w, h, medium){
@@ -852,30 +841,57 @@
   }
 
   function renderCharcoal(ctx, w, h, edges, gray, intensity, stroke, rand) {
-    const thr = Math.max(0, 20 - intensity*2);
+    const thr = Math.max(10, 35 - intensity*3);
     const overlay = ctx.createImageData(w,h);
-    for(let i=0; i<w*h; i++) {
-      const e = edges[i];
-      const g = gray[i];
-      let v = 255;
-      if(e>thr || g<100) v = Math.max(0, 150 - (e+g)/3);
-      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v;
-      overlay.data[i*4+3]=255;
+    
+    // Light paper background
+    for(let i=0; i<w*h*4; i+=4) {
+      overlay.data[i] = 245;
+      overlay.data[i+1] = 245;
+      overlay.data[i+2] = 245;
+      overlay.data[i+3] = 255;
     }
-    ctx.putImageData(overlay,0,0);
-    // Charcoal smudging effect
+    ctx.putImageData(overlay, 0, 0);
+    
+    // Draw charcoal strokes with organic, flowing direction
     ctx.globalCompositeOperation = 'multiply';
-    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
-    const step = Math.max(5, 15-stroke);
-    for(let y=0; y<h; y+=step) {
-      for(let x=0; x<w; x+=step) {
-        ctx.lineWidth = 2 + stroke*0.5;
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x + (rand()-0.5)*step*2, y + (rand()-0.5)*step*2);
-        ctx.stroke();
+    ctx.strokeStyle = '#2a2a2a';
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    
+    const strokeLength = Math.max(8, 20 - stroke*1.5);
+    const spacing = Math.max(4, 12 - stroke*0.8);
+    
+    for(let y=0; y<h; y+=spacing) {
+      for(let x=0; x<w; x+=spacing) {
+        const idx = y*w + x;
+        if(idx < w*h) {
+          const grayVal = gray[idx];
+          const edgeVal = edges[idx];
+          
+          // Tone determines opacity/darkness
+          const darkness = (255 - grayVal) / 255;
+          ctx.globalAlpha = 0.3 + darkness * 0.6;
+          
+          // Random flowing direction (not grid-aligned)
+          const angle = rand() * Math.PI * 2;
+          const length = strokeLength * (0.5 + rand() * 0.5);
+          
+          // Variable line width based on tone
+          ctx.lineWidth = 0.8 + darkness * 2;
+          
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(
+            x + Math.cos(angle) * length,
+            y + Math.sin(angle) * length
+          );
+          ctx.stroke();
+        }
       }
     }
+    
+    ctx.globalAlpha = 1.0;
     ctx.globalCompositeOperation = 'source-over';
   }
 
@@ -1054,20 +1070,40 @@
       overlay.data[i*4+3]=255;
     }
     ctx.putImageData(overlay,0,0);
-    // Dense hatching
+    
+    // Fine crosshatching only where there are edges
     ctx.globalCompositeOperation = 'multiply';
     ctx.strokeStyle = '#111';
     ctx.lineCap = 'round';
-    const step = Math.max(2, 8-stroke);
-    ctx.lineWidth = 0.3 + stroke*0.2;
-    for(let angle of [0, Math.PI/6]) {
-      for(let i=0; i<w+h; i+=step) {
-        ctx.beginPath();
-        ctx.moveTo(i*Math.cos(angle), i*Math.sin(angle));
-        ctx.lineTo((i+h)*Math.cos(angle), (i+h)*Math.sin(angle));
-        ctx.stroke();
+    const step = Math.max(3, 9 - stroke);
+    ctx.lineWidth = 0.4 + stroke*0.15;
+    
+    // Horizontal hatching
+    for(let y=0; y<h; y+=step) {
+      for(let x=0; x<w; x+=step) {
+        const idx = y*w + x;
+        if(idx < w*h && edges[idx] > thr) {
+          ctx.beginPath();
+          ctx.moveTo(x - step, y);
+          ctx.lineTo(x + step, y);
+          ctx.stroke();
+        }
       }
     }
+    
+    // Vertical hatching for cross pattern
+    for(let y=0; y<h; y+=step) {
+      for(let x=0; x<w; x+=step) {
+        const idx = y*w + x;
+        if(idx < w*h && edges[idx] > thr - 5) {
+          ctx.beginPath();
+          ctx.moveTo(x, y - step);
+          ctx.lineTo(x, y + step);
+          ctx.stroke();
+        }
+      }
+    }
+    
     ctx.globalCompositeOperation = 'source-over';
   }
 
@@ -1207,16 +1243,55 @@
   }
 
   function renderPhotorealism(ctx, w, h, edges, gray, intensity, stroke, rand){
-    // Photorealistic: preserve tonal values with enhanced edges
-    const imgData = ctx.getImageData(0, 0, w, h);
+    // Retro pen & ink: clean line drawing with tonal shading
     const overlay = ctx.createImageData(w, h);
     
-    // Keep original tones but enhance with edges
+    // Start with white background
+    for(let i=0; i<w*h*4; i+=4){
+      overlay.data[i] = 255;
+      overlay.data[i+1] = 255;
+      overlay.data[i+2] = 255;
+      overlay.data[i+3] = 255;
+    }
+    ctx.putImageData(overlay, 0, 0);
+    
+    // Draw all edge pixels as dark lines
+    ctx.fillStyle = '#000000';
+    for(let y=0; y<h; y++){
+      for(let x=0; x<w; x++){
+        const idx = y*w + x;
+        if(edges[idx] > 50){
+          ctx.fillRect(x, y, 1, 1);
+        }
+      }
+    }
+    
+    // Add soft tone shading underneath edges
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.globalAlpha = 0.15;
+    ctx.fillStyle = '#333333';
+    
+    for(let y=0; y<h; y+=2){
+      for(let x=0; x<w; x+=2){
+        const idx = y*w + x;
+        if(idx < w*h && edges[idx] > 40){
+          ctx.fillRect(x, y, 2, 2);
+        }
+      }
+    }
+    
+    ctx.globalAlpha = 1.0;
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  function renderOilPainting(ctx, w, h, edges, gray, intensity, stroke, rand){
+    // Oil painting: bold expressive lines and tonal areas
+    const thr = 20 + (11-intensity)*10;
+    const overlay = ctx.createImageData(w, h);
+    
+    // Create simplified edge-based image
     for(let i=0; i<w*h; i++){
-      const edgeStr = edges[i] / 255;
-      const grayVal = gray[i];
-      // Enhanced gray with edge emphasis
-      const v = Math.max(0, Math.min(255, grayVal - edgeStr * 40 * (intensity/6)));
+      const v = (edges[i] > thr) ? 40 : 240;
       overlay.data[i*4] = v;
       overlay.data[i*4+1] = v;
       overlay.data[i*4+2] = v;
@@ -1224,94 +1299,110 @@
     }
     ctx.putImageData(overlay, 0, 0);
     
-    // Add subtle edge definition
+    // Add soft tone blending for painterly effect
     ctx.globalCompositeOperation = 'multiply';
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
-    ctx.lineWidth = 0.5 + stroke * 0.3;
-    const step = Math.max(3, 8 - stroke);
-    for(let y=0; y<h; y+=step){
-      for(let x=0; x<w; x+=step){
+    ctx.globalAlpha = 0.2;
+    ctx.fillStyle = '#1a1a1a';
+    
+    for(let y=0; y<h; y+=3){
+      for(let x=0; x<w; x+=3){
         const idx = y*w + x;
-        if(edges[idx] > 50){
-          ctx.fillStyle = 'rgba(0, 0, 0, ' + (0.15 * edges[idx]/255) + ')';
-          ctx.fillRect(x, y, step, step);
+        if(idx < w*h && edges[idx] > thr){
+          ctx.fillRect(x, y, 3, 3);
         }
       }
     }
-    ctx.globalCompositeOperation = 'source-over';
-  }
-
-  function renderOilPainting(ctx, w, h, edges, gray, intensity, stroke, rand){
-    // Oil painting: thick, blended strokes with muted edges
-    const imgData = ctx.getImageData(0, 0, w, h);
-    const overlay = ctx.createImageData(w, h);
     
-    // Blend neighboring pixels for oil paint effect
-    for(let y=1; y<h-1; y++){
-      for(let x=1; x<w-1; x++){
-        const idx = (y*w + x) * 4;
-        const up = ((y-1)*w + x) * 4;
-        const down = ((y+1)*w + x) * 4;
-        const left = (y*w + (x-1)) * 4;
-        const right = (y*w + (x+1)) * 4;
-        
-        // Average with neighbors for thick paint look
-        const avg = (gray[y*w+x] + gray[(y-1)*w+x] + gray[(y+1)*w+x] + gray[y*w+(x-1)] + gray[y*w+(x+1)]) / 5;
-        const v = Math.round(avg);
-        overlay.data[idx] = v;
-        overlay.data[idx+1] = v;
-        overlay.data[idx+2] = v;
-        overlay.data[idx+3] = 255;
-      }
-    }
-    ctx.putImageData(overlay, 0, 0);
-    
-    // Add oil paint texture strokes
-    ctx.globalCompositeOperation = 'overlay';
-    const step = Math.max(8, 20 - stroke*2);
-    for(let y=step; y<h; y+=step){
-      for(let x=step; x<w; x+=step){
-        const idx = y*w + x;
-        const opacity = (edges[idx] / 255) * 0.3;
-        ctx.strokeStyle = 'rgba(0, 0, 0, ' + opacity + ')';
-        ctx.lineWidth = 1.5 + stroke * 0.4;
-        ctx.beginPath();
-        ctx.ellipse(x, y, step/2 + rand()*step/4, step/3 + rand()*step/6, rand()*Math.PI, 0, Math.PI*2);
-        ctx.stroke();
-      }
-    }
+    ctx.globalAlpha = 1.0;
     ctx.globalCompositeOperation = 'source-over';
   }
 
   function renderWatercolor(ctx, w, h, edges, gray, intensity, stroke, rand){
-    // Watercolor: soft edges, flowing transparency, light pigment
-    const imgData = ctx.getImageData(0, 0, w, h);
+    // Pen & wash: clean ink lines with soft tonal washes
     const overlay = ctx.createImageData(w, h);
     
-    // Make image lighter and more transparent
-    for(let i=0; i<w*h; i++){
-      const v = Math.round(gray[i] * 0.8 + 50); // Lighten and reduce contrast
-      overlay.data[i*4] = v;
-      overlay.data[i*4+1] = v;
-      overlay.data[i*4+2] = v;
-      overlay.data[i*4+3] = Math.round(200 + edges[i] * 0.2); // Variable transparency
+    // White background
+    for(let i=0; i<w*h*4; i+=4){
+      overlay.data[i] = 255;
+      overlay.data[i+1] = 255;
+      overlay.data[i+2] = 255;
+      overlay.data[i+3] = 255;
     }
     ctx.putImageData(overlay, 0, 0);
     
-    // Add watercolor wash effects with soft edges
-    ctx.globalCompositeOperation = 'lighten';
-    const step = Math.max(10, 24 - stroke*2);
-    for(let y=0; y<h; y+=step){
-      for(let x=0; x<w; x+=step){
+    // Add soft wash background tones
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.globalAlpha = 0.12;
+    ctx.fillStyle = '#444444';
+    
+    for(let y=0; y<h; y+=2){
+      for(let x=0; x<w; x+=2){
         const idx = y*w + x;
-        const intensity_val = 0.1 + (gray[idx] / 255) * 0.2;
-        const size = step * 1.5 + rand() * step;
-        ctx.fillStyle = 'rgba(150, 150, 150, ' + intensity_val + ')';
-        ctx.beginPath();
-        ctx.ellipse(x + rand()*step, y + rand()*step, size/2, size/2, rand()*Math.PI, 0, Math.PI*2);
-        ctx.fill();
+        if(idx < w*h && edges[idx] > 30){
+          ctx.fillRect(x, y, 2, 2);
+        }
       }
     }
+    
+    // Draw crisp pen & ink lines on top
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1.0;
+    ctx.fillStyle = '#000000';
+    
+    for(let y=0; y<h; y++){
+      for(let x=0; x<w; x++){
+        const idx = y*w + x;
+        if(idx < w*h && edges[idx] > 50){
+          ctx.fillRect(x, y, 1, 1);
+        }
+      }
+    }
+  }
+
+  function renderGraphitePortrait(ctx, w, h, edges, gray, intensity, stroke, rand){
+    // Graphite portrait: simple smooth tonal portrait
+    // Just use edge detection to create clean portrait lines
+    const overlay = ctx.createImageData(w, h);
+    const d = overlay.data;
+    
+    // Base: light paper background
+    for(let i=0; i<w*h*4; i+=4){
+      d[i] = 248;    // R
+      d[i+1] = 248;  // G
+      d[i+2] = 248;  // B
+      d[i+3] = 255;  // A
+    }
+    
+    // Draw detected edges as pencil lines
+    for(let y=0; y<h; y++){
+      for(let x=0; x<w; x++){
+        const idx = y*w + x;
+        if(edges[idx] > 45){
+          const lineVal = Math.max(0, 248 - edges[idx] * 0.8);
+          d[idx*4] = lineVal;
+          d[idx*4+1] = lineVal;
+          d[idx*4+2] = lineVal;
+        }
+      }
+    }
+    
+    ctx.putImageData(overlay, 0, 0);
+    
+    // Soft shadow wash in background areas
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.globalAlpha = 0.08;
+    ctx.fillStyle = '#333333';
+    
+    for(let y=0; y<h; y+=3){
+      for(let x=0; x<w; x+=3){
+        const idx = y*w + x;
+        if(idx < w*h && edges[idx] < 40){
+          ctx.fillRect(x, y, 3, 3);
+        }
+      }
+    }
+    
+    ctx.globalAlpha = 1.0;
     ctx.globalCompositeOperation = 'source-over';
   }
 
