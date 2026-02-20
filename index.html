@@ -15,7 +15,6 @@
   <main>
     <section class="controls">
       <div class="buttons" style="margin-bottom:12px">
-        <button id="generate" type="button">Generate</button>
         <button id="undo" type="button" title="Undo (Ctrl+Z)">↶</button>
         <button id="redo" type="button" title="Redo (Ctrl+Y)">↷</button>
         <button id="resetAll" type="button" title="Reset all controls">Reset</button>
@@ -138,13 +137,16 @@
         <small style="align-self:center;color:var(--muted)">Posts demo `test_image.png` to server</small>
       </div>
 
+      <div class="buttons" style="margin-bottom:8px">
+        <button id="generate" style="width:100%;flex:1">Generate</button>
+      </div>
+
       <div class="buttons">
         <button id="undo" title="Undo (Ctrl+Z)">↶ Undo</button>
         <button id="redo" title="Redo (Ctrl+Y)">↷ Redo</button>
       </div>
 
       <div class="buttons">
-        <button id="generate">Generate</button>
         <button id="downloadPng">Download PNG</button>
         <button id="downloadJpg">Download JPG</button>
         <button id="downloadZip">Download ZIP</button>
