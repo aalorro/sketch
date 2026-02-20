@@ -1,6 +1,12 @@
 # Sketchify — Image to Sketch (Static Web App)
 
+**By ArtMondo**
+
 This repository contains a sophisticated, client-side web app that creates stunning sketch art from your photos in seconds — choose from 20+ artistic styles, preview changes in real-time, and batch-process multiple images. Fast, private, and completely free, with all processing happening directly in your browser.
+
+## Features
+
+A beautiful, modern interface with a professional purple-cyan color motif featuring smooth gradients, intuitive controls, and premium visual design.
 
 How to use
 - Open `index.html` in a browser, or enable GitHub Pages for this repository to serve it directly from GitHub.
@@ -11,6 +17,7 @@ How to use
 - Click `Generate` to batch-process all uploaded files or download your sketch.
 
 Notes & features overview
+- **Modern UI design:** Elegant purple-cyan gradient header, intuitive controls with smooth interactions, and professional visual hierarchy for a premium user experience.
 - **Core rendering:** 20+ unique sketch styles (contour, gesture, hatching, stippling, charcoal, ink wash, comic, etching, etc.) with style-specific algorithms for distinct visual results.
 - **Medium control:** Pencil (light + grain), Ink (dark + crisp), Marker (soft edges), Pen (professional crisp) — affects stroke appearance on all styles.
 - **Brush effects:** Line, Hatch, Cross-hatch, Charcoal, Ink Wash — adds textures or patterns on top of the chosen style.
