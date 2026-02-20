@@ -10,7 +10,7 @@ header {
   transition: background 0.3s ease, box-shadow 0.3s ease;
 }
 body{margin:0;background:var(--bg);color:var(--text)}
-header{padding:24px;background:linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);color:#fff;border-bottom:none;box-shadow:0 4px 20px rgba(124, 58, 237, 0.15);position:relative}
+header{padding:24px;background:linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);color:#fff;border-bottom:none;box-shadow:0 4px 20px rgba(124, 58, 237, 0.15)}
 header h1{margin:0 0 6px 0;font-size:28px;font-weight:700;letter-spacing:-0.5px}
 header p{margin:0;font-size:14px;opacity:0.95}
 .logo-text{display:inline-block;font-size:12px;opacity:0.8;margin-top:6px;letter-spacing:1px}
@@ -50,7 +50,7 @@ legend{color:var(--primary);font-weight:600}
 
 .buttons button:disabled{opacity:0.5;cursor:not-allowed}
 
-.dark-mode-toggle{position:absolute;top:24px;right:24px;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);color:#fff;width:44px;height:44px;border-radius:50%;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;transition:all 0.3s;padding:0}
+.dark-mode-toggle{position:fixed;top:16px;right:16px;background:#fff;border:2px solid var(--primary);color:var(--primary);width:48px;height:48px;border-radius:50%;cursor:pointer;font-size:24px;display:flex;align-items:center;justify-content:center;transition:all 0.3s;padding:0;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,0.15)}
 .dark-mode-toggle:hover{background:rgba(255,255,255,0.3);transform:scale(1.05)}
 
 body.dark-mode header {
@@ -59,8 +59,9 @@ body.dark-mode header {
 }
 
 body.dark-mode .dark-mode-toggle {
-  background: rgba(0, 0, 0, 0.3);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: #1e293b;
+  border-color: var(--secondary);
+  color: var(--secondary);
 }
 
 @media(max-width:900px){main{flex-direction:column;padding:12px}.controls{width:100%}}
