@@ -841,52 +841,57 @@
   }
 
   function renderCharcoal(ctx, w, h, edges, gray, intensity, stroke, rand) {
-    const thr = Math.max(10, 35 - intensity*3);
+    const thr = Math.max(15, 40 - intensity*3);
     const overlay = ctx.createImageData(w,h);
     
     // Light paper background
     for(let i=0; i<w*h*4; i+=4) {
-      overlay.data[i] = 245;
-      overlay.data[i+1] = 245;
-      overlay.data[i+2] = 245;
+      overlay.data[i] = 248;
+      overlay.data[i+1] = 248;
+      overlay.data[i+2] = 248;
       overlay.data[i+3] = 255;
     }
     ctx.putImageData(overlay, 0, 0);
     
-    // Draw charcoal strokes with organic, flowing direction
+    // Draw bold charcoal strokes only where there are edges or dark areas
     ctx.globalCompositeOperation = 'multiply';
-    ctx.strokeStyle = '#2a2a2a';
+    ctx.strokeStyle = '#1a1a1a';
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     
-    const strokeLength = Math.max(8, 20 - stroke*1.5);
-    const spacing = Math.max(4, 12 - stroke*0.8);
+    const baseSpacing = Math.max(6, 14 - stroke*0.6);
     
-    for(let y=0; y<h; y+=spacing) {
-      for(let x=0; x<w; x+=spacing) {
+    for(let y=0; y<h; y+=baseSpacing) {
+      for(let x=0; x<w; x+=baseSpacing) {
         const idx = y*w + x;
         if(idx < w*h) {
           const grayVal = gray[idx];
           const edgeVal = edges[idx];
           
-          // Tone determines opacity/darkness
+          // Only draw strokes at meaningful locations
           const darkness = (255 - grayVal) / 255;
-          ctx.globalAlpha = 0.3 + darkness * 0.6;
+          const edgeStrength = Math.min(1, edgeVal / 200);
           
-          // Random flowing direction (not grid-aligned)
-          const angle = rand() * Math.PI * 2;
-          const length = strokeLength * (0.5 + rand() * 0.5);
-          
-          // Variable line width based on tone
-          ctx.lineWidth = 0.8 + darkness * 2;
-          
-          ctx.beginPath();
-          ctx.moveTo(x, y);
-          ctx.lineTo(
-            x + Math.cos(angle) * length,
-            y + Math.sin(angle) * length
-          );
-          ctx.stroke();
+          if(darkness > 0.15 || edgeVal > thr) {
+            // Bold, visible strokes
+            const opacity = 0.5 + (darkness + edgeStrength) * 0.5;
+            ctx.globalAlpha = Math.min(1, opacity);
+            
+            // Varying line width for character
+            ctx.lineWidth = 1.2 + darkness * 1.8;
+            
+            // Random but consistent flowing direction
+            const angle = (Math.sin(x*0.05) + Math.cos(y*0.05)) * Math.PI;
+            const length = baseSpacing * (1 + darkness * 0.8);
+            
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(
+              x + Math.cos(angle) * length,
+              y + Math.sin(angle) * length
+            );
+            ctx.stroke();
+          }
         }
       }
     }
