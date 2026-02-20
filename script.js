@@ -44,6 +44,7 @@
 (function(){
   // Elements
   const fileEl = document.getElementById('file');
+  const original = document.getElementById('original');
   const preview = document.getElementById('preview');
   const generateBtn = document.getElementById('generate');
   const downloadPng = document.getElementById('downloadPng');
@@ -373,8 +374,11 @@
     const res = parseInt(document.getElementById('resolution').value,10);
     const aspect = document.getElementById('aspect').value;
     const [canvasW, canvasH] = aspectToWH(aspect, res);
+    
+    // Set both canvases to same dimensions
+    original.width = canvasW; original.height = canvasH;
     preview.width = canvasW; preview.height = canvasH;
-    const ctx = preview.getContext('2d');
+    
     // fit image into canvas preserving cover behavior
     const iw = singleImage.width, ih = singleImage.height;
     const ir = iw/ih, cr = canvasW/canvasH;
@@ -384,6 +388,14 @@
     } else { // image taller -> crop top/bottom
       sh = iw / cr; sy = Math.round((ih-sh)/2);
     }
+    
+    // Draw original image to original canvas
+    const octx = original.getContext('2d');
+    octx.clearRect(0, 0, canvasW, canvasH);
+    octx.drawImage(singleImage, sx, sy, sw, sh, 0, 0, canvasW, canvasH);
+    
+    // Draw and process to preview canvas
+    const ctx = preview.getContext('2d');
     ctx.clearRect(0,0,canvasW,canvasH);
     ctx.drawImage(singleImage, sx, sy, sw, sh, 0, 0, canvasW, canvasH);
     
