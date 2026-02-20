@@ -1,6 +1,6 @@
 # Sketchify — Image to Sketch (Static Web App)
 
-This repository contains a sophisticated, client-side web app that converts images into 20+ styles of artistic sketches. It is designed to be hosted as a static site (for example on GitHub Pages) and works entirely in your browser with no external dependencies.
+This repository contains a sophisticated, client-side web app that creates stunning sketch art from your photos in seconds — choose from 20+ artistic styles, preview changes in real-time, and batch-process multiple images. Fast, private, and completely free, with all processing happening directly in your browser.
 
 How to use
 - Open `index.html` in a browser, or enable GitHub Pages for this repository to serve it directly from GitHub.
