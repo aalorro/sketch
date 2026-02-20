@@ -228,8 +228,29 @@
     </section>
   </main>
 
+  <!-- Contact Form Section -->
+  <section style="padding:24px;background:var(--card);margin:24px;border-radius:12px;border:1px solid var(--border);max-width:600px;margin-left:auto;margin-right:auto">
+    <h2 style="margin-top:0;color:var(--primary);font-size:22px">Questions or Feedback?</h2>
+    <p style="color:var(--text);font-size:14px;margin-bottom:16px">We'd love to hear from you! Send us a comment or question below. Your data is not stored in any database.</p>
+    
+    <form action="https://formspree.io/f/xwvnnyyv" method="POST" style="display:flex;flex-direction:column;gap:12px">
+      
+      <div style="display:flex;gap:12px">
+        <input type="text" name="first_name" placeholder="First Name" required style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px">
+        <input type="text" name="last_initial" placeholder="Last Name Initial" maxlength="1" required style="flex:0.2;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px">
+      </div>
+      
+      <input type="email" name="email" placeholder="Email Address" required style="padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px">
+      
+      <textarea name="message" placeholder="Your comment or question..." required rows="4" style="padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;resize:vertical"></textarea>
+      
+      <button type="submit" style="padding:12px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;transition:background 0.2s">Send Message</button>
+    </form>
+  </section>
+
   <footer>
     <small>&copy; 2026 ArtMondo. All rights reserved. Sketchify is an open-source project licensed under MIT.</small>
+    <small style="display:block;margin-top:8px">Sketchify version 1.0.0</small>
   </footer>
 
   <div id="modal-load" class="modal" style="display:none">
