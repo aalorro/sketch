@@ -259,8 +259,8 @@
     // Reset undo/redo
     undoStack = [];
     redoStack = [];
-    // Re-render the preview with the original image and default settings
-    if(currentFiles.length > 0){
+    // If image is loaded, redraw with default settings
+    if(singleImage){
       drawPreview();
     } else {
       // Only clear canvases if no files are loaded
