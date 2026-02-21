@@ -326,6 +326,29 @@
     preview.style.cursor = 'default';
   });
 
+  // Touch support for mobile/tablet panning
+  preview.addEventListener('touchstart', (e) => {
+    if(!singleImage) return;
+    e.preventDefault();
+    isPanning = true;
+    const touch = e.touches[0];
+    panStartX = touch.clientX - panOffsetX;
+    panStartY = touch.clientY - panOffsetY;
+  });
+
+  document.addEventListener('touchmove', (e) => {
+    if(!isPanning) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    panOffsetX = touch.clientX - panStartX;
+    panOffsetY = touch.clientY - panStartY;
+    if(currentFiles.length) drawPreview();
+  }, { passive: false });
+
+  document.addEventListener('touchend', () => {
+    isPanning = false;
+  });
+
   downloadPng.addEventListener('click', ()=>{ 
     if(!lastResults.length && !hasCanvasContent()) {
       showErrorMessage('No image loaded. Please load an image and click Generate first.');
