@@ -325,7 +325,13 @@
   <footer>
     <small>&copy; 2026 ArtMondo. All rights reserved. Sketchify is an open-source project licensed under MIT.</small>
     <small style="display:block;margin-top:8px">Sketchify version 1.0.0</small>
-    <small style="display:block;margin-top:12px"><a href="https://discord.gg/nqY5xSx6" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none;border-bottom:1px dotted;transition:all 0.2s">Join our Discord community 💬</a></small>
+    <small style="display:block;margin-top:12px">
+      <a href="https://discord.gg/nqY5xSx6" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none;border-bottom:1px dotted;transition:all 0.2s;cursor:pointer">Join our Discord community 💬</a>
+      <span style="margin:0 8px;opacity:0.5">•</span>
+      <a href="#" onclick="document.getElementById('modal-donate').style.display='flex'; return false;" style="color:inherit;text-decoration:none;border-bottom:1px dotted;transition:all 0.2s;cursor:pointer">Support Development ❤️</a>
+      <span style="margin:0 8px;opacity:0.5">•</span>
+      <a href="#" onclick="document.getElementById('modal-privacy').style.display='flex'; return false;" style="color:inherit;text-decoration:none;border-bottom:1px dotted;transition:all 0.2s;cursor:pointer">Privacy Policy</a>
+    </small>
   </footer>
 
   <div id="modal-load" class="modal" style="display:none">
@@ -614,6 +620,69 @@
       </div>
 
       <p style="font-size:13px;color:var(--muted);margin-top:16px;text-align:center">All donations are secure and processed through PayPal. Thank you for supporting Sketchify! 🙏</p>
+    </div>
+  </div>
+
+  <!-- Privacy Modal -->
+  <div id="modal-privacy" class="modal" style="display:none">
+    <div class="modal-content" style="max-height:80vh;overflow-y:auto;max-width:700px">
+      <button class="modal-close" type="button">&times;</button>
+      <h3>Privacy Policy</h3>
+
+      <h4>Your Privacy Matters</h4>
+      <p>Sketchify is committed to protecting your privacy. This privacy policy explains how we handle your data when you use our application.</p>
+
+      <h4>What Data We Collect</h4>
+      <ul>
+        <li><strong>Zero Image Storage:</strong> Your images are processed locally in your browser only. We never upload, store, or transmit your images to any server.</li>
+        <li><strong>No Personal Information:</strong> We do not collect your name, email, location, or any personal identifying information for using Sketchify.</li>
+        <li><strong>No Cookies or Tracking:</strong> Sketchify does not use cookies, analytics, or tracking pixels to monitor your activity.</li>
+        <li><strong>Contact Form Data:</strong> If you submit the contact form, your message and email are sent to our server via Formspree and Discord webhooks for support purposes only.</li>
+      </ul>
+
+      <h4>How Your Data is Used</h4>
+      <ul>
+        <li><strong>Local Processing:</strong> All image processing happens on your device using your browser's Canvas API. No data leaves your computer.</li>
+        <li><strong>Contact Messages:</strong> Messages from the contact form are used only to respond to your inquiries and improve our service.</li>
+        <li><strong>No Sharing:</strong> We never sell, trade, or share your data with third parties.</li>
+        <li><strong>No Third-Party Analytics:</strong> We don't use Google Analytics or similar services that track user behavior.</li>
+      </ul>
+
+      <h4>External Services</h4>
+      <ul>
+        <li><strong>PayPal:</strong> Donations are processed through PayPal. Their privacy policy applies to payment information.</li>
+        <li><strong>Discord & Formspree:</strong> Contact form submissions are sent to these services for message delivery. Review their privacy policies for details.</li>
+        <li><strong>GitHub/Hosting Provider:</strong> If you access Sketchify from a hosted domain, the hosting provider's privacy policy may apply to server logs.</li>
+      </ul>
+
+      <h4>Your Rights</h4>
+      <ul>
+        <li><strong>No Login Required:</strong> Sketchify doesn't require an account, so no profile data is stored.</li>
+        <li><strong>Local Storage:</strong> Your preset settings are stored only in your browser's localStorage and never leave your device.</li>
+        <li><strong>Full Control:</strong> You can clear your browser data anytime to delete all stored settings.</li>
+        <li><strong>No Profiling:</strong> We don't build profiles or use your activity for advertising or targeting.</li>
+      </ul>
+
+      <h4>Security</h4>
+      <p>Sketchify is designed with privacy and security in mind:</p>
+      <ul>
+        <li>All processing happens on your device (no network requests for image data)</li>
+        <li>HTTPS encryption for any data transmitted</li>
+        <li>Open-source code available for security review</li>
+        <li>No sensitive data stored on our servers</li>
+      </ul>
+
+      <h4>Changes to This Policy</h4>
+      <p>We may update this privacy policy from time to time. Significant changes will be announced in our Discord community.</p>
+
+      <h4>Questions or Concerns?</h4>
+      <p>If you have any privacy concerns or questions, please reach out to us:</p>
+      <ul>
+        <li>💬 <a href="https://discord.gg/nqY5xSx6" target="_blank" rel="noopener noreferrer" style="color:#7c3aed;text-decoration:underline;font-weight:600">Join our Discord community</a></li>
+        <li>📧 Use the contact form in Sketchify</li>
+      </ul>
+
+      <p style="margin-top:24px;font-size:13px;color:var(--muted);font-style:italic">Last updated: February 2026</p>
     </div>
   </div>
 
