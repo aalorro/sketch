@@ -55,6 +55,9 @@ legend{color:var(--primary);font-weight:600}
 .dark-mode-toggle{position:fixed;top:16px;right:16px;background:#fff;border:2px solid var(--primary);color:var(--primary);width:48px;height:48px;border-radius:50%;cursor:pointer;font-size:24px;display:flex;align-items:center;justify-content:center;transition:all 0.3s;padding:0;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,0.15)}
 .dark-mode-toggle:hover{background:rgba(255,255,255,0.3);transform:scale(1.05)}
 
+.discord-button{position:fixed;top:16px;left:16px;background:#5865F2;border:2px solid #5865F2;color:#fff;width:48px;height:48px;border-radius:50%;cursor:pointer;font-size:24px;display:flex;align-items:center;justify-content:center;transition:all 0.3s;padding:0;z-index:1000;box-shadow:0 4px 12px rgba(88, 101, 242, 0.3);text-decoration:none}
+.discord-button:hover{background:#4752C4;transform:scale(1.05);box-shadow:0 6px 16px rgba(88, 101, 242, 0.5)}
+
 body.dark-mode header {
   background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
@@ -64,6 +67,12 @@ body.dark-mode .dark-mode-toggle {
   background: #1e293b;
   border-color: var(--secondary);
   color: var(--secondary);
+}
+
+body.dark-mode .discord-button {
+  background: #5865F2;
+  border-color: #5865F2;
+  box-shadow: 0 4px 12px rgba(88, 101, 242, 0.4);
 }
 
 @media(max-width:900px){main{flex-direction:column;padding:12px}.controls{width:100%}}
