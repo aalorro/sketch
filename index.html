@@ -188,6 +188,8 @@
 
       <label><input id="colorize" type="checkbox"> Colorize (add color to sketch) <button type="button" class="info-btn" data-modal="modal-colorize">?</button></label>
 
+      <label><input id="invert" type="checkbox"> Invert shading (black ↔ white) <button type="button" class="info-btn" data-modal="modal-invert">?</button></label>
+
       <label>Contrast <input id="contrast" type="range" min="0" max="2" step="0.1" value="1"></label>
       <label>Saturation <input id="saturation" type="range" min="0" max="2" step="0.1" value="1"></label>
       <label>Hue Shift <input id="hueShift" type="range" min="0" max="360" step="5" value="0">°</label>
@@ -363,6 +365,22 @@
       <p>When checked, adds color to your sketch based on the original image, creating a colored sketch effect.</p>
       <p>Combine with Saturation and Hue Shift sliders to fine-tune the color intensity and tone.</p>
       <p><strong>Tip:</strong> Works best with styles like Comic/Manga, Fashion Sketch, or Watercolor to create stylized colored artwork.</p>
+    </div>
+  </div>
+
+  <div id="modal-invert" class="modal" style="display:none">
+    <div class="modal-content">
+      <button class="modal-close" type="button">&times;</button>
+      <h3>Invert Shading</h3>
+      <p>When checked, inverts all colors in the sketch: black becomes white, white becomes black, and grey tones are reversed.</p>
+      <p>This creates a negative/inverted effect, perfect for:</p>
+      <ul>
+        <li>Creating alternative color schemes</li>
+        <li>Light-on-dark designs</li>
+        <li>Special artistic effects</li>
+        <li>Reverse sketches for printing</li>
+      </ul>
+      <p><strong>Tip:</strong> Combine with other settings to create unique artistic variations of your sketches.</p>
     </div>
   </div>
 

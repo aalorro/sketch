@@ -207,7 +207,7 @@
   document.getElementById('aspect').addEventListener('change', ()=>{ pushUndo(); if(currentFiles.length) drawPreview(); });
   document.getElementById('resolution').addEventListener('change', ()=>{ pushUndo(); if(currentFiles.length) drawPreview(); });
   // Generic state capture for control changes
-  ['artStyle','style','intensity','stroke','brush','outputName','skipHatching','useWebGL','colorize'].forEach(id=>{
+  ['artStyle','style','intensity','stroke','brush','outputName','skipHatching','useWebGL','colorize','invert'].forEach(id=>{
     const el = document.getElementById(id);
     if(el) el.addEventListener('change', ()=>{ pushUndo(); if(currentFiles.length) drawPreview(); });
   });
@@ -251,6 +251,7 @@
     document.getElementById('stroke').value = 3;
     document.getElementById('skipHatching').checked = true;
     document.getElementById('colorize').checked = false;
+    document.getElementById('invert').checked = false;
     document.getElementById('contrast').value = 1;
     document.getElementById('saturation').value = 1;
     document.getElementById('hueShift').value = 0;
@@ -468,6 +469,7 @@
       fd.append('stroke', document.getElementById('stroke').value);
       fd.append('skipHatching', document.getElementById('skipHatching').checked);
       fd.append('colorize', document.getElementById('colorize').checked);
+      fd.append('invert', document.getElementById('invert').checked);
       fd.append('contrast', document.getElementById('contrast').value);
       fd.append('saturation', document.getElementById('saturation').value);
       fd.append('hueShift', document.getElementById('hueShift').value);
@@ -494,6 +496,7 @@
       fd.append('stroke', document.getElementById('stroke').value);
       fd.append('skipHatching', document.getElementById('skipHatching').checked);
       fd.append('colorize', document.getElementById('colorize').checked);
+      fd.append('invert', document.getElementById('invert').checked);
       fd.append('contrast', document.getElementById('contrast').value);
       fd.append('saturation', document.getElementById('saturation').value);
       fd.append('hueShift', document.getElementById('hueShift').value);
@@ -697,6 +700,20 @@
     const saturation = parseFloat(document.getElementById('saturation').value);
     const hueShift = parseInt(document.getElementById('hueShift').value, 10);
     applyColorAdjustments(ctx, w, h, contrast, saturation, hueShift);
+
+    // Apply invert shading if enabled (LAST - after all other effects)
+    const invert = document.getElementById('invert').checked;
+    if(invert){
+      const imgData = ctx.getImageData(0, 0, w, h);
+      const d = imgData.data;
+      for(let i=0; i<d.length; i+=4){
+        d[i] = 255 - d[i];       // invert R
+        d[i+1] = 255 - d[i+1];   // invert G
+        d[i+2] = 255 - d[i+2];   // invert B
+        // Don't invert alpha (transparency)
+      }
+      ctx.putImageData(imgData, 0, 0);
+    }
   }
 
   function applyMediumEffect(ctx, w, h, medium){
