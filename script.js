@@ -219,7 +219,7 @@
   });
 
   downloadPng.addEventListener('click', ()=>{ 
-    if(!lastResults.length) {
+    if(!lastResults.length && !hasCanvasContent()) {
       showErrorMessage('No image loaded. Please load an image and click Generate first.');
       return;
     }
@@ -229,7 +229,7 @@
     }
   });
   downloadJpg.addEventListener('click', ()=>{ 
-    if(!lastResults.length) {
+    if(!lastResults.length && !hasCanvasContent()) {
       showErrorMessage('No image loaded. Please load an image and click Generate first.');
       return;
     }
@@ -312,6 +312,21 @@
     notification.addEventListener('click', () => notification.remove());
     document.body.appendChild(notification);
     setTimeout(() => notification.remove(), 4000);
+  }
+
+  // Check if preview canvas has content
+  function hasCanvasContent() {
+    try {
+      const ctx = preview.getContext('2d');
+      const imageData = ctx.getImageData(0, 0, preview.width, preview.height).data;
+      // Check if any pixel has alpha > 0 (not fully transparent)
+      for (let i = 3; i < imageData.length; i += 4) {
+        if (imageData[i] > 0) return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
   }
 
   // Preset management event listeners
