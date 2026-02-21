@@ -157,3 +157,37 @@ body.dark-mode .discord-button {
 }
 
 @media(max-width:900px){main{flex-direction:column;padding:12px}.controls{width:100%}}
+
+@media(max-width:900px) and (orientation:portrait){
+  main{
+    flex-direction:column;
+    padding:0;
+    gap:0;
+  }
+  .preview{
+    position:fixed;
+    top:0;
+    left:0;
+    right:0;
+    width:100vw;
+    height:50vh;
+    max-height:50vh;
+    overflow-y:auto;
+    padding:12px;
+    background:var(--bg);
+    border-bottom:1px solid var(--border);
+    z-index:100;
+    order:-1;
+    flex:none;
+  }
+  .canvas-wrap{
+    min-height:auto;
+    padding:12px;
+  }
+  .controls{
+    width:calc(100% - 24px);
+    margin-left:12px;
+    margin-right:12px;
+    margin-top:calc(50vh + 24px);
+  }
+}
