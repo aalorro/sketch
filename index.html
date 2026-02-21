@@ -294,7 +294,7 @@
         <canvas id="original" width="512" height="512" style="background:#fff;border:1px solid #ccc;max-width:100%;height:auto;display:block;margin:auto"></canvas>
       </div>
       <div style="flex:1; text-align:center;">
-        <div style="font-size:13px; color:#888; margin-bottom:4px;">Rendered</div>
+        <div style="font-size:13px; color:#888; margin-bottom:4px;">Rendered <button type="button" class="info-btn" data-modal="modal-pan">?</button></div>
         <div style="margin-bottom:8px; display:flex; gap:8px; justify-content:center; align-items:center;">
           <button id="zoomOut" type="button" style="padding:6px 12px; background:#06b6d4; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:14px;">−</button>
           <span id="zoomLevel" style="min-width:60px; text-align:center; font-size:13px; color:#888; font-weight:600;">100%</span>
@@ -304,7 +304,7 @@
         <div style="position:relative; display:inline-block; max-width:100%; overflow:auto; border:1px solid #ccc; border-radius:4px;">
           <canvas id="preview" width="512" height="512" style="background:#fff;display:block;margin:auto"></canvas>
         </div>
-        <p class="note">Tip: use larger resolutions (up to 4K) for better results. Seed makes effects repeatable.</p>
+        <p class="note">Tip: use larger resolutions (up to 4K) for better results. Seed makes effects repeatable. Drag to pan the image, use zoom to adjust view.</p>
       </div>
     </section>
   </main>
@@ -407,6 +407,29 @@
       </ul>
       <p><strong>Best for:</strong> Creating softer sketches, reducing visible hatching patterns, or emphasizing overall shape over line detail.</p>
       <p><strong>Tip:</strong> Combine with high Stroke values and hatching styles for dramatic softening effect.</p>
+    </div>
+  </div>
+
+  <div id="modal-pan" class="modal" style="display:none">
+    <div class="modal-content">
+      <button class="modal-close" type="button">&times;</button>
+      <h3>Pan / Move Image</h3>
+      <p>Drag the rendered image within the canvas to reposition it and achieve the perfect composition.</p>
+      <p><strong>How to use:</strong></p>
+      <ul>
+        <li><strong>Click and drag:</strong> Click on the rendered image and drag it to move it around</li>
+        <li><strong>Visual feedback:</strong> The cursor changes to a "grab" icon when hovering over the image</li>
+        <li><strong>Release to stop:</strong> Release the mouse button to stop moving</li>
+      </ul>
+      <p><strong>Best for:</strong></p>
+      <ul>
+        <li>Adjusting image composition before the sketch is rendered</li>
+        <li>Centering subjects or important details</li>
+        <li>Avoiding cropped edges or unwanted areas</li>
+        <li>Creating custom framing for your sketches</li>
+      </ul>
+      <p><strong>Note:</strong> Pan position resets when you switch to a different image.</p>
+      <p><strong>Tip:</strong> Combine with zoom controls to get the exact portion of your image you want to sketch.</p>
     </div>
   </div>
 

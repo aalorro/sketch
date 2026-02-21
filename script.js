@@ -90,6 +90,11 @@
   let currentImageIndex = 0;
   let lastResults = [];
   let zoomLevel = 1.0; // Zoom level for rendered preview (1.0 = 100%)
+  let panOffsetX = 0; // Pan offset X for image positioning
+  let panOffsetY = 0; // Pan offset Y for image positioning
+  let isPanning = false; // Track if currently dragging
+  let panStartX = 0; // Start X position of pan
+  let panStartY = 0; // Start Y position of pan
   const undoStack = [];
   const redoStack = [];
   const MAX_HISTORY = 50;
@@ -150,6 +155,8 @@
   function deleteImage(index){
     currentFiles.splice(index, 1);
     if(currentImageIndex >= currentFiles.length) currentImageIndex = Math.max(0, currentFiles.length - 1);
+    panOffsetX = 0; // Reset pan on image delete
+    panOffsetY = 0;
     updateFileInfo();
     updateImageNavDisplay();
     if(currentFiles.length > 0){
@@ -166,6 +173,8 @@
 
   function selectImage(index){
     currentImageIndex = index;
+    panOffsetX = 0; // Reset pan on image selection
+    panOffsetY = 0;
     loadImageFromFile(currentFiles[currentImageIndex]).then(img=>{ singleImage = img; drawPreview(); updateImageNavDisplay(); }).catch(err=>console.error('Failed to load image', err));
   }
 
@@ -287,6 +296,35 @@
   function updateZoomDisplay(){
     document.getElementById('zoomLevel').textContent = Math.round(zoomLevel * 100) + '%';
   }
+
+  // Pan/drag functionality for image positioning
+  preview.addEventListener('mousedown', (e) => {
+    if(!singleImage) return;
+    isPanning = true;
+    panStartX = e.clientX - panOffsetX;
+    panStartY = e.clientY - panOffsetY;
+    preview.style.cursor = 'grabbing';
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if(!isPanning) return;
+    panOffsetX = e.clientX - panStartX;
+    panOffsetY = e.clientY - panStartY;
+    if(currentFiles.length) drawPreview();
+  });
+
+  document.addEventListener('mouseup', () => {
+    isPanning = false;
+    preview.style.cursor = singleImage ? 'grab' : 'default';
+  });
+
+  preview.addEventListener('mouseenter', () => {
+    if(!isPanning && singleImage) preview.style.cursor = 'grab';
+  });
+
+  preview.addEventListener('mouseleave', () => {
+    preview.style.cursor = 'default';
+  });
 
   downloadPng.addEventListener('click', ()=>{ 
     if(!lastResults.length && !hasCanvasContent()) {
@@ -445,6 +483,10 @@
   fileEl.addEventListener('change', e=>{
     currentFiles = Array.from(e.target.files || []);
     currentImageIndex = 0;
+    panOffsetX = 0; // Reset pan on new files
+    panOffsetY = 0;
+    zoomLevel = 1.0; // Reset zoom on new files
+    updateZoomDisplay();
     updateFileInfo();
     if(currentFiles.length){
       enableControls();
@@ -634,6 +676,10 @@
 
   fileEl.addEventListener('change', e=>{
     currentFiles = Array.from(e.target.files || []);
+    panOffsetX = 0; // Reset pan on new files
+    panOffsetY = 0;
+    zoomLevel = 1.0; // Reset zoom on new files
+    updateZoomDisplay();
     if(currentFiles.length){
       enableControls();
       loadImageFromFile(currentFiles[0]).then(img=>{
@@ -676,7 +722,7 @@
     // Draw and process to preview canvas
     const ctx = preview.getContext('2d');
     ctx.clearRect(0,0,canvasW,canvasH);
-    ctx.drawImage(singleImage, sx, sy, sw, sh, 0, 0, canvasW, canvasH);
+    ctx.drawImage(singleImage, sx, sy, sw, sh, panOffsetX, panOffsetY, canvasW, canvasH);
     
     // check if WebGL is enabled
     const useWebGL = document.getElementById('useWebGL').checked;
