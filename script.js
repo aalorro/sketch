@@ -183,6 +183,7 @@
       aspect: document.getElementById('aspect').value,
       intensity: document.getElementById('intensity').value,
       stroke: document.getElementById('stroke').value,
+      smoothing: document.getElementById('smoothing').value,
       brush: document.getElementById('brush').value,
       useWebGL: document.getElementById('useWebGL').checked,
       useServer: document.getElementById('useServer').checked,
@@ -254,13 +255,13 @@
   document.getElementById('aspect').addEventListener('change', ()=>{ pushUndo(); if(currentFiles.length) drawPreview(); });
   document.getElementById('resolution').addEventListener('change', ()=>{ pushUndo(); if(currentFiles.length) drawPreview(); });
   // Generic state capture for control changes
-  ['artStyle','style','intensity','stroke','brush','outputName','skipHatching','useWebGL','colorize','invert'].forEach(id=>{
+  ['artStyle','style','intensity','stroke','smoothing','brush','outputName','skipHatching','useWebGL','colorize','invert'].forEach(id=>{
     const el = document.getElementById(id);
     if(el) el.addEventListener('change', ()=>{ pushUndo(); if(currentFiles.length) drawPreview(); });
   });
 
   // Real-time slider updates without undo/redo on every drag
-  ['intensity','stroke','contrast','saturation','hueShift'].forEach(id=>{
+  ['intensity','stroke','smoothing','contrast','saturation','hueShift'].forEach(id=>{
     const el = document.getElementById(id);
     if(el) el.addEventListener('input', ()=>{ if(currentFiles.length) drawPreview(); });
   });
@@ -296,6 +297,7 @@
     document.getElementById('brush').value = 'line';
     document.getElementById('intensity').value = 6;
     document.getElementById('stroke').value = 3;
+    document.getElementById('smoothing').value = 0;
     document.getElementById('skipHatching').checked = true;
     document.getElementById('colorize').checked = false;
     document.getElementById('invert').checked = false;
@@ -513,6 +515,7 @@
       fd.append('seed', getSeed());
       fd.append('intensity', document.getElementById('intensity').value);
       fd.append('stroke', document.getElementById('stroke').value);
+      fd.append('smoothing', document.getElementById('smoothing').value);
       fd.append('skipHatching', document.getElementById('skipHatching').checked);
       fd.append('colorize', document.getElementById('colorize').checked);
       fd.append('invert', document.getElementById('invert').checked);
@@ -540,6 +543,7 @@
       fd.append('seed', getSeed());
       fd.append('intensity', document.getElementById('intensity').value);
       fd.append('stroke', document.getElementById('stroke').value);
+      fd.append('smoothing', document.getElementById('smoothing').value);
       fd.append('skipHatching', document.getElementById('skipHatching').checked);
       fd.append('colorize', document.getElementById('colorize').checked);
       fd.append('invert', document.getElementById('invert').checked);
@@ -760,6 +764,56 @@
       }
       ctx.putImageData(imgData, 0, 0);
     }
+
+    // Apply smoothing to soften edges and hatching
+    const smoothing = parseFloat(document.getElementById('smoothing').value);
+    if(smoothing > 0){
+      applySmoothing(ctx, w, h, smoothing);
+    }
+  }
+
+  function applySmoothing(ctx, w, h, smoothing){
+    const radius = Math.round(smoothing); // Convert 0-10 to radius 0-10
+    if(radius === 0) return;
+    
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const d = imgData.data;
+    const output = new Uint8ClampedArray(d);
+    
+    // Apply box blur multiple times for smooth effect
+    const iterations = Math.ceil(radius / 2);
+    for(let iter = 0; iter < iterations; iter++){
+      const temp = new Uint8ClampedArray(d);
+      for(let y = 1; y < h - 1; y++){
+        for(let x = 1; x < w - 1; x++){
+          const idx = (y * w + x) * 4;
+          
+          // Get surrounding pixels
+          const pixels = [];
+          for(let dy = -1; dy <= 1; dy++){
+            for(let dx = -1; dx <= 1; dx++){
+              const nIdx = ((y + dy) * w + (x + dx)) * 4;
+              pixels.push(temp[nIdx], temp[nIdx+1], temp[nIdx+2], temp[nIdx+3]);
+            }
+          }
+          
+          // Average the 9 pixels (3x3 kernel)
+          for(let c = 0; c < 4; c++){
+            let sum = 0;
+            for(let i = c; i < pixels.length; i += 4){
+              sum += pixels[i];
+            }
+            output[idx + c] = Math.round(sum / 9);
+          }
+        }
+      }
+      // Copy output back to temp for next iteration
+      for(let i = 0; i < output.length; i++){
+        d[i] = output[i];
+      }
+    }
+    
+    ctx.putImageData(imgData, 0, 0);
   }
 
   function applyMediumEffect(ctx, w, h, medium){
