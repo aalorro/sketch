@@ -327,13 +327,15 @@
 
   <footer>
     <small>&copy; 2026 ArtMondo. All rights reserved. Sketchify is an open-source project licensed under MIT.</small>
-    <small style="display:block;margin-top:8px">Sketchify version 1.0.0</small>
+    <small style="display:block;margin-top:8px">Sketchify version 1.1.0</small>
     <small style="display:block;margin-top:12px">
       <a href="https://discord.gg/nqY5xSx6" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none;border-bottom:1px dotted;transition:all 0.2s;cursor:pointer">Join our Discord community 💬</a>
       <span style="margin:0 8px;opacity:0.5">•</span>
       <a href="#" onclick="document.getElementById('modal-donate').style.display='flex'; return false;" style="color:inherit;text-decoration:none;border-bottom:1px dotted;transition:all 0.2s;cursor:pointer">Support Development ❤️</a>
       <span style="margin:0 8px;opacity:0.5">•</span>
       <a href="#" onclick="document.getElementById('modal-roadmap').style.display='flex'; return false;" style="color:inherit;text-decoration:none;border-bottom:1px dotted;transition:all 0.2s;cursor:pointer">Roadmap 🚀</a>
+      <span style="margin:0 8px;opacity:0.5">•</span>
+      <a href="#" onclick="document.getElementById('modal-changelog').style.display='flex'; return false;" style="color:inherit;text-decoration:none;border-bottom:1px dotted;transition:all 0.2s;cursor:pointer">Changelog 📝</a>
       <span style="margin:0 8px;opacity:0.5">•</span>
       <a href="#" onclick="document.getElementById('modal-privacy').style.display='flex'; return false;" style="color:inherit;text-decoration:none;border-bottom:1px dotted;transition:all 0.2s;cursor:pointer">Privacy Policy</a>
     </small>
@@ -770,6 +772,62 @@
 
       <p style="margin-top:24px;padding:16px;background:rgba(6, 182, 212, 0.1);border-left:4px solid #06b6d4;border-radius:4px;font-size:14px;color:var(--text)">
         <strong>Have an idea?</strong> Your feedback shapes our future. Join our community and let us know what features would make Sketchify even better! 🎨
+      </p>
+    </div>
+  </div>
+
+  <div id="modal-changelog" class="modal" style="display:none">
+    <div class="modal-content" style="max-height:80vh;overflow-y:auto;max-width:700px">
+      <button class="modal-close" type="button">&times;</button>
+      <h3>📝 Changelog</h3>
+      
+      <h4>Version 1.1.0 (February 21, 2026)</h4>
+      <ul>
+        <li><strong>Invert Shading Checkbox:</strong> New control to invert colors (black ↔ white) for artistic effects</li>
+        <li><strong>4K Resolution Support:</strong> Added 4096px (4K) option for ultra-high-detail sketches</li>
+        <li><strong>Improved Download Validation:</strong> Better error handling for blank downloads on Android tablets</li>
+        <li><strong>Enhanced Canvas Detection:</strong> Now properly detects preview canvas content for accurate download validation</li>
+        <li><strong>Form Data Submissions:</strong> All new parameters now properly transmitted to ML/server backends</li>
+        <li><strong>Version Display:</strong> Updated footer to show current application version</li>
+      </ul>
+
+      <h4>Version 1.0.0 (February 15, 2026)</h4>
+      <ul>
+        <li><strong>Core Sketch Generation:</strong> 20+ artistic sketch styles with real-time preview</li>
+        <li><strong>Batch Processing:</strong> Convert multiple images at once and download as ZIP</li>
+        <li><strong>Undo/Redo System:</strong> 50-item history with keyboard shortcuts (Ctrl+Z/Ctrl+Y)</li>
+        <li><strong>Dark Mode:</strong> Eye-friendly dark theme with localStorage persistence</li>
+        <li><strong>Color Controls:</strong> Colorize, hue shift, saturation, and contrast adjustments</li>
+        <li><strong>Download Options:</strong> Export as PNG, JPG, or ZIP archive</li>
+        <li><strong>Responsive Design:</strong> Full support for desktop, tablet, and mobile devices</li>
+        <li><strong>Community Integration:</strong> Discord server link and community engagement</li>
+        <li><strong>Help System:</strong> Comprehensive instructions and feature guides</li>
+        <li><strong>Privacy Policy:</strong> Transparent data practices (zero data collection)</li>
+        <li><strong>Donation System:</strong> PayPal integration for supporting development</li>
+        <li><strong>Development Roadmap:</strong> Public roadmap showing future features</li>
+        <li><strong>SEO Optimization:</strong> Meta tags, Open Graph, JSON-LD structured data</li>
+        <li><strong>Preset System:</strong> Save and load processing presets</li>
+        <li><strong>GPU Acceleration:</strong> Optional WebGL for faster processing</li>
+      </ul>
+
+      <h4>Known Limitations</h4>
+      <ul>
+        <li>4K processing requires modern graphics hardware (Chrome, Firefox recommended)</li>
+        <li>Very large batches (100+ images) may experience slower performance depending on device specifications</li>
+        <li>Some older browsers may not support all features (update recommended)</li>
+      </ul>
+
+      <h4>Future Updates</h4>
+      <p>Coming in v1.2.0:</p>
+      <ul>
+        <li>Advanced color modes (CMYK, grayscale)</li>
+        <li>Layer export support (PSD/XCF)</li>
+        <li>Batch preview gallery</li>
+        <li>Performance optimizations for 4K+</li>
+      </ul>
+
+      <p style="margin-top:24px;padding:16px;background:rgba(123, 58, 237, 0.1);border-left:4px solid #7c3aed;border-radius:4px;font-size:14px;color:var(--text)">
+        <strong>Thank you for using Sketchify!</strong> Every update brings us closer to making the ultimate sketch generation tool. 🎨
       </p>
     </div>
   </div>
