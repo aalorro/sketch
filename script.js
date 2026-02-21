@@ -95,31 +95,78 @@
   const undoBtn = document.getElementById('undo');
   const redoBtn = document.getElementById('redo');
 
-  // Image navigation
+  // Image navigation with thumbnails
   function updateImageNavDisplay(){
     const nav = document.getElementById('imageNav');
     const info = document.getElementById('currentImageInfo');
     if(currentFiles.length > 1){
       nav.style.display = 'block';
-      const filename = currentFiles[currentImageIndex].name;
-      info.textContent = `Image ${currentImageIndex + 1} of ${currentFiles.length}: ${filename}`;
-      document.getElementById('prevImage').disabled = currentImageIndex === 0;
-      document.getElementById('nextImage').disabled = currentImageIndex === currentFiles.length - 1;
+      info.textContent = `${currentImageIndex + 1} of ${currentFiles.length} images`;
+      generateThumbnails();
     } else {
       nav.style.display = 'none';
     }
   }
 
-  function navigateImage(delta){
-    const newIndex = currentImageIndex + delta;
-    if(newIndex >= 0 && newIndex < currentFiles.length){
-      currentImageIndex = newIndex;
-      loadImageFromFile(currentFiles[currentImageIndex]).then(img=>{ singleImage = img; drawPreview(); updateImageNavDisplay(); }).catch(err=>console.error('Failed to load image', err));
+  function generateThumbnails(){
+    const container = document.getElementById('imageThumbnailContainer');
+    container.innerHTML = '';
+    
+    currentFiles.forEach((file, index) => {
+      const url = URL.createObjectURL(file);
+      const item = document.createElement('div');
+      item.className = 'thumbnail-item';
+      if(index === currentImageIndex) item.classList.add('active');
+      
+      const img = document.createElement('img');
+      img.className = 'thumbnail-img';
+      img.src = url;
+      img.alt = file.name;
+      
+      const name = document.createElement('div');
+      name.className = 'thumbnail-name';
+      name.textContent = file.name;
+      
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'thumbnail-delete';
+      deleteBtn.type = 'button';
+      deleteBtn.textContent = '×';
+      deleteBtn.title = 'Delete image';
+      deleteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteImage(index);
+      });
+      
+      item.appendChild(img);
+      item.appendChild(name);
+      item.appendChild(deleteBtn);
+      
+      item.addEventListener('click', () => selectImage(index));
+      container.appendChild(item);
+    });
+  }
+
+  function deleteImage(index){
+    currentFiles.splice(index, 1);
+    if(currentImageIndex >= currentFiles.length) currentImageIndex = Math.max(0, currentFiles.length - 1);
+    updateFileInfo();
+    updateImageNavDisplay();
+    if(currentFiles.length > 0){
+      loadImageFromFile(currentFiles[currentImageIndex]).then(img=>{ singleImage = img; drawPreview(); }).catch(err=>console.error('Failed to load image', err));
+    } else {
+      const origCanvas = document.getElementById('original');
+      const ctx = origCanvas.getContext('2d');
+      ctx.clearRect(0, 0, origCanvas.width, origCanvas.height);
+      const previewCanvas = document.getElementById('preview');
+      const pctx = previewCanvas.getContext('2d');
+      pctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
     }
   }
 
-  document.getElementById('prevImage').addEventListener('click', ()=>navigateImage(-1));
-  document.getElementById('nextImage').addEventListener('click', ()=>navigateImage(1));
+  function selectImage(index){
+    currentImageIndex = index;
+    loadImageFromFile(currentFiles[currentImageIndex]).then(img=>{ singleImage = img; drawPreview(); updateImageNavDisplay(); }).catch(err=>console.error('Failed to load image', err));
+  }
 
   // helper RNG
   function getSeed(){ return parseInt(document.getElementById('seed').value) || 0; }
@@ -377,8 +424,7 @@
     updateFileInfo();
     if(currentFiles.length){
       enableControls();
-      updateImageNavDisplay();
-      loadImageFromFile(currentFiles[0]).then(img=>{ singleImage = img; drawPreview(); }).catch(err=>console.error('Failed to load first image', err));
+      loadImageFromFile(currentFiles[0]).then(img=>{ singleImage = img; drawPreview(); updateImageNavDisplay(); }).catch(err=>console.error('Failed to load first image', err));
     }
   });
 
