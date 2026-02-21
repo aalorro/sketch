@@ -535,7 +535,7 @@
   }
 
   function downloadAllZip(){
-    if(!lastResults.length){ showErrorMessage('No images generated yet. Please load images and click Generate first.'); return; }
+    if(!lastResults.length){ showErrorMessage('Please generate sketches first to download the ZIP file.'); return; }
     if(typeof JSZip === 'undefined'){ alert('JSZip not loaded.'); return; }
     const zip = new JSZip();
     const prefix = document.getElementById('outputName').value.trim() || getDefaultFilename();
