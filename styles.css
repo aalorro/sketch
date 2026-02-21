@@ -75,4 +75,16 @@ body.dark-mode .discord-button {
   box-shadow: 0 4px 12px rgba(88, 101, 242, 0.4);
 }
 
+#instructionsBtn:hover {
+  background: linear-gradient(135deg, #6d28d9 0%, #0891b2 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+}
+
+#donateBtn:hover {
+  background: linear-gradient(135deg, #d97706 0%, #ea580c 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(251, 191, 36, 0.3);
+}
+
 @media(max-width:900px){main{flex-direction:column;padding:12px}.controls{width:100%}}

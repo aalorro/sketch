@@ -93,6 +93,8 @@
 
   <main>
     <section class="controls">
+      <button id="instructionsBtn" type="button" style="width:100%;margin-bottom:12px;padding:12px;background:linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%);color:#fff;border:0;border-radius:8px;font-weight:600;font-size:15px;cursor:pointer;transition:all 0.2s" title="View Sketchify instructions and guide">📖 Instructions & Guide</button>
+      <button id="donateBtn" type="button" style="width:100%;margin-bottom:12px;padding:12px;background:linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);color:#1f2937;border:0;border-radius:8px;font-weight:600;font-size:15px;cursor:pointer;transition:all 0.2s" title="Support Sketchify development">❤️ Support Development</button>
       <div class="buttons" style="margin-bottom:12px">
         <button id="undo" type="button" title="Undo (Ctrl+Z)">↶</button>
         <button id="redo" type="button" title="Redo (Ctrl+Y)">↷</button>
@@ -473,6 +475,148 @@
     </div>
   </div>
 
+  <!-- Instructions Modal -->
+  <div id="modal-instructions" class="modal" style="display:none">
+    <div class="modal-content" style="max-height:80vh;overflow-y:auto;max-width:700px">
+      <button class="modal-close" type="button">&times;</button>
+      <h3>Instructions & Guide</h3>
+      
+      <h4>Getting Started</h4>
+      <ol>
+        <li><strong>Upload Images:</strong> Click "Load image" and select one or more image files (JPG, PNG, etc.)</li>
+        <li><strong>Preview Settings:</strong> The preview updates in real-time as you adjust controls</li>
+        <li><strong>Generate Sketches:</strong> Click the Generate button to process your images</li>
+        <li><strong>Download Results:</strong> Download as PNG, JPG, or ZIP</li>
+      </ol>
+
+      <h4>Key Features</h4>
+      <ul>
+        <li><strong>20+ Sketch Styles:</strong> Contour, Hatching, Charcoal, Comic, Ink Wash, and more</li>
+        <li><strong>Medium Control:</strong> Choose Pencil, Ink, Marker, or Pen to affect stroke appearance</li>
+        <li><strong>Brush Effects:</strong> Add texture with Line, Hatch, Cross-hatch, or Charcoal effects</li>
+        <li><strong>Real-time Preview:</strong> See changes instantly as you adjust intensity and stroke</li>
+        <li><strong>Batch Processing:</strong> Upload multiple images and process them all at once</li>
+        <li><strong>Multi-image Navigation:</strong> Use Prev/Next buttons to adjust settings per image before generating</li>
+      </ul>
+
+      <h4>Controls Explained</h4>
+      <ul>
+        <li><strong>Intensity (1-10):</strong> Controls edge detection strength and detail level</li>
+        <li><strong>Stroke (1-10):</strong> Adjusts line width and pattern density</li>
+        <li><strong>Colorize:</strong> Add color tints to your sketches</li>
+        <li><strong>Skip Hatching:</strong> Remove decorative patterns for clean lines</li>
+        <li><strong>Resolution:</strong> Higher resolution = more detail but slower processing</li>
+        <li><strong>Output Name:</strong> Custom prefix for downloaded files</li>
+      </ul>
+
+      <h4>Processing & Export</h4>
+      <ul>
+        <li><strong>PNG Download:</strong> Lossless format, best for line-based sketches</li>
+        <li><strong>JPG Download:</strong> Compressed format, smaller file size</li>
+        <li><strong>ZIP Download:</strong> Bundle all processed images into one file (requires batch generation)</li>
+        <li><strong>Custom Filename:</strong> Leave blank for auto-generated timestamp-based names</li>
+      </ul>
+
+      <h4>Tips & Tricks</h4>
+      <ul>
+        <li>Use high-quality source images for best results</li>
+        <li>Experiment with different mediums and brush types on the same image</li>
+        <li>Enable GPU acceleration for faster processing on large images</li>
+        <li>Save your favorite settings as presets for quick reuse</li>
+        <li>Use Undo/Redo (Ctrl+Z / Ctrl+Y) to experiment freely</li>
+      </ul>
+
+      <h4>Privacy & Performance</h4>
+      <p>✅ <strong>100% Private:</strong> All processing happens in your browser — no uploads to servers</p>
+      <p>✅ <strong>Works Offline:</strong> No internet connection needed after loading the page</p>
+      <p>✅ <strong>Fast:</strong> Real-time processing on modern devices</p>
+      <p>ℹ️ Large batches (20+ images) may take several minutes depending on image size and your device</p>
+
+      <h4>Keyboard Shortcuts</h4>
+      <ul>
+        <li><strong>Ctrl+Z:</strong> Undo</li>
+        <li><strong>Ctrl+Y or Ctrl+Shift+Z:</strong> Redo</li>
+      </ul>
+
+      <h4>Need Help?</h4>
+      <p>💬 <a href="https://discord.gg/nqY5xSx6" target="_blank" rel="noopener noreferrer" style="color:#7c3aed;text-decoration:underline;font-weight:600">Join our Discord community</a> for support and to share your creations!</p>
+    </div>
+  </div>
+
+  <!-- Donation Modal -->
+  <div id="modal-donate" class="modal" style="display:none">
+    <div class="modal-content" style="max-width:600px">
+      <button class="modal-close" type="button">&times;</button>
+      <h3>❤️ Support Sketchify Development</h3>
+      <p style="font-size:16px;line-height:1.6;margin:16px 0">Thanks for using Sketchify! Your donation helps us continue developing and improving this tool. Every contribution, no matter the size, makes a difference.</p>
+
+      <div style="background:rgba(124, 58, 237, 0.1);padding:16px;border-radius:8px;margin:16px 0;border-left:4px solid #7c3aed">
+        <p style="margin:0;font-size:14px;color:var(--text)"><strong>🎁 What's Included:</strong></p>
+        <ul style="margin:8px 0 0 0;padding-left:20px;font-size:14px">
+          <li>Free access to all 20+ sketch styles</li>
+          <li>Real-time preview and batch processing</li>
+          <li>100% private — no data collection</li>
+          <li>Regular updates and new features</li>
+        </ul>
+      </div>
+
+      <p style="font-weight:600;margin:20px 0 12px 0;color:var(--text)">Choose an amount or donate custom:</p>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+        <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank" style="margin:0">
+          <input type="hidden" name="cmd" value="_donations">
+          <input type="hidden" name="business" value="aalorro@gmail.com">
+          <input type="hidden" name="item_name" value="Sketchify Development">
+          <input type="hidden" name="currency_code" value="USD">
+          <input type="hidden" name="amount" value="5">
+          <button type="submit" style="width:100%;padding:10px;background:#0070ba;color:#fff;border:0;border-radius:6px;font-weight:600;cursor:pointer;transition:all 0.2s;font-size:14px" onmouseover="this.style.background='#005a94'" onmouseout="this.style.background='#0070ba'">💵 $5</button>
+        </form>
+        <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank" style="margin:0">
+          <input type="hidden" name="cmd" value="_donations">
+          <input type="hidden" name="business" value="aalorro@gmail.com">
+          <input type="hidden" name="item_name" value="Sketchify Development">
+          <input type="hidden" name="currency_code" value="USD">
+          <input type="hidden" name="amount" value="10">
+          <button type="submit" style="width:100%;padding:10px;background:#0070ba;color:#fff;border:0;border-radius:6px;font-weight:600;cursor:pointer;transition:all 0.2s;font-size:14px" onmouseover="this.style.background='#005a94'" onmouseout="this.style.background='#0070ba'">💵 $10</button>
+        </form>
+        <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank" style="margin:0">
+          <input type="hidden" name="cmd" value="_donations">
+          <input type="hidden" name="business" value="aalorro@gmail.com">
+          <input type="hidden" name="item_name" value="Sketchify Development">
+          <input type="hidden" name="currency_code" value="USD">
+          <input type="hidden" name="amount" value="25">
+          <button type="submit" style="width:100%;padding:10px;background:#0070ba;color:#fff;border:0;border-radius:6px;font-weight:600;cursor:pointer;transition:all 0.2s;font-size:14px" onmouseover="this.style.background='#005a94'" onmouseout="this.style.background='#0070ba'">💵 $25</button>
+        </form>
+        <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank" style="margin:0">
+          <input type="hidden" name="cmd" value="_donations">
+          <input type="hidden" name="business" value="aalorro@gmail.com">
+          <input type="hidden" name="item_name" value="Sketchify Development">
+          <input type="hidden" name="currency_code" value="USD">
+          <input type="hidden" name="amount" value="50">
+          <button type="submit" style="width:100%;padding:10px;background:#0070ba;color:#fff;border:0;border-radius:6px;font-weight:600;cursor:pointer;transition:all 0.2s;font-size:14px" onmouseover="this.style.background='#005a94'" onmouseout="this.style.background='#0070ba'">💵 $50</button>
+        </form>
+      </div>
+
+      <div style="border-top:1px solid var(--border);padding-top:16px">
+        <label style="display:block;margin-bottom:8px;font-weight:600;color:var(--text)">Or enter a custom amount:</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span style="font-size:18px">$</span>
+          <input type="number" id="customDonationAmount" placeholder="25.00" step="0.01" min="1" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:6px;font-size:14px" onkeypress="if(event.key==='Enter') document.getElementById('customDonateBtn').click()">
+          <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_blank" id="customDonateForm" style="margin:0;flex:1">
+            <input type="hidden" name="cmd" value="_donations">
+            <input type="hidden" name="business" value="aalorro@gmail.com">
+            <input type="hidden" name="item_name" value="Sketchify Development">
+            <input type="hidden" name="currency_code" value="USD">
+            <input type="hidden" name="amount" id="customAmountField" value="">
+            <button type="button" id="customDonateBtn" style="width:100%;padding:10px;background:linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%);color:#fff;border:0;border-radius:6px;font-weight:600;cursor:pointer;transition:all 0.2s;font-size:14px" onclick="donateCustom()">Donate</button>
+          </form>
+        </div>
+      </div>
+
+      <p style="font-size:13px;color:var(--muted);margin-top:16px;text-align:center">All donations are secure and processed through PayPal. Thank you for supporting Sketchify! 🙏</p>
+    </div>
+  </div>
+
   <style>
     .info-btn {
       background: var(--primary);
@@ -616,6 +760,36 @@
       localStorage.setItem('darkMode', isNowDark);
       darkModeToggle.textContent = isNowDark ? '☀️' : '🌙';
     });
+
+    // Instructions button
+    document.getElementById('instructionsBtn').addEventListener('click', () => {
+      const modal = document.getElementById('modal-instructions');
+      if (modal) {
+        modal.style.display = 'flex';
+      }
+    });
+
+    // Donate button
+    document.getElementById('donateBtn').addEventListener('click', () => {
+      const modal = document.getElementById('modal-donate');
+      if (modal) {
+        modal.style.display = 'flex';
+      }
+    });
+
+    // Custom donation function
+    function donateCustom() {
+      const amountInput = document.getElementById('customDonationAmount');
+      const amount = parseFloat(amountInput.value);
+      
+      if (!amount || amount < 1) {
+        alert('Please enter a valid amount (minimum $1)');
+        return;
+      }
+      
+      document.getElementById('customAmountField').value = amount.toFixed(2);
+      document.getElementById('customDonateForm').submit();
+    }
 
     // Modal functionality
     document.querySelectorAll('.info-btn').forEach(btn => {
