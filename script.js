@@ -89,6 +89,7 @@
   let currentFiles = [];
   let currentImageIndex = 0;
   let lastResults = [];
+  let zoomLevel = 1.0; // Zoom level for rendered preview (1.0 = 100%)
   const undoStack = [];
   const redoStack = [];
   const MAX_HISTORY = 50;
@@ -265,6 +266,27 @@
     const el = document.getElementById(id);
     if(el) el.addEventListener('input', ()=>{ if(currentFiles.length) drawPreview(); });
   });
+
+  // Zoom controls for rendered preview
+  document.getElementById('zoomIn').addEventListener('click', ()=>{
+    zoomLevel = Math.min(zoomLevel + 0.2, 3.0);
+    updateZoomDisplay();
+    if(currentFiles.length) drawPreview();
+  });
+  document.getElementById('zoomOut').addEventListener('click', ()=>{
+    zoomLevel = Math.max(zoomLevel - 0.2, 0.2);
+    updateZoomDisplay();
+    if(currentFiles.length) drawPreview();
+  });
+  document.getElementById('zoomReset').addEventListener('click', ()=>{
+    zoomLevel = 1.0;
+    updateZoomDisplay();
+    if(currentFiles.length) drawPreview();
+  });
+
+  function updateZoomDisplay(){
+    document.getElementById('zoomLevel').textContent = Math.round(zoomLevel * 100) + '%';
+  }
 
   downloadPng.addEventListener('click', ()=>{ 
     if(!lastResults.length && !hasCanvasContent()) {
@@ -770,6 +792,9 @@
     if(smoothing > 0){
       applySmoothing(ctx, w, h, smoothing);
     }
+
+    // Apply zoom scaling to preview canvas
+    applyZoomTransform(ctx, w, h);
   }
 
   function applySmoothing(ctx, w, h, smoothing){
@@ -814,6 +839,29 @@
     }
     
     ctx.putImageData(imgData, 0, 0);
+  }
+
+  function applyZoomTransform(ctx, w, h){
+    if(zoomLevel === 1.0) return;
+    
+    // Get current image data
+    const imgData = ctx.getImageData(0, 0, w, h);
+    
+    // Create temporary canvas for zoomed content
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = w;
+    tempCanvas.height = h;
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.putImageData(imgData, 0, 0);
+    
+    // Clear and redraw at zoom level
+    ctx.clearRect(0, 0, w, h);
+    ctx.save();
+    ctx.translate(w/2, h/2);
+    ctx.scale(zoomLevel, zoomLevel);
+    ctx.translate(-w/2, -h/2);
+    ctx.drawImage(tempCanvas, 0, 0);
+    ctx.restore();
   }
 
   function applyMediumEffect(ctx, w, h, medium){

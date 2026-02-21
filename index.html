@@ -295,7 +295,15 @@
       </div>
       <div style="flex:1; text-align:center;">
         <div style="font-size:13px; color:#888; margin-bottom:4px;">Rendered</div>
-        <canvas id="preview" width="512" height="512" style="background:#fff;border:1px solid #ccc;max-width:100%;height:auto;display:block;margin:auto"></canvas>
+        <div style="margin-bottom:8px; display:flex; gap:8px; justify-content:center; align-items:center;">
+          <button id="zoomOut" type="button" style="padding:6px 12px; background:#06b6d4; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:14px;">−</button>
+          <span id="zoomLevel" style="min-width:60px; text-align:center; font-size:13px; color:#888; font-weight:600;">100%</span>
+          <button id="zoomIn" type="button" style="padding:6px 12px; background:#06b6d4; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:14px;">+</button>
+          <button id="zoomReset" type="button" style="padding:6px 12px; background:#7c3aed; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:14px;">Reset</button>
+        </div>
+        <div style="position:relative; display:inline-block; max-width:100%; overflow:auto; border:1px solid #ccc; border-radius:4px;">
+          <canvas id="preview" width="512" height="512" style="background:#fff;display:block;margin:auto"></canvas>
+        </div>
         <p class="note">Tip: use larger resolutions (up to 4K) for better results. Seed makes effects repeatable.</p>
       </div>
     </section>
@@ -834,7 +842,7 @@
       </ul>
 
       <h4>Future Updates</h4>
-      <p>Coming in v1.2.0:</p>
+      <p>Coming in v1.3.0:</p>
       <ul>
         <li>Advanced color modes (CMYK, grayscale)</li>
         <li>Layer export support (PSD/XCF)</li>
