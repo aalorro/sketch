@@ -219,12 +219,20 @@
   });
 
   downloadPng.addEventListener('click', ()=>{ 
+    if(!lastResults.length) {
+      showErrorMessage('No image loaded. Please load an image and click Generate first.');
+      return;
+    }
     if(preview.toDataURL){
       const name = document.getElementById('outputName').value.trim() || getDefaultFilename();
       downloadDataURL(preview.toDataURL('image/png'), name + '.png');
     }
   });
   downloadJpg.addEventListener('click', ()=>{ 
+    if(!lastResults.length) {
+      showErrorMessage('No image loaded. Please load an image and click Generate first.');
+      return;
+    }
     if(preview.toDataURL){
       const name = document.getElementById('outputName').value.trim() || getDefaultFilename();
       downloadDataURL(preview.toDataURL('image/jpeg',0.92), name + '.jpg');
@@ -294,6 +302,17 @@
     console.log('Reset complete');
     setTimeout(() => notification.remove(), 6000);
   });
+
+  // Error message display function
+  function showErrorMessage(message) {
+    const notification = document.createElement('div');
+    notification.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #ef4444; color: white; padding: 24px 32px; border-radius: 12px; font-size: 16px; z-index: 9999; box-shadow: 0 8px 32px rgba(239, 68, 68, 0.4); text-align: center; max-width: 500px; line-height: 1.5;';
+    notification.textContent = message;
+    notification.style.cursor = 'pointer';
+    notification.addEventListener('click', () => notification.remove());
+    document.body.appendChild(notification);
+    setTimeout(() => notification.remove(), 4000);
+  }
 
   // Preset management event listeners
   document.getElementById('savePreset').addEventListener('click', ()=>{
@@ -501,7 +520,7 @@
   }
 
   function downloadAllZip(){
-    if(!lastResults.length){ alert('No processed images yet. Generate first.'); return; }
+    if(!lastResults.length){ showErrorMessage('No images generated yet. Please load images and click Generate first.'); return; }
     if(typeof JSZip === 'undefined'){ alert('JSZip not loaded.'); return; }
     const zip = new JSZip();
     const prefix = document.getElementById('outputName').value.trim() || getDefaultFilename();
