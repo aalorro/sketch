@@ -263,7 +263,18 @@
 
   // Real-time updates for aspect and resolution
   document.getElementById('aspect').addEventListener('change', ()=>{ pushUndo(); if(currentFiles.length) drawPreview(); });
-  document.getElementById('resolution').addEventListener('change', ()=>{ pushUndo(); if(currentFiles.length) drawPreview(); });
+  document.getElementById('resolution').addEventListener('change', ()=>{ 
+    pushUndo(); 
+    if(currentFiles.length) drawPreview(); 
+    // Show 4K warning if 4096 selected
+    const resolution = document.getElementById('resolution').value;
+    const warning = document.getElementById('4k-warning');
+    if(resolution === '4096') {
+      warning.style.display = 'block';
+    } else {
+      warning.style.display = 'none';
+    }
+  });
   // Generic state capture for control changes
   ['artStyle','style','intensity','stroke','smoothing','brush','outputName','skipHatching','useWebGL','colorize','invert'].forEach(id=>{
     const el = document.getElementById(id);
