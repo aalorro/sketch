@@ -96,6 +96,7 @@
   let isPanning = false; // Track if currently dragging
   let panStartX = 0; // Start X position of pan
   let panStartY = 0; // Start Y position of pan
+  let currentRenderedImage = null; // Store the rendered image (server or canvas) to preserve during zoom/pan
   const undoStack = [];
   const redoStack = [];
   const MAX_HISTORY = 50;
@@ -158,6 +159,8 @@
     if(currentImageIndex >= currentFiles.length) currentImageIndex = Math.max(0, currentFiles.length - 1);
     panOffsetX = 0; // Reset pan on image delete
     panOffsetY = 0;
+    zoomLevel = 1.0; // Reset zoom on image delete
+    currentRenderedImage = null; // Clear stored rendered image
     updateFileInfo();
     updateImageNavDisplay();
     if(currentFiles.length > 0){
@@ -176,6 +179,8 @@
     currentImageIndex = index;
     panOffsetX = 0; // Reset pan on image selection
     panOffsetY = 0;
+    zoomLevel = 1.0; // Reset zoom on image selection
+    currentRenderedImage = null; // Clear stored rendered image
     loadImageFromFile(currentFiles[currentImageIndex]).then(img=>{ singleImage = img; drawPreview(); updateImageNavDisplay(); }).catch(err=>console.error('Failed to load image', err));
   }
 
@@ -312,6 +317,8 @@
   });
   document.getElementById('zoomReset').addEventListener('click', ()=>{
     zoomLevel = 1.0;
+    panOffsetX = 0; // Also reset pan when resetting zoom
+    panOffsetY = 0;
     updateZoomDisplay();
     if(currentFiles.length) drawPreview();
   });
@@ -727,6 +734,7 @@
     panOffsetX = 0; // Reset pan on new files
     panOffsetY = 0;
     zoomLevel = 1.0; // Reset zoom on new files
+    currentRenderedImage = null; // Clear stored rendered image
     updateZoomDisplay();
     if(currentFiles.length){
       enableControls();
@@ -752,19 +760,43 @@
     original.width = canvasW; original.height = canvasH;
     preview.width = canvasW; preview.height = canvasH;
     
-    // fit image into canvas preserving cover behavior
-    const iw = singleImage.width, ih = singleImage.height;
-    const ir = iw/ih, cr = canvasW/canvasH;
-    let sx=0, sy=0, sw=iw, sh=ih;
-    if(ir>cr){ // image wider -> crop sides
-      sw = ih * cr; sx = Math.round((iw-sw)/2);
-    } else { // image taller -> crop top/bottom
-      sh = iw / cr; sy = Math.round((ih-sh)/2);
-    }
-    
     // Draw original image to original canvas
     const octx = original.getContext('2d');
     octx.clearRect(0, 0, canvasW, canvasH);
+    
+    // If we have a stored rendered image (from server or canvas), use that with zoom/pan
+    if(currentRenderedImage){
+      const ctx = preview.getContext('2d');
+      ctx.clearRect(0, 0, canvasW, canvasH);
+      
+      // Draw original for original canvas
+      const iw = singleImage.width, ih = singleImage.height;
+      const ir = iw/ih, cr = canvasW/canvasH;
+      let sx=0, sy=0, sw=iw, sh=ih;
+      if(ir>cr){ sw = ih * cr; sx = Math.round((iw-sw)/2); }
+      else { sh = iw / cr; sy = Math.round((ih-sh)/2); }
+      octx.drawImage(singleImage, sx, sy, sw, sh, 0, 0, canvasW, canvasH);
+      
+      // Draw stored rendered image with zoom/pan applied using canvas transforms
+      ctx.save();
+      ctx.translate(panOffsetX, panOffsetY);
+      ctx.scale(zoomLevel, zoomLevel);
+      ctx.drawImage(currentRenderedImage, 0, 0);
+      ctx.restore();
+      return;
+    }
+    
+    // Original flow for drawing from scratch (no stored rendered image)
+    const iw = singleImage.width, ih = singleImage.height;
+    const ir = iw/ih, cr = canvasW/canvasH;
+    let sx=0, sy=0, sw=iw, sh=ih;
+    if(ir>cr){ 
+      sw = ih * cr; sx = Math.round((iw-sw)/2);
+    } else { 
+      sh = iw / cr; sy = Math.round((ih-sh)/2);
+    }
+    
+    // Draw original image
     octx.drawImage(singleImage, sx, sy, sw, sh, 0, 0, canvasW, canvasH);
     
     // Draw and process to preview canvas
@@ -1998,6 +2030,10 @@
     // fit img
     const fit = fitCropRect(img.width, img.height, cw, ch);
     ctx.drawImage(img, fit.sx, fit.sy, fit.sw, fit.sh, 0,0,cw,ch);
+    
+    // Store the rendered image for zoom/pan operations to use (server or canvas rendered)
+    currentRenderedImage = img;
+    
     // Also update the original canvas if available
     if(typeof original !== 'undefined' && original && typeof singleImage !== 'undefined' && singleImage) {
       const octx = original.getContext('2d');
