@@ -45,6 +45,46 @@ def generate_hatching(gray, angles=(0,45,90,135), spacing=8, thickness=1):
     return canvas
 
 
+def apply_medium_effect(img, artStyle='pencil'):
+    """Apply medium-specific effects: line thickening and tonal adjustments.
+    
+    Implements the Medium gradient:
+    - Pencil (finest lines, lightest)
+    - Ink (thicker, darker, crisp)
+    - Marker (thicker still, slightly soft)
+    - Pen (even thicker, very dark)
+    - Pastel (thickest, soft grain)
+    """
+    # Define medium characteristics: dilations (line thickness), tone_delta (shading), graininess
+    medium_props = {
+        'pencil': {'dilations': 0, 'tone_delta': 30, 'graininess': 15},
+        'ink': {'dilations': 1, 'tone_delta': -40, 'graininess': 0},
+        'marker': {'dilations': 2, 'tone_delta': -15, 'graininess': 0},
+        'pen': {'dilations': 3, 'tone_delta': -50, 'graininess': 0},
+        'pastel': {'dilations': 4, 'tone_delta': -20, 'graininess': 12}
+    }
+    
+    props = medium_props.get(artStyle, medium_props['pencil'])
+    result = img.copy()
+    
+    # Apply morphological dilation to thicken lines
+    if props['dilations'] > 0:
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        result = cv2.dilate(result, kernel, iterations=props['dilations'])
+    
+    # Apply tonal adjustments (add tone_delta to each channel)
+    if props['tone_delta'] != 0:
+        result = cv2.convertScaleAbs(result.astype(np.float32) + props['tone_delta'])
+        result = np.clip(result, 0, 255).astype(np.uint8)
+    
+    # Apply grain texture if needed
+    if props['graininess'] > 0:
+        noise = np.random.randint(-props['graininess'], props['graininess'] + 1, result.shape, dtype=np.int16)
+        result = np.clip(result.astype(np.int16) + noise, 0, 255).astype(np.uint8)
+    
+    return result
+
+
 def stylize_opencv(img_bgr, artStyle='pencil', style='line', brush='line', stroke=1, skipHatching=False, seed=0, intensity=6):
     # Resize to reasonable max dimension to limit CPU use
     h0, w0 = img_bgr.shape[:2]
@@ -87,6 +127,9 @@ def stylize_opencv(img_bgr, artStyle='pencil', style='line', brush='line', strok
         # Combine edges and hatch
         edges_inv = 255 - edges
         combined = cv2.bitwise_and(edges_inv, hatch)
+
+    # Apply medium effect (line thickening and tonal adjustments)
+    combined = apply_medium_effect(combined, artStyle)
 
     # For color styles, posterize base and blend
     if style in ('cubist', 'modern', 'naive'):
