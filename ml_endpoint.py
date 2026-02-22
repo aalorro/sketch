@@ -26,50 +26,15 @@ STABILITY_API_BASE = "https://api.stability.ai/v1"
 
 # Will be populated on startup
 AVAILABLE_ENGINES = []
-SELECTED_ENGINE = None
+# Force v1-6 which is known to work for image-to-image
+SELECTED_ENGINE = "stable-diffusion-v1-6"
 
 if not API_KEY:
     print("⚠️  WARNING: STABILITY_API_KEY not set in environment variables")
     print("   Get one at: https://platform.stability.ai/")
 else:
     print(f"✓ Stability AI API key configured (length: {len(API_KEY)} chars)")
-    
-    # Discover available engines
-    try:
-        headers = {'authorization': f'Bearer {API_KEY}'}
-        response = requests.get(f"{STABILITY_API_BASE}/engines/list", headers=headers, timeout=5)
-        if response.status_code == 200:
-            engines = response.json()
-            AVAILABLE_ENGINES = engines
-            
-            # For image-to-image, prefer v1-6 (most stable), fallback to other engines
-            for engine in engines:
-                engine_id = engine.get('id', '')
-                if 'v1-6' in engine_id or 'v1_6' in engine_id:
-                    SELECTED_ENGINE = engine_id
-                    break
-            
-            # If v1-6 not found, try any stable-diffusion engine
-            if not SELECTED_ENGINE:
-                for engine in engines:
-                    engine_id = engine.get('id', '')
-                    if 'stable-diffusion' in engine_id.lower():
-                        SELECTED_ENGINE = engine_id
-                        break
-            
-            # Last resort - use first available
-            if not SELECTED_ENGINE and engines:
-                SELECTED_ENGINE = engines[0]['id']
-            
-            if SELECTED_ENGINE:
-                print(f"✓ Using engine: {SELECTED_ENGINE}")
-                print(f"   Available: {', '.join([e.get('id', 'unknown') for e in engines[:5]])}{' ...' if len(engines) > 5 else ''}")
-            else:
-                print("⚠️  No image-to-image engines found for your account")
-        else:
-            print(f"⚠️  Could not list engines: HTTP {response.status_code}")
-    except Exception as e:
-        print(f"⚠️  Error discovering engines: {e}")
+    print(f"✓ Using engine: {SELECTED_ENGINE} (v1-6 is most stable for image-to-image)")
 
 # Sketch style prompts
 STYLE_PROMPTS = {
