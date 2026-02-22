@@ -11,11 +11,9 @@ Environment Variables:
 import os
 import json
 import base64
-import io
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from openai import OpenAI
-from PIL import Image
 import traceback
 
 app = Flask(__name__)
@@ -109,17 +107,16 @@ def generate_sketch():
         # Get style prompt
         style_prompt = STYLE_PROMPTS.get(style, 'realistic pencil sketch')
 
-        # Validate image (optional - just ensure it can be decoded)
+        # Validate image is properly base64 encoded
         try:
             image_bytes = base64.b64decode(image_data)
-            img = Image.open(io.BytesIO(image_bytes))
-            img_format = img.format
-            img_size = img.size
-            print(f"✓ Image validated: {img_format} {img_size}")
+            # Assume JPEG format for OpenAI - can be inferred from data
+            img_format = 'jpeg'
+            print(f"✓ Image received: {len(image_bytes)} bytes")
         except Exception as e:
             return jsonify({
                 'success': False,
-                'error': f'Invalid image format: {str(e)}'
+                'error': f'Invalid base64 image: {str(e)}'
             }), 400
 
         # Step 1: Use GPT-4 Vision to analyze the image and create sketch description
@@ -150,7 +147,7 @@ Be specific but concise (2-3 sentences max). The description will be used to gen
                         {
                             "type": "image_url",
                             "image_url": {
-                                "url": f"data:image/{img_format.lower()};base64,{image_data}"
+                                "url": f"data:image/jpeg;base64,{image_data}"
                             }
                         }
                     ]
