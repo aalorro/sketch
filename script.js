@@ -5,6 +5,7 @@
   const original = document.getElementById('original');
   const preview = document.getElementById('preview');
   const generateBtn = document.getElementById('generate');
+  const generateTopBtn = document.getElementById('generateTop');
   const downloadPng = document.getElementById('downloadPng');
   const downloadJpg = document.getElementById('downloadJpg');
   const downloadZip = document.getElementById('downloadZip');
@@ -253,6 +254,17 @@
   // Processing queue for batch
   generateBtn.addEventListener('click', ()=>{
     console.log('Generate clicked. currentFiles:', currentFiles.length, 'singleImage:', !!singleImage);
+    if(!currentFiles.length){ alert('Please select one or more images.'); return; }
+    pushUndo();
+    lastResults = [];
+    const useZip = true;
+    console.log('Starting processQueue with', currentFiles.length, 'file(s)');
+    processQueue(currentFiles);
+  });
+
+  // Top Generate button - same functionality as bottom button
+  generateTopBtn.addEventListener('click', ()=>{
+    console.log('Generate (top) clicked. currentFiles:', currentFiles.length, 'singleImage:', !!singleImage);
     if(!currentFiles.length){ alert('Please select one or more images.'); return; }
     pushUndo();
     lastResults = [];
