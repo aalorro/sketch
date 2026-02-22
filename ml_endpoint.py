@@ -42,17 +42,28 @@ else:
             engines = response.json()
             AVAILABLE_ENGINES = engines
             
-            # Prefer SDXL, fallback to v1-6
+            # For image-to-image, prefer v1-6 (most stable), fallback to other engines
             for engine in engines:
-                if 'xl' in engine.get('id', '').lower():
-                    SELECTED_ENGINE = engine['id']
+                engine_id = engine.get('id', '')
+                if 'v1-6' in engine_id or 'v1_6' in engine_id:
+                    SELECTED_ENGINE = engine_id
                     break
+            
+            # If v1-6 not found, try any stable-diffusion engine
+            if not SELECTED_ENGINE:
+                for engine in engines:
+                    engine_id = engine.get('id', '')
+                    if 'stable-diffusion' in engine_id.lower():
+                        SELECTED_ENGINE = engine_id
+                        break
+            
+            # Last resort - use first available
             if not SELECTED_ENGINE and engines:
                 SELECTED_ENGINE = engines[0]['id']
             
             if SELECTED_ENGINE:
                 print(f"✓ Using engine: {SELECTED_ENGINE}")
-                print(f"   Available: {', '.join([e.get('id', 'unknown') for e in engines[:3]])}{' ...' if len(engines) > 3 else ''}")
+                print(f"   Available: {', '.join([e.get('id', 'unknown') for e in engines[:5]])}{' ...' if len(engines) > 5 else ''}")
             else:
                 print("⚠️  No image-to-image engines found for your account")
         else:
