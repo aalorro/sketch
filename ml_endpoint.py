@@ -23,8 +23,9 @@ CORS(app)
 # Initialize Stability AI client
 API_KEY = os.getenv('STABILITY_API_KEY')
 # Using the correct endpoint for image-to-image
-STABILITY_API_URL = "https://api.stability.ai/v1/image-to-image/stable-diffusion-xl-1024-v1-0"
-ENGINE_ID = "stable-diffusion-xl-1024-v1-0"
+# Note: Using v1-6 as it's more reliably available on free tier
+STABILITY_API_URL = "https://api.stability.ai/v1/image-to-image/stable-diffusion-v1-6"
+ENGINE_ID = "stable-diffusion-v1-6"
 
 if not API_KEY:
     print("⚠️  WARNING: STABILITY_API_KEY not set in environment variables")
