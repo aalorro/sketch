@@ -94,12 +94,12 @@ def stylize_opencv(img_bgr, artStyle='pencil', style='line', brush='line', strok
         scale = max_dim / float(max(h0, w0))
         img_bgr = cv2.resize(img_bgr, (int(w0*scale), int(h0*scale)), interpolation=cv2.INTER_AREA)
 
-    # Denoise + smooth while keeping edges
-    img_color = cv2.bilateralFilter(img_bgr, d=9, sigmaColor=75, sigmaSpace=75)
+    # Denoise + smooth while keeping edges (more balanced filter)
+    img_color = cv2.bilateralFilter(img_bgr, d=7, sigmaColor=50, sigmaSpace=50)
     gray = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
 
-    # Edge detection (Canny) tuned by intensity
-    canny_low = max(50, 200 - intensity*10)
+    # Edge detection (Canny) with lower thresholds to catch more detail
+    canny_low = max(30, 150 - intensity*8)
     canny_high = canny_low * 2
     edges = cv2.Canny(gray, canny_low, canny_high)
     # Dilate edges slightly for visibility
@@ -124,12 +124,20 @@ def stylize_opencv(img_bgr, artStyle='pencil', style='line', brush='line', strok
         thickness = max(1, int(stroke / 2))
         hatch = generate_hatching(gray, angles=angles, spacing=spacing, thickness=thickness)
         
-        # Combine edges and hatch
+        # Better blending: apply hatching across wider tonal range using addWeighted
         edges_inv = 255 - edges
-        combined = cv2.bitwise_and(edges_inv, hatch)
+        # Apply hatching only where there's tonal variation (not pure white)
+        mask = (gray < 230).astype(np.uint8)
+        hatched = cv2.bitwise_and(hatch, hatch, mask=mask)
+        combined = cv2.addWeighted(edges_inv, 0.7, hatched, 0.3, 0)
 
     # Apply medium effect (line thickening and tonal adjustments)
     combined = apply_medium_effect(combined, artStyle)
+    
+    # Enhance contrast for better definition
+    contrast_boost = 1.25
+    combined = cv2.convertScaleAbs(combined.astype(np.float32) * contrast_boost)
+    combined = np.clip(combined, 0, 255).astype(np.uint8)
 
     # For color styles, posterize base and blend
     if style in ('cubist', 'modern', 'naive'):
