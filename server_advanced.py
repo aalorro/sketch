@@ -288,18 +288,19 @@ def stylize_opencv(img_bgr, artStyle='pencil', style='line', brush='line',
     
     # Apply smoothing (gaussian blur)
     if smoothing > 0:
-        kernel_size = int(smoothing * 2) | 1  # Ensure odd number
+        kernel_size = max(3, int(smoothing * 2) | 1)  # Ensure odd number >= 3
         result = cv2.GaussianBlur(result, (kernel_size, kernel_size), 0)
     
+    # Convert to BGR
+    result_bgr = cv2.cvtColor(result, cv2.COLOR_GRAY2BGR)
+    
     # Apply colorization if enabled (blend original colors into grayscale)
-    if colorize:
-        result_rgb = cv2.cvtColor(result, cv2.COLOR_GRAY2BGR)
-        img_bgr_resized = img_color  # Use the filtered color image
-        # Blend: keep structure from result, color from original
-        result_rgb = cv2.addWeighted(result_rgb, 0.6, img_bgr_resized, 0.4, 0)
-        result_bgr = result_rgb
-    else:
-        result_bgr = cv2.cvtColor(result, cv2.COLOR_GRAY2BGR)
+    if colorize and img_color is not None:
+        try:
+            # Blend sketch structure with original image colors
+            result_bgr = cv2.addWeighted(result_bgr, 0.5, img_color, 0.5, 0)
+        except:
+            pass  # If blending fails, just use the grayscale version
     
     # Apply color adjustments (contrast, saturation, hue shift)
     if contrast != 0 or saturation != 0 or hueShift != 0:
@@ -314,30 +315,35 @@ def stylize_opencv(img_bgr, artStyle='pencil', style='line', brush='line',
 
 def apply_color_adjustments(img_bgr, contrast, saturation, hue_shift):
     """Apply contrast, saturation, and hue shift adjustments"""
-    # Convert to HSV for hue/saturation adjustment
-    img_hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
+    result = img_bgr.copy().astype(np.float32)
     
-    # Apply saturation
-    if saturation != 0:
-        h, s, v = cv2.split(img_hsv)
-        s = cv2.convertScaleAbs(s.astype(np.float32) * (1.0 + saturation / 100.0))
-        s = np.clip(s, 0, 255).astype(np.uint8)
-        img_hsv = cv2.merge([h, s, v])
-    
-    # Apply hue shift
-    if hue_shift != 0:
-        h, s, v = cv2.split(img_hsv)
-        h = np.clip(h.astype(np.int16) + hue_shift, 0, 255).astype(np.uint8)
-        img_hsv = cv2.merge([h, s, v])
-    
-    result_bgr = cv2.cvtColor(img_hsv, cv2.COLOR_HSV2BGR)
-    
-    # Apply contrast
+    # Apply contrast (multiply by factor)
     if contrast != 0:
-        result_bgr = cv2.convertScaleAbs(result_bgr.astype(np.float32) * (1.0 + contrast / 100.0))
-        result_bgr = np.clip(result_bgr, 0, 255).astype(np.uint8)
+        factor = 1.0 + (contrast / 100.0)
+        result = result * factor
     
-    return result_bgr
+    # Saturation is more complex - adjust in HSV space
+    if saturation != 0 or hue_shift != 0:
+        result_uint = np.clip(result, 0, 255).astype(np.uint8)
+        img_hsv = cv2.cvtColor(result_uint, cv2.COLOR_BGR2HSV).astype(np.float32)
+        
+        # Apply saturation
+        if saturation != 0:
+            factor = 1.0 + (saturation / 100.0)
+            img_hsv[:,:,1] = img_hsv[:,:,1] * factor
+        
+        # Apply hue shift
+        if hue_shift != 0:
+            img_hsv[:,:,0] = img_hsv[:,:,0] + hue_shift
+        
+        img_hsv[:,:,0] = np.clip(img_hsv[:,:,0], 0, 255)
+        img_hsv[:,:,1] = np.clip(img_hsv[:,:,1], 0, 255)
+        img_hsv[:,:,2] = np.clip(img_hsv[:,:,2], 0, 255)
+        
+        result_uint = cv2.cvtColor(img_hsv.astype(np.uint8), cv2.COLOR_HSV2BGR)
+        result = result_uint.astype(np.float32)
+    
+    return np.clip(result, 0, 255).astype(np.uint8)
 
 
 @app.route('/api/style-transfer-advanced', methods=['POST'])
@@ -345,41 +351,79 @@ def api_style_transfer_advanced():
     if 'file' not in request.files:
         return jsonify({'error': 'no file provided'}), 400
     
-    f = request.files['file']
-    artStyle = request.form.get('artStyle', 'pencil')
-    style = request.form.get('style', 'line')
-    brush = request.form.get('brush', 'line')
-    stroke = int(request.form.get('stroke', '1') or 1)
-    skipHatching = request.form.get('skipHatching', 'false').lower() == 'true'
-    seed = int(request.form.get('seed', '0') or 0)
-    intensity = int(request.form.get('intensity', '6') or 6)
-    smoothing = int(request.form.get('smoothing', '0') or 0)
-    colorize = request.form.get('colorize', 'false').lower() == 'true'
-    invert = request.form.get('invert', 'false').lower() == 'true'
-    contrast = int(request.form.get('contrast', '0') or 0)
-    saturation = int(request.form.get('saturation', '0') or 0)
-    hueShift = int(request.form.get('hueShift', '0') or 0)
-
     try:
+        f = request.files['file']
+        
+        # Extract and safely convert parameters
+        artStyle = request.form.get('artStyle', 'pencil').strip()
+        style = request.form.get('style', 'line').strip()
+        brush = request.form.get('brush', 'line').strip()
+        
+        try:
+            stroke = int(request.form.get('stroke', '1') or '1')
+        except:
+            stroke = 1
+            
+        skipHatching = request.form.get('skipHatching', 'false').lower() == 'true'
+        
+        try:
+            seed = int(request.form.get('seed', '0') or '0')
+        except:
+            seed = 0
+            
+        try:
+            intensity = int(request.form.get('intensity', '6') or '6')
+        except:
+            intensity = 6
+            
+        try:
+            smoothing = int(request.form.get('smoothing', '0') or '0')
+        except:
+            smoothing = 0
+            
+        colorize = request.form.get('colorize', 'false').lower() == 'true'
+        invert = request.form.get('invert', 'false').lower() == 'true'
+        
+        try:
+            contrast = int(request.form.get('contrast', '0') or '0')
+        except:
+            contrast = 0
+            
+        try:
+            saturation = int(request.form.get('saturation', '0') or '0')
+        except:
+            saturation = 0
+            
+        try:
+            hueShift = int(request.form.get('hueShift', '0') or '0')
+        except:
+            hueShift = 0
+
         img = read_image_from_stream(f.stream)
     except Exception as e:
         return jsonify({'error': 'invalid image', 'details': str(e)}), 400
 
-    out = stylize_opencv(img, artStyle=artStyle, style=style, brush=brush, 
-                        stroke=stroke, skipHatching=skipHatching, seed=seed, 
-                        intensity=intensity, smoothing=smoothing, 
-                        colorize=colorize, invert=invert,
-                        contrast=contrast, saturation=saturation, 
-                        hueShift=hueShift)
+    try:
+        out = stylize_opencv(img, artStyle=artStyle, style=style, brush=brush, 
+                            stroke=stroke, skipHatching=skipHatching, seed=seed, 
+                            intensity=intensity, smoothing=smoothing, 
+                            colorize=colorize, invert=invert,
+                            contrast=contrast, saturation=saturation, 
+                            hueShift=hueShift)
+    except Exception as e:
+        return jsonify({'error': 'processing failed', 'details': str(e)}), 500
 
     # Return PNG
-    is_success, buffer = cv2.imencode('.png', out)
-    if not is_success:
-        return jsonify({'error': 'encoding failed'}), 500
-    bio = io.BytesIO(buffer.tobytes())
-    resp = send_file(bio, mimetype='image/png')
-    resp.headers['Access-Control-Allow-Origin'] = '*'
-    return resp
+    try:
+        is_success, buffer = cv2.imencode('.png', out)
+        if not is_success:
+            return jsonify({'error': 'encoding failed'}), 500
+        bio = io.BytesIO(buffer.tobytes())
+        resp = send_file(bio, mimetype='image/png')
+        resp.headers['Access-Control-Allow-Origin'] = '*'
+        return resp
+    except Exception as e:
+        return jsonify({'error': 'PNG encoding failed', 'details': str(e)}), 500
 
 
 if __name__ == '__main__':
