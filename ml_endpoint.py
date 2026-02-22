@@ -22,17 +22,43 @@ CORS(app)
 
 # Initialize Stability AI client
 API_KEY = os.getenv('STABILITY_API_KEY')
-# Using the correct endpoint for image-to-image
-# Note: Using v1-6 as it's more reliably available on free tier
-STABILITY_API_URL = "https://api.stability.ai/v1/image-to-image/stable-diffusion-v1-6"
-ENGINE_ID = "stable-diffusion-v1-6"
+STABILITY_API_BASE = "https://api.stability.ai/v1"
+
+# Will be populated on startup
+AVAILABLE_ENGINES = []
+SELECTED_ENGINE = None
 
 if not API_KEY:
     print("⚠️  WARNING: STABILITY_API_KEY not set in environment variables")
     print("   Get one at: https://platform.stability.ai/")
 else:
     print(f"✓ Stability AI API key configured (length: {len(API_KEY)} chars)")
-    print(f"✓ Using engine: {ENGINE_ID}")
+    
+    # Discover available engines
+    try:
+        headers = {'authorization': f'Bearer {API_KEY}'}
+        response = requests.get(f"{STABILITY_API_BASE}/engines/list", headers=headers, timeout=5)
+        if response.status_code == 200:
+            engines = response.json()
+            AVAILABLE_ENGINES = engines
+            
+            # Prefer SDXL, fallback to v1-6
+            for engine in engines:
+                if 'xl' in engine.get('id', '').lower():
+                    SELECTED_ENGINE = engine['id']
+                    break
+            if not SELECTED_ENGINE and engines:
+                SELECTED_ENGINE = engines[0]['id']
+            
+            if SELECTED_ENGINE:
+                print(f"✓ Using engine: {SELECTED_ENGINE}")
+                print(f"   Available: {', '.join([e.get('id', 'unknown') for e in engines[:3]])}{' ...' if len(engines) > 3 else ''}")
+            else:
+                print("⚠️  No image-to-image engines found for your account")
+        else:
+            print(f"⚠️  Could not list engines: HTTP {response.status_code}")
+    except Exception as e:
+        print(f"⚠️  Error discovering engines: {e}")
 
 # Sketch style prompts
 STYLE_PROMPTS = {
@@ -232,6 +258,12 @@ def generate_sketch():
                 'success': False,
                 'error': 'Stability AI API not configured. Set STABILITY_API_KEY environment variable.'
             }), 500
+        
+        if not SELECTED_ENGINE:
+            return jsonify({
+                'success': False,
+                'error': 'No compatible Stability AI engine found for your account'
+            }), 500
 
         # Handle both FormData (multipart) and JSON requests
         image_data = None
@@ -275,7 +307,8 @@ def generate_sketch():
 
         # Prepare request to Stability AI
         print(f"🌐 Sending to Stability AI for image-to-image transformation...")
-        print(f"   Endpoint: {STABILITY_API_URL}")
+        stability_url = f"{STABILITY_API_BASE}/image-to-image/{SELECTED_ENGINE}"
+        print(f"   Endpoint: {stability_url}")
         print(f"   API Key set: {bool(API_KEY)}")
         print(f"   Image size: {len(image_data)} bytes")
         
@@ -302,7 +335,7 @@ def generate_sketch():
         print(f"   API_KEY first 10 chars: {API_KEY[:10] if API_KEY else 'NOT SET'}")
         
         response = requests.post(
-            STABILITY_API_URL,
+            stability_url,
             headers=headers,
             files=files,
             data=data,
@@ -315,8 +348,8 @@ def generate_sketch():
             error_detail = response.text
             print(f"❌ Stability AI error: {response.status_code}")
             print(f"   Full response body: {error_detail[:1000]}")
-            print(f"   URL: {STABILITY_API_URL}")
-            print(f"   Engine ID: {ENGINE_ID}")
+            print(f"   URL: {stability_url}")
+            print(f"   Engine: {SELECTED_ENGINE}")
             
             # Try to parse JSON error if available
             try:
