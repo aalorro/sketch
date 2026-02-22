@@ -381,7 +381,7 @@ def get_styles():
         'count': len(STYLE_PROMPTS)
     }), 200
 
-@app.route('/api/test-stability', methods=['POST'])
+@app.route('/api/test-stability', methods=['GET', 'POST'])
 def test_stability():
     """Verify Stability AI API works"""
     try:
