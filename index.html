@@ -246,8 +246,6 @@
 
       <label style="white-space: nowrap; display: inline-flex; align-items: center;"><input id="useWebGL" type="checkbox"> <span style="white-space: nowrap;">Use GPU (WebGL experimental) <button type="button" class="info-btn" data-modal="modal-gpu">?</button></span></label>
       <small id="webglStatus" style="display:none;color:green">✓ GPU accelerated</small>
-      <label style="white-space: nowrap; display: inline-flex; align-items: center;"><input id="useML" type="checkbox"> <span style="white-space: nowrap;">Use external ML service (keep unchecked for instant local processing) <button type="button" class="info-btn" data-modal="modal-mlservice">?</button></span></label>
-      <label>ML Service URL <input id="mlUrl" type="text" value="https://web-production-ea715.up.railway.app/api/sketch" placeholder="https://your-custom-ml-service.com/api"></label>
       <label><input id="useServer" type="checkbox"> Use server style-transfer (requires running server) <button type="button" class="info-btn" data-modal="modal-server">?</button></label>
       <label>Server API URL <input id="serverUrl" type="text" value="http://localhost:5001/api/style-transfer-advanced" placeholder="https://example.com/api/style-transfer"></label>
 
@@ -502,23 +500,6 @@
       <p><strong>Benefits:</strong> Significantly faster processing on devices with modern GPUs.</p>
       <p><strong>Fallback:</strong> If GPU is unavailable or unsupported, processing automatically falls back to CPU.</p>
       <p><strong>Note:</strong> This is experimental and may have different results on some browsers.</p>
-    </div>
-  </div>
-
-  <div id="modal-mlservice" class="modal" style="display:none">
-    <div class="modal-content">
-      <button class="modal-close" type="button">&times;</button>
-      <h3>Use External ML Service</h3>
-      <p><strong>Recommended: Leave this UNCHECKED for instant local processing</strong></p>
-      <p><strong style="color: green;">✓ Local Mode (Unchecked):</strong> Uses your browser's Canvas API to apply sketch effects instantly. No upload needed, all processing happens locally. 25+ artistic styles available.</p>
-      <p><strong>External Mode (Checked):</strong> Sends images to a custom ML endpoint for style transfer. Requires configured service URL.</p>
-      <p><strong>For best results:</strong> Keep unchecked to use fast, local sketch processing with full parameter control.</p>
-      <p><strong>Configuration (if using external):</strong></p>
-      <ol>
-        <li>Enable this checkbox</li>
-        <li>Enter your ML Service URL</li>
-        <li>Upload images and click Generate</li>
-      </ol>
     </div>
   </div>
 

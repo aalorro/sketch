@@ -599,8 +599,10 @@
 
   async function processFile(file, idx, total){
     console.log('processFile:', file.name);
-    const useML = document.getElementById('useML').checked;
-    const mlUrl = document.getElementById('mlUrl').value.trim();
+    const useMLEl = document.getElementById('useML');
+    const mlUrlEl = document.getElementById('mlUrl');
+    const useML = useMLEl ? useMLEl.checked : false;
+    const mlUrl = mlUrlEl ? mlUrlEl.value.trim() : '';
     const useServer = document.getElementById('useServer').checked;
     const serverUrl = document.getElementById('serverUrl').value.trim();
     if(useML && mlUrl){
