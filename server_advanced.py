@@ -212,7 +212,9 @@ def render_mixed_media(gray, edges, intensity, stroke):
 
 
 def stylize_opencv(img_bgr, artStyle='pencil', style='line', brush='line', 
-                   stroke=1, skipHatching=False, seed=0, intensity=6):
+                   stroke=1, skipHatching=False, seed=0, intensity=6,
+                   smoothing=0, colorize=False, invert=False, 
+                   contrast=0, saturation=0, hueShift=0):
     """Main stylization pipeline: edge detection + style rendering + medium effect"""
     np.random.seed(seed)
     random.seed(seed)
@@ -284,8 +286,57 @@ def stylize_opencv(img_bgr, artStyle='pencil', style='line', brush='line',
     if props['tone_delta'] != 0:
         result = np.clip(result.astype(np.int16) + props['tone_delta'], 0, 255).astype(np.uint8)
     
-    # Convert to BGR for output
-    result_bgr = cv2.cvtColor(result, cv2.COLOR_GRAY2BGR)
+    # Apply smoothing (gaussian blur)
+    if smoothing > 0:
+        kernel_size = int(smoothing * 2) | 1  # Ensure odd number
+        result = cv2.GaussianBlur(result, (kernel_size, kernel_size), 0)
+    
+    # Apply colorization if enabled (blend original colors into grayscale)
+    if colorize:
+        result_rgb = cv2.cvtColor(result, cv2.COLOR_GRAY2BGR)
+        img_bgr_resized = img_color  # Use the filtered color image
+        # Blend: keep structure from result, color from original
+        result_rgb = cv2.addWeighted(result_rgb, 0.6, img_bgr_resized, 0.4, 0)
+        result_bgr = result_rgb
+    else:
+        result_bgr = cv2.cvtColor(result, cv2.COLOR_GRAY2BGR)
+    
+    # Apply color adjustments (contrast, saturation, hue shift)
+    if contrast != 0 or saturation != 0 or hueShift != 0:
+        result_bgr = apply_color_adjustments(result_bgr, contrast, saturation, hueShift)
+    
+    # Apply inversion if enabled
+    if invert:
+        result_bgr = cv2.bitwise_not(result_bgr)
+    
+    return result_bgr
+
+
+def apply_color_adjustments(img_bgr, contrast, saturation, hue_shift):
+    """Apply contrast, saturation, and hue shift adjustments"""
+    # Convert to HSV for hue/saturation adjustment
+    img_hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
+    
+    # Apply saturation
+    if saturation != 0:
+        h, s, v = cv2.split(img_hsv)
+        s = cv2.convertScaleAbs(s.astype(np.float32) * (1.0 + saturation / 100.0))
+        s = np.clip(s, 0, 255).astype(np.uint8)
+        img_hsv = cv2.merge([h, s, v])
+    
+    # Apply hue shift
+    if hue_shift != 0:
+        h, s, v = cv2.split(img_hsv)
+        h = np.clip(h.astype(np.int16) + hue_shift, 0, 255).astype(np.uint8)
+        img_hsv = cv2.merge([h, s, v])
+    
+    result_bgr = cv2.cvtColor(img_hsv, cv2.COLOR_HSV2BGR)
+    
+    # Apply contrast
+    if contrast != 0:
+        result_bgr = cv2.convertScaleAbs(result_bgr.astype(np.float32) * (1.0 + contrast / 100.0))
+        result_bgr = np.clip(result_bgr, 0, 255).astype(np.uint8)
+    
     return result_bgr
 
 
@@ -302,6 +353,12 @@ def api_style_transfer_advanced():
     skipHatching = request.form.get('skipHatching', 'false').lower() == 'true'
     seed = int(request.form.get('seed', '0') or 0)
     intensity = int(request.form.get('intensity', '6') or 6)
+    smoothing = int(request.form.get('smoothing', '0') or 0)
+    colorize = request.form.get('colorize', 'false').lower() == 'true'
+    invert = request.form.get('invert', 'false').lower() == 'true'
+    contrast = int(request.form.get('contrast', '0') or 0)
+    saturation = int(request.form.get('saturation', '0') or 0)
+    hueShift = int(request.form.get('hueShift', '0') or 0)
 
     try:
         img = read_image_from_stream(f.stream)
@@ -310,7 +367,10 @@ def api_style_transfer_advanced():
 
     out = stylize_opencv(img, artStyle=artStyle, style=style, brush=brush, 
                         stroke=stroke, skipHatching=skipHatching, seed=seed, 
-                        intensity=intensity)
+                        intensity=intensity, smoothing=smoothing, 
+                        colorize=colorize, invert=invert,
+                        contrast=contrast, saturation=saturation, 
+                        hueShift=hueShift)
 
     # Return PNG
     is_success, buffer = cv2.imencode('.png', out)
