@@ -298,18 +298,18 @@
     <section class="preview" style="display:flex; flex-direction:row; gap:16px; align-items:flex-start;">
       <div style="flex:1; text-align:center;">
         <div style="font-size:13px; color:#888; margin-bottom:4px;">Original</div>
-        <canvas id="original" width="512" height="512" style="background:#fff;border:1px solid #ccc;max-width:100%;height:auto;display:block;margin:auto"></canvas>
+        <canvas id="original" width="512" height="512" style="background:#fff;border:1px solid #ccc;display:block;margin:auto"></canvas>
       </div>
       <div style="flex:1; text-align:center;">
         <div style="font-size:13px; color:#888; margin-bottom:4px;">Rendered <button type="button" class="info-btn" data-modal="modal-pan">?</button></div>
-        <div style="margin-bottom:8px; display:flex; gap:8px; justify-content:center; align-items:center;">
+        <div style="position:relative; display:inline-block; border:1px solid #ccc; border-radius:4px;">
+          <canvas id="preview" width="512" height="512" style="background:#fff;display:block;margin:auto"></canvas>
+        </div>
+        <div style="margin-top:8px; display:flex; gap:8px; justify-content:center; align-items:center;">
           <button id="zoomOut" type="button" style="padding:6px 12px; background:#06b6d4; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:14px;">−</button>
           <span id="zoomLevel" style="min-width:60px; text-align:center; font-size:13px; color:#888; font-weight:600;">100%</span>
           <button id="zoomIn" type="button" style="padding:6px 12px; background:#06b6d4; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:14px;">+</button>
           <button id="zoomReset" type="button" style="padding:6px 12px; background:#7c3aed; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:14px;">Reset</button>
-        </div>
-        <div style="position:relative; display:inline-block; max-width:100%; overflow:auto; border:1px solid #ccc; border-radius:4px;">
-          <canvas id="preview" width="512" height="512" style="background:#fff;display:block;margin:auto"></canvas>
         </div>
       </div>
     </section>
