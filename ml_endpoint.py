@@ -381,6 +381,38 @@ def get_styles():
         'count': len(STYLE_PROMPTS)
     }), 200
 
+@app.route('/api/test-stability', methods=['POST'])
+def test_stability():
+    """Verify Stability AI API works"""
+    try:
+        if not API_KEY:
+            return jsonify({'error': 'API key not configured'}), 500
+        
+        # Try text-to-image endpoint
+        url = "https://api.stability.ai/v1/text-to-image/stable-diffusion-xl-1024-v1-0"
+        headers = {
+            'authorization': f'Bearer {API_KEY}',
+            'accept': 'application/json'
+        }
+        data = {
+            'text_prompts': [{'text': 'A pencil sketch test'}],
+            'steps': 10,
+            'cfg_scale': 7.0,
+            'width': 512,
+            'height': 512
+        }
+        
+        print(f"🧪 Testing Stability AI text-to-image: {url}")
+        response = requests.post(url, headers=headers, data=data, timeout=60)
+        print(f"   Response: {response.status_code}")
+        
+        if response.status_code == 200:
+            return jsonify({'success': True, 'message': 'API working!'}), 200
+        else:
+            return jsonify({'error': f'API failed: {response.status_code}', 'body': response.text[:300]}), response.status_code
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/', methods=['GET'])
 def root():
     """Root endpoint"""
