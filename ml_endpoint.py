@@ -1,436 +1,56 @@
-"""
-Sketchify ML Endpoint - Image-to-Image Style Transfer
-Uses Stability AI for high-quality style transfer with parameter-based prompts
-Deploy on Railway: https://railway.app
-
-Environment Variables:
-- STABILITY_API_KEY: Your Stability AI API key (from https://platform.stability.ai)
-- FLASK_ENV: production or development
-"""
-
-import os
-import json
-import base64
+"""Sketchify ML Endpoint - Local OpenCV Image Processing"""
+import os, cv2, numpy as np, base64, traceback
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
-import traceback
-import requests
 from io import BytesIO
 
 app = Flask(__name__)
 CORS(app)
 
-# Initialize Stability AI client
-API_KEY = os.getenv('STABILITY_API_KEY')
-STABILITY_API_BASE = "https://api.stability.ai/v1"
+print("? OpenCV engine ready (local mode)")
 
-# Will be populated on startup
-AVAILABLE_ENGINES = []
-# Force v1-6 which is known to work for image-to-image
-SELECTED_ENGINE = "stable-diffusion-v1-6"
+def process_sketch(img, params):
+    h,w = img.shape[:2]
+    if max(h,w) > 1024: img = cv2.resize(img, (int(w*1024/max(h,w)), int(h*1024/max(h,w))))
+    
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    inv = 255 - gray
+    blur = cv2.GaussianBlur(inv, (21,21), 0)
+    inv_blur = 255 - blur
+    result = cv2.divide(gray, inv_blur, scale=256)
+    
+    if params.get("invert") in [True, "true"]: result = 255 - result
+    return np.uint8(result)
 
-if not API_KEY:
-    print("⚠️  WARNING: STABILITY_API_KEY not set in environment variables")
-    print("   Get one at: https://platform.stability.ai/")
-else:
-    print(f"✓ Stability AI API key configured (length: {len(API_KEY)} chars)")
-    print(f"✓ Using engine: {SELECTED_ENGINE} (v1-6 is most stable for image-to-image)")
-
-# Sketch style prompts
-STYLE_PROMPTS = {
-    'realistic-pencil': 'highly detailed realistic pencil sketch',
-    'detailed-graphite': 'detailed graphite drawing with varied pencil weights',
-    'fine-charcoal': 'fine charcoal sketch with soft blending',
-    'soft-shading': 'soft shaded sketch with gentle gradients',
-    'hard-edges': 'bold sketch with sharp, defined edges',
-    'comic-book': 'comic book style illustration with bold outlines',
-    'comic-bw': 'black and white comic book illustration',
-    'comic-color': 'colored comic book style illustration',
-    'cartoon': 'cartoon illustration with clean lines',
-    'simple-lines': 'simple line art with minimal details',
-    'ink-drawing': 'professional ink drawing',
-    'pen-ink': 'pen and ink illustration style',
-    'charcoal': 'charcoal drawing with rich blacks and grays',
-    'chalk-sketch': 'chalk sketch on paper',
-    'oil-painting': 'oil painting style',
-    'watercolor': 'watercolor sketch style',
-    'pastel': 'soft pastel sketch',
-    'engraving': 'classical engraving with cross-hatching',
-    'etching': 'etching style with fine lines',
-    'minimalist': 'minimalist line drawing',
-    'geometric': 'geometric abstract sketch',
-    'stipple': 'pointillism stippled effect',
-    'crosshatch': 'cross-hatched drawing',
-    'hatching': 'hatched drawing with parallel lines'
-}
-
-def build_style_prompt(params):
-    """
-    Build a comprehensive prompt from all UI parameters.
-    All parameters combined form the main instruction.
-    """
-    
-    # Extract all parameters - convert safely to int/float
-    style = params.get('style', 'realistic-pencil')
-    medium = params.get('medium', 'all')
-    brush = params.get('brush', 'natural')
-    
-    # Handle both int and float values
-    try:
-        intensity = int(float(params.get('intensity', 50)))
-    except (ValueError, TypeError):
-        intensity = 50
-    
-    try:
-        stroke = int(float(params.get('stroke', 50)))
-    except (ValueError, TypeError):
-        stroke = 50
-    
-    try:
-        smoothing = int(float(params.get('smoothing', 50)))
-    except (ValueError, TypeError):
-        smoothing = 50
-    
-    try:
-        contrast = int(float(params.get('contrast', 0)))
-    except (ValueError, TypeError):
-        contrast = 0
-    
-    try:
-        saturation = int(float(params.get('saturation', 0)))
-    except (ValueError, TypeError):
-        saturation = 0
-    
-    try:
-        hue_shift = int(float(params.get('hueShift', 0)))
-    except (ValueError, TypeError):
-        hue_shift = 0
-    
-    colorize = params.get('colorize', 'false').lower() == 'true'
-    invert = params.get('invert', 'false').lower() == 'true'
-    skip_hatching = params.get('skipHatching', 'false').lower() == 'true'
-    user_prompt = params.get('prompt', '').strip()
-    
-    # Get base style description
-    style_desc = STYLE_PROMPTS.get(style, 'highly detailed sketch')
-    
-    # Build parameter-based prompt segments
-    prompt_parts = [style_desc]
-    
-    # Medium description
-    medium_map = {
-        'pencil': 'pencil medium',
-        'pen': 'pen medium',
-        'marker': 'marker medium',
-        'brush': 'brush medium',
-        'charcoal': 'charcoal medium',
-        'chalk': 'chalk medium',
-        'all': 'mixed media'
-    }
-    if medium in medium_map:
-        prompt_parts.append(medium_map[medium])
-    
-    # Brush style
-    brush_map = {
-        'natural': 'natural, organic brushwork',
-        'precise': 'precise, technical line work',
-        'loose': 'loose, expressive strokes',
-        'firm': 'firm, deliberate strokes',
-        'soft': 'soft, delicate touches'
-    }
-    if brush in brush_map:
-        prompt_parts.append(brush_map[brush])
-    
-    # Intensity (affects detail level and opacity)
-    if intensity > 75:
-        prompt_parts.append('highly detailed, dense detail level')
-    elif intensity > 50:
-        prompt_parts.append('moderate detail level')
-    else:
-        prompt_parts.append('minimal detail, simple rendering')
-    
-    # Stroke width
-    if stroke > 75:
-        prompt_parts.append('thick, bold strokes')
-    elif stroke > 50:
-        prompt_parts.append('medium stroke width')
-    else:
-        prompt_parts.append('thin, delicate strokes')
-    
-    # Smoothing
-    if smoothing > 75:
-        prompt_parts.append('very smooth, polished finish')
-    elif smoothing > 50:
-        prompt_parts.append('smooth, refined appearance')
-    else:
-        prompt_parts.append('textured, rough surface quality')
-    
-    # Contrast
-    if contrast > 20:
-        prompt_parts.append('high contrast between light and dark')
-    elif contrast < -20:
-        prompt_parts.append('low contrast, subtle tones')
-    
-    # Saturation
-    if saturation < -50:
-        prompt_parts.append('completely desaturated, grayscale')
-    elif saturation < -20:
-        prompt_parts.append('desaturated, muted colors')
-    elif saturation > 50:
-        prompt_parts.append('highly saturated, vibrant colors')
-    elif saturation > 20:
-        prompt_parts.append('rich, saturated colors')
-    
-    # Color adjustments
-    if colorize:
-        prompt_parts.append('colorized effect')
-    
-    if invert:
-        prompt_parts.append('inverted colors, negative effect')
-    
-    # Hatching
-    if not skip_hatching:
-        prompt_parts.append('with cross-hatching and tonal shading')
-    else:
-        prompt_parts.append('minimal hatching, emphasis on line work')
-    
-    # Quality descriptors
-    prompt_parts.append('professional quality, artistic rendering')
-    
-    # User's custom prompt (minimal effect)
-    if user_prompt:
-        prompt_parts.append(f'including elements: {user_prompt}')
-    
-    # Combine all parts
-    combined_prompt = ', '.join(prompt_parts)
-    
-    return combined_prompt
-
-@app.route('/health', methods=['GET'])
+@app.route("/health", methods=["GET"])
 def health():
-    """Health check endpoint"""
-    return jsonify({
-        'status': 'ok' if API_KEY else 'warning',
-        'service': 'Sketchify ML Endpoint',
-        'version': '3.0.0',
-        'api_configured': bool(API_KEY)
-    }), 200
+    return jsonify({"status": "healthy"}), 200
 
-@app.route('/api/sketch', methods=['POST'])
-def generate_sketch():
-    """
-    Convert an image to sketch style using Stability AI image-to-image
-    
-    Accepts:
-    1. FormData with 'file' field + all style parameters
-    2. JSON with 'image' field (base64) + parameters
-    
-    Returns:
-    Binary PNG image (not JSON)
-    """
+@app.route("/api/sketch", methods=["POST"])
+def generate():
     try:
-        if not API_KEY:
-            return jsonify({
-                'success': False,
-                'error': 'Stability AI API not configured. Set STABILITY_API_KEY environment variable.'
-            }), 500
-        
-        if not SELECTED_ENGINE:
-            return jsonify({
-                'success': False,
-                'error': 'No compatible Stability AI engine found for your account'
-            }), 500
-
-        # Handle both FormData (multipart) and JSON requests
-        image_data = None
-        
-        # Check if it's FormData (file upload)
-        if request.method == 'POST' and request.files and 'file' in request.files:
-            file = request.files['file']
-            if not file or file.filename == '':
-                return jsonify({'success': False, 'error': 'No file provided'}), 400
-            
-            try:
-                # Read file as binary
-                file_content = file.read()
-                image_data = file_content
-                print(f"✓ File received: {len(file_content)} bytes from {file.filename}")
-            except Exception as e:
-                return jsonify({'success': False, 'error': f'Error reading file: {str(e)}'}), 400
-        
-        # Otherwise expect JSON with base64 image
+        if "file" in request.files:
+            f = request.files["file"]
+            img_arr = np.frombuffer(f.read(), np.uint8)
+            img = cv2.imdecode(img_arr, cv2.IMREAD_COLOR)
         else:
-            try:
-                data = request.get_json(force=False, silent=False)
-                if not data:
-                    return jsonify({'success': False, 'error': 'Request body is empty'}), 400
-                
-                image_b64 = data.get('image')
-                if not image_b64:
-                    return jsonify({'success': False, 'error': 'No image provided'}), 400
-                
-                image_data = base64.b64decode(image_b64)
-            except Exception as e:
-                return jsonify({'success': False, 'error': f'Invalid request format: {str(e)}'}), 400
-
-        if not image_data:
-            return jsonify({'success': False, 'error': 'No image provided'}), 400
-
-        # Build style prompt from all parameters
-        print(f"🎨 Building style prompt from parameters...")
-        style_prompt = build_style_prompt(request.form if request.form else request.get_json() or {})
-        print(f"📝 Generated prompt: {style_prompt[:100]}...")
-
-        # Prepare request to Stability AI
-        print(f"🌐 Sending to Stability AI for image-to-image transformation...")
-        stability_url = f"{STABILITY_API_BASE}/image-to-image/{SELECTED_ENGINE}"
-        print(f"   Endpoint: {stability_url}")
-        print(f"   API Key set: {bool(API_KEY)}")
-        print(f"   Image size: {len(image_data)} bytes")
+            data = request.get_json()
+            img_bytes = base64.b64decode(data.get("image",""))
+            img_arr = np.frombuffer(img_bytes, np.uint8)
+            img = cv2.imdecode(img_arr, cv2.IMREAD_COLOR)
         
-        files = {
-            'init_image': ('image.png', image_data, 'image/png')
-        }
-        
-        data = {
-            'prompt': style_prompt,
-            'cfg_scale': 7.0,
-            'clip_guidance_preset': 'NONE',
-            'sampler': 'K_EULER_ANCESTRAL',
-            'steps': 30,
-            'seed': 0
-        }
-        
-        headers = {
-            'authorization': f'Bearer {API_KEY}',
-            'accept': 'application/json'
-        }
-        
-        print(f"   Headers: authorization={'Yes' if API_KEY else 'NO - MISSING!'}, accept=application/json")
-        print(f"   API_KEY length: {len(API_KEY) if API_KEY else 0}")
-        print(f"   API_KEY first 10 chars: {API_KEY[:10] if API_KEY else 'NOT SET'}")
-        
-        response = requests.post(
-            stability_url,
-            headers=headers,
-            files=files,
-            data=data,
-            timeout=60
-        )
-        
-        print(f"   Response status: {response.status_code}")
-        
-        if response.status_code != 200:
-            error_detail = response.text
-            print(f"❌ Stability AI error: {response.status_code}")
-            print(f"   Full response body: {error_detail[:1000]}")
-            print(f"   URL: {stability_url}")
-            print(f"   Engine: {SELECTED_ENGINE}")
-            
-            # Try to parse JSON error if available
-            try:
-                error_json = response.json()
-                print(f"   Parsed JSON error: {json.dumps(error_json, indent=2)}")
-                if 'message' in error_json:
-                    error_detail = error_json['message']
-            except Exception as json_err:
-                print(f"   Could not parse JSON: {json_err}")
-            
-            return jsonify({
-                'success': False,
-                'error': f'Stability AI error {response.status_code}: {error_detail[:200]}'
-            }), 500
-        
-        # Parse response
-        response_json = response.json()
-        
-        if 'artifacts' not in response_json or len(response_json['artifacts']) == 0:
-            return jsonify({
-                'success': False,
-                'error': 'No image generated by Stability AI'
-            }), 500
-        
-        # Get the generated image
-        image_base64 = response_json['artifacts'][0]['base64']
-        result_bytes = base64.b64decode(image_base64)
-        
-        print(f"✓ Sketch generated successfully ({len(result_bytes)} bytes)")
-        
-        # Return as binary PNG blob
-        return send_file(
-            BytesIO(result_bytes),
-            mimetype='image/png',
-            as_attachment=False
-        )
-
+        if img is None: return jsonify({"error": "Bad image"}), 400
+        params = request.form if request.form else request.get_json() or {}
+        result = process_sketch(img, params)
+        _, png = cv2.imencode(".png", result)
+        return send_file(BytesIO(png.tobytes()), mimetype="image/png")
     except Exception as e:
-        error_msg = str(e)
-        print(f"❌ Error: {error_msg}")
-        print(traceback.format_exc())
-        return jsonify({
-            'success': False,
-            'error': error_msg
-        }), 500
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
-@app.route('/api/styles', methods=['GET'])
-def get_styles():
-    """Get available sketch styles"""
-    return jsonify({
-        'success': True,
-        'styles': list(STYLE_PROMPTS.keys()),
-        'count': len(STYLE_PROMPTS)
-    }), 200
-
-@app.route('/api/test-stability', methods=['GET', 'POST'])
-def test_stability():
-    """Verify Stability AI API works"""
-    try:
-        if not API_KEY:
-            return jsonify({'error': 'API key not configured'}), 500
-        
-        # Try text-to-image endpoint
-        url = "https://api.stability.ai/v1/text-to-image/stable-diffusion-xl-1024-v1-0"
-        headers = {
-            'authorization': f'Bearer {API_KEY}',
-            'accept': 'application/json'
-        }
-        data = {
-            'text_prompts': [{'text': 'A pencil sketch test'}],
-            'steps': 10,
-            'cfg_scale': 7.0,
-            'width': 512,
-            'height': 512
-        }
-        
-        print(f"🧪 Testing Stability AI text-to-image: {url}")
-        response = requests.post(url, headers=headers, data=data, timeout=60)
-        print(f"   Response: {response.status_code}")
-        
-        if response.status_code == 200:
-            return jsonify({'success': True, 'message': 'API working!'}), 200
-        else:
-            return jsonify({'error': f'API failed: {response.status_code}', 'body': response.text[:300]}), response.status_code
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/', methods=['GET'])
+@app.route("/", methods=["GET"])
 def root():
-    """Root endpoint"""
-    return jsonify({
-        'service': 'Sketchify ML Endpoint',
-        'version': '3.0.0',
-        'status': 'running',
-        'mode': 'Stability AI image-to-image with parameter-based prompts',
-        'backend': 'Stability AI',
-        'endpoints': {
-            '/health': 'Health check',
-            '/api/sketch': 'POST - Convert image to sketch style',
-            '/api/styles': 'GET - List available styles'
-        },
-        'description': 'All UI parameters (style, medium, brush, intensity, stroke, smoothing, contrast, saturation, hue) are combined into a comprehensive prompt that controls the style transfer'
-    }), 200
+    return jsonify({"service": "Sketchify ML", "mode": "OpenCV"}), 200
 
-if __name__ == '__main__':
-    port = int(os.getenv('PORT', 5001))
-    debug = os.getenv('FLASK_ENV') != 'production'
-    app.run(host='0.0.0.0', port=port, debug=debug)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5001)))
