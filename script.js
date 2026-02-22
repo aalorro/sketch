@@ -1315,15 +1315,15 @@
       overlay.data[i*4+3]=255;
     }
     ctx.putImageData(overlay,0,0);
-    // Dots for stippling
+    // Dots for stippling - larger, more visible
     ctx.fillStyle = '#000';
-    const step = Math.max(2, 8-stroke);
+    const step = Math.max(2, 6 - stroke * 0.5);  // Denser stippling
     for(let y=0; y<h; y+=step) {
       for(let x=0; x<w; x+=step) {
         const i = y*w+x;
         const val = edges[i]/255;
-        if(val > 0.1) {
-          const r = Math.max(0.5, val*(0.5+stroke*0.3));
+        if(val > 0.05) {  // Lower threshold
+          const r = Math.max(1.5, val*(1.0 + stroke*0.5));  // Larger dots
           ctx.beginPath();
           ctx.arc(x, y, r, 0, Math.PI*2);
           ctx.fill();
@@ -1350,12 +1350,12 @@
     const overlay = ctx.createImageData(w,h);
     const d = overlay.data;
     
-    // Build tonal charcoal drawing from grayscale values
-    // Light paper (248) to dark charcoal (40)
+    // Build richer, darker charcoal drawing from grayscale values
+    // Light paper (250) to very dark charcoal (20)
     for(let i=0; i<w*h; i++) {
       const grayVal = gray[i];
-      // Map grayscale to charcoal tones
-      const tonalValue = 248 - (grayVal / 255) * 208;
+      // Darker range: amplify the shadows
+      const tonalValue = 250 - (grayVal / 255) * 230;
       
       d[i*4] = Math.round(tonalValue);
       d[i*4+1] = Math.round(tonalValue);
@@ -1364,17 +1364,17 @@
     }
     ctx.putImageData(overlay, 0, 0);
     
-    // Add edge definition only where there are strong edges
+    // Add stronger edge definition
     ctx.globalCompositeOperation = 'multiply';
-    ctx.globalAlpha = 0.3;
-    ctx.fillStyle = '#1a1a1a';
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = '#000000';
     
-    const edgeStep = Math.max(4, 10 - stroke * 0.4);
+    const edgeStep = Math.max(3, 8 - stroke * 0.5);
     for(let y=0; y<h; y+=edgeStep) {
       for(let x=0; x<w; x+=edgeStep) {
         const idx = y*w + x;
-        if(idx < w*h && edges[idx] > 70) {
-          ctx.fillRect(x, y, 2, 2);
+        if(idx < w*h && edges[idx] > 50) {
+          ctx.fillRect(x, y, 3, 3);
         }
       }
     }
@@ -1445,16 +1445,16 @@
       overlay.data[i*4+3]=255;
     }
     ctx.putImageData(overlay,0,0);
-    // Add spot blacks and varied line weights (smaller, more natural spots)
+    // Add aggressive spot blacks in dark areas (increased coverage)
     ctx.globalCompositeOperation = 'darken';
     ctx.fillStyle = '#000';
-    const step = Math.max(6, 14-stroke);
+    const step = Math.max(5, 12 - stroke);
     for(let y=step/2; y<h; y+=step) {
       for(let x=step/2; x<w; x+=step) {
         const idx = (y*w + x) * 4;
-        // Only add spot blacks where there's shadow/dark areas
-        if(gray[Math.floor(y)*w + Math.floor(x)] < 120 && rand()>0.6) {
-          const radius = 0.8 + rand()*1.2;
+        // More frequent spot blacks (0.4 instead of 0.6)
+        if(gray[Math.floor(y)*w + Math.floor(x)] < 140 && rand()>0.4) {
+          const radius = 1 + (rand()>0.5 ? 1 : 0);
           ctx.beginPath();
           ctx.arc(x, y, radius, 0, Math.PI*2);
           ctx.fill();
@@ -1559,37 +1559,27 @@
     }
     ctx.putImageData(overlay,0,0);
     
-    // Fine crosshatching only where there are edges
+    // Fine, dense crosshatching pattern
     ctx.globalCompositeOperation = 'multiply';
-    ctx.strokeStyle = '#111';
+    ctx.strokeStyle = '#222';
     ctx.lineCap = 'round';
-    const step = Math.max(3, 9 - stroke);
-    ctx.lineWidth = 0.4 + stroke*0.15;
+    const step = Math.max(2, 6 - stroke);  // Finer lines
+    ctx.lineWidth = 0.3 + stroke*0.1;
     
     // Horizontal hatching
     for(let y=0; y<h; y+=step) {
-      for(let x=0; x<w; x+=step) {
-        const idx = y*w + x;
-        if(idx < w*h && edges[idx] > thr) {
-          ctx.beginPath();
-          ctx.moveTo(x - step, y);
-          ctx.lineTo(x + step, y);
-          ctx.stroke();
-        }
-      }
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
     }
     
     // Vertical hatching for cross pattern
-    for(let y=0; y<h; y+=step) {
-      for(let x=0; x<w; x+=step) {
-        const idx = y*w + x;
-        if(idx < w*h && edges[idx] > thr - 5) {
-          ctx.beginPath();
-          ctx.moveTo(x, y - step);
-          ctx.lineTo(x, y + step);
-          ctx.stroke();
-        }
-      }
+    for(let x=0; x<w; x+=step) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, h);
+      ctx.stroke();
     }
     
     ctx.globalCompositeOperation = 'source-over';
@@ -1611,21 +1601,37 @@
     const overlay = ctx.createImageData(w,h);
     for(let i=0; i<w*h; i++) {
       let e = edges[i];
-      if(rand()<0.1) e = rand()*255;
+      // More aggressive glitch corruption
+      if(rand()<0.15) e = rand()*255;  // Increased from 0.1
       const v = 255 - Math.min(255, Math.max(0, e - thr));
       overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v;
       overlay.data[i*4+3]=255;
     }
     ctx.putImageData(overlay,0,0);
-    // Add scanlines and jitter
+    
+    // Add aggressive scanlines and glitch artifacts
     ctx.globalCompositeOperation = 'overlay';
-    ctx.strokeStyle = 'rgba(200,50,50,0.2)';
+    ctx.strokeStyle = 'rgba(200,50,50,0.3)';
+    ctx.lineWidth = 1;
     for(let y=0; y<h; y+=2) {
-      ctx.beginPath();
-      ctx.moveTo(0 + rand()*3, y);
-      ctx.lineTo(w + rand()*3, y);
-      ctx.stroke();
+      if(rand()>0.5) {
+        ctx.beginPath();
+        ctx.moveTo(0 + rand()*5, y);
+        ctx.lineTo(w + rand()*5, y);
+        ctx.stroke();
+      }
     }
+    
+    // Add random offset effects
+    ctx.globalCompositeOperation = 'lighten';
+    ctx.fillStyle = 'rgba(100,200,255,0.2)';
+    for(let y=0; y<h; y+=Math.max(5, 15-stroke)) {
+      if(rand()>0.6) {
+        const shift = Math.random() * 10 - 5;
+        ctx.fillRect(shift + rand()*20, y, Math.random()*30, 3);
+      }
+    }
+    
     ctx.globalCompositeOperation = 'source-over';
   }
 

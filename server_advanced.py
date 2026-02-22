@@ -31,33 +31,34 @@ def render_stippling(gray, edges, intensity, stroke):
     h, w = gray.shape
     result = np.full((h, w), 255, dtype=np.uint8)
     
-    step = max(2, int(8 - stroke))
+    step = max(2, int(6 - stroke * 0.5))  # Smaller step = denser stippling
     for y in range(0, h, step):
         for x in range(0, w, step):
             val = edges[y, x] / 255.0
-            if val > 0.1:
-                radius = max(0.5, val * (0.5 + stroke * 0.3))
+            if val > 0.05:  # Lower threshold for more dots
+                radius = max(1.5, val * (1.0 + stroke * 0.5))  # Larger dots
                 cv2.circle(result, (x, y), int(radius), 0, -1)
     return result
 
 
 def render_charcoal(gray, edges, intensity, stroke):
-    """Charcoal: tonal range from light paper to dark charcoal"""
+    """Charcoal: richer, darker tonal range from light paper to dark charcoal"""
     h, w = gray.shape
     result = np.zeros((h, w), dtype=np.uint8)
     
-    # Map grayscale to charcoal tones (248=light -> 40=dark)
+    # Map grayscale to darker charcoal tones (250=light -> 20=very dark)
     for i in range(h):
         for j in range(w):
             gray_val = gray[i, j]
-            tonal_value = 248 - (gray_val / 255.0) * 208
+            # Darker range: amplify shadows
+            tonal_value = 250 - (gray_val / 255.0) * 230
             result[i, j] = int(tonal_value)
     
-    # Add edge emphasis where needed
+    # Add stronger edge emphasis
     for i in range(h):
         for j in range(w):
-            if edges[i, j] > 70:
-                result[i, j] = max(0, result[i, j] - 30)
+            if edges[i, j] > 50:
+                result[i, j] = max(0, result[i, j] - 50)
     
     return result
 
@@ -89,19 +90,19 @@ def render_ink_wash(gray, edges, intensity, stroke):
 
 
 def render_comic(gray, edges, intensity, stroke):
-    """Comic/manga: high-contrast binary with spot blacks"""
+    """Comic/manga: high-contrast binary with aggressive spot blacks"""
     h, w = gray.shape
     thr = 5 + (11 - intensity) * 8
     
     # Binary edges
     result = np.where(edges > thr, 255, 0).astype(np.uint8)
     
-    # Add spot blacks in dark areas
-    step = max(6, 14 - stroke)
+    # Add more spot blacks in dark areas (increased coverage)
+    step = max(5, 12 - stroke)
     for y in range(step // 2, h, step):
         for x in range(step // 2, w, step):
-            if gray[y, x] < 120 and random.random() > 0.6:
-                radius = 1 if random.random() > 0.5 else 2
+            if gray[y, x] < 140 and random.random() > 0.4:  # More frequent (was 0.6)
+                radius = 1 if random.random() > 0.4 else 2  # More variety
                 cv2.circle(result, (x, y), radius, 0, -1)
     return result
 
@@ -153,17 +154,17 @@ def render_academic(gray, edges, intensity, stroke):
 
 
 def render_etching(gray, edges, intensity, stroke):
-    """Etching: fine crosshatching pattern"""
+    """Etching: fine, dense crosshatching pattern"""
     h, w = gray.shape
     thr = 5 + (11 - intensity) * 5
     result = np.where(edges > thr, 255, 0).astype(np.uint8)
     
-    # Add fine crosshatching
-    step = max(3, 9 - stroke)
+    # Add fine, detailed crosshatching (smaller step = finer lines)
+    step = max(2, 6 - stroke)  # Finer than before
     for y in range(0, h, step):
-        cv2.line(result, (0, y), (w, y), 100, 1)
+        cv2.line(result, (0, y), (w, y), max(0, 100 - stroke * 10), 1)
     for x in range(0, w, step):
-        cv2.line(result, (x, 0), (x, h), 100, 1)
+        cv2.line(result, (x, 0), (x, h), max(0, 100 - stroke * 10), 1)
     return result
 
 
@@ -176,22 +177,31 @@ def render_minimalist(gray, edges, intensity, stroke):
 
 
 def render_glitch(gray, edges, intensity, stroke):
-    """Glitch: digital artifacts and randomness"""
+    """Glitch: boosted digital artifacts and randomness"""
     h, w = gray.shape
     thr = 10 + (11 - intensity) * 12
     
     edges_copy = edges.copy().astype(np.float32)
+    
+    # More glitch corruption (10% instead of 5%)
     for i in range(h):
         for j in range(w):
-            if random.random() < 0.05:
+            if random.random() < 0.15:  # Increased glitch corruption
                 edges_copy[i, j] = random.random() * 255
     
     result = 255 - np.minimum(255, np.maximum(0, edges_copy - thr)).astype(np.uint8)
     
-    # Add scanline effect
+    # Add more aggressive scanline effect
     for y in range(0, h, 2):
-        if random.random() > 0.7:
-            result[y, :] = np.clip(result[y, :].astype(int) - 30, 0, 255).astype(np.uint8)
+        if random.random() > 0.5:
+            result[y, :] = np.clip(result[y, :].astype(int) - 60, 0, 255).astype(np.uint8)
+    
+    # Add color shift simulation (RGB channel offset)
+    for y in range(0, h, random.randint(5, 15)):
+        if random.random() > 0.6:
+            shift = random.randint(-3, 3)
+            result[y, :] = np.roll(result[y, :], shift)
+    
     return result
 
 
