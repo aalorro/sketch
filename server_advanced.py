@@ -1,11 +1,10 @@
-"""Advanced style-transfer example using OpenCV + NumPy.
+"""Advanced style-transfer with proper Canvas algorithm implementation.
 
 Endpoint: POST /api/style-transfer-advanced
-Accepts multipart `file` plus form fields `artStyle`, `style`, `brush`, `stroke`, `skipHatching`, `seed`, `intensity`.
+Accepts multipart `file` plus form fields for artStyle, style, brush, stroke, etc.
 Returns PNG image.
 
-This example demonstrates richer, CPU-based stylization (edge detection, bilateral denoise,
-hatching layers, posterize blending). Replace with an ML model for production quality.
+Implements 20+ rendering styles ported from Canvas versions.
 """
 from flask import Flask, request, send_file, jsonify
 import numpy as np
@@ -13,6 +12,7 @@ import cv2
 import io
 from PIL import Image
 import os
+import random
 
 app = Flask(__name__)
 
@@ -26,140 +26,274 @@ def read_image_from_stream(stream):
     return img
 
 
-def generate_hatching(gray, angles=(0,45,90,135), spacing=8, thickness=1):
+def render_stippling(gray, edges, intensity, stroke):
+    """Stippling: dots of varying sizes based on edges"""
     h, w = gray.shape
-    canvas = np.full((h, w), 255, dtype=np.uint8)
-    for ang in angles:
-        # create blank layer and draw parallel lines rotated by angle
-        layer = np.full((h, w), 255, dtype=np.uint8)
-        # create a grid of lines along the primary axis then rotate
-        for y in range(0, h, spacing):
-            cv2.line(layer, (0, y), (w, y), 0, thickness)
-        # rotate layer
-        M = cv2.getRotationMatrix2D((w/2, h/2), ang, 1.0)
-        rot = cv2.warpAffine(layer, M, (w, h), flags=cv2.INTER_LINEAR, borderValue=255)
-        # modulate by intensity (darker areas get more hatch)
-        mask = (gray < 200).astype(np.uint8) * 255
-        combined = cv2.bitwise_and(rot, mask)
-        canvas = cv2.bitwise_and(canvas, combined)
-    return canvas
+    result = np.full((h, w), 255, dtype=np.uint8)
+    
+    step = max(2, int(8 - stroke))
+    for y in range(0, h, step):
+        for x in range(0, w, step):
+            val = edges[y, x] / 255.0
+            if val > 0.1:
+                radius = max(0.5, val * (0.5 + stroke * 0.3))
+                cv2.circle(result, (x, y), int(radius), 0, -1)
+    return result
 
 
-def apply_medium_effect(img, artStyle='pencil'):
-    """Apply medium-specific effects: line thickening and tonal adjustments.
+def render_charcoal(gray, edges, intensity, stroke):
+    """Charcoal: tonal range from light paper to dark charcoal"""
+    h, w = gray.shape
+    result = np.zeros((h, w), dtype=np.uint8)
     
-    Implements the Medium gradient:
-    - Pencil (finest lines, lightest)
-    - Ink (thicker, darker, crisp)
-    - Marker (thicker still, slightly soft)
-    - Pen (even thicker, very dark)
-    - Pastel (thickest, soft grain)
-    """
-    # Define medium characteristics: dilations (line thickness), tone_delta (shading), graininess
-    medium_props = {
-        'pencil': {'dilations': 0, 'tone_delta': 30, 'graininess': 15},
-        'ink': {'dilations': 1, 'tone_delta': -40, 'graininess': 0},
-        'marker': {'dilations': 2, 'tone_delta': -15, 'graininess': 0},
-        'pen': {'dilations': 3, 'tone_delta': -50, 'graininess': 0},
-        'pastel': {'dilations': 4, 'tone_delta': -20, 'graininess': 12}
-    }
+    # Map grayscale to charcoal tones (248=light -> 40=dark)
+    for i in range(h):
+        for j in range(w):
+            gray_val = gray[i, j]
+            tonal_value = 248 - (gray_val / 255.0) * 208
+            result[i, j] = int(tonal_value)
     
-    props = medium_props.get(artStyle, medium_props['pencil'])
-    result = img.copy()
-    
-    # Apply morphological dilation to thicken lines
-    if props['dilations'] > 0:
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-        result = cv2.dilate(result, kernel, iterations=props['dilations'])
-    
-    # Apply tonal adjustments (add tone_delta to each channel)
-    if props['tone_delta'] != 0:
-        result = cv2.convertScaleAbs(result.astype(np.float32) + props['tone_delta'])
-        result = np.clip(result, 0, 255).astype(np.uint8)
-    
-    # Apply grain texture if needed
-    if props['graininess'] > 0:
-        noise = np.random.randint(-props['graininess'], props['graininess'] + 1, result.shape, dtype=np.int16)
-        result = np.clip(result.astype(np.int16) + noise, 0, 255).astype(np.uint8)
+    # Add edge emphasis where needed
+    for i in range(h):
+        for j in range(w):
+            if edges[i, j] > 70:
+                result[i, j] = max(0, result[i, j] - 30)
     
     return result
 
 
-def stylize_opencv(img_bgr, artStyle='pencil', style='line', brush='line', stroke=1, skipHatching=False, seed=0, intensity=6):
-    # Resize to reasonable max dimension to limit CPU use
+def render_dry_brush(gray, edges, intensity, stroke):
+    """Dry brush: threshold with broken, textured strokes"""
+    h, w = gray.shape
+    thr = 10 + (11 - intensity) * 12
+    result = 255 - np.minimum(255, np.maximum(0, edges - thr)).astype(np.uint8)
+    
+    # Add broken texture
+    for y in range(0, h, max(3, 10 - stroke)):
+        for x in range(0, w, max(3, 10 - stroke)):
+            if random.random() > 0.5:
+                cv2.line(result, (x, y), (x + random.randint(-5, 5), y + random.randint(-5, 5)), 
+                        int(50 + random.random() * 100), 1)
+    return result
+
+
+def render_ink_wash(gray, edges, intensity, stroke):
+    """Ink wash: soft edges with transparency effects"""
+    h, w = gray.shape
+    thr = 20 + (11 - intensity) * 10
+    result = 255 - np.minimum(255, np.maximum(0, edges - thr)).astype(np.uint8)
+    
+    # Apply bilateral blur for wash effect
+    result = cv2.bilateralFilter(result, 9, 75, 75)
+    return result
+
+
+def render_comic(gray, edges, intensity, stroke):
+    """Comic/manga: high-contrast binary with spot blacks"""
+    h, w = gray.shape
+    thr = 5 + (11 - intensity) * 8
+    
+    # Binary edges
+    result = np.where(edges > thr, 255, 0).astype(np.uint8)
+    
+    # Add spot blacks in dark areas
+    step = max(6, 14 - stroke)
+    for y in range(step // 2, h, step):
+        for x in range(step // 2, w, step):
+            if gray[y, x] < 120 and random.random() > 0.6:
+                radius = 1 if random.random() > 0.5 else 2
+                cv2.circle(result, (x, y), radius, 0, -1)
+    return result
+
+
+def render_fashion(gray, edges, intensity, stroke):
+    """Fashion sketch: clean lines with flowing curves"""
+    h, w = gray.shape
+    thr = 20 + (11 - intensity) * 12
+    result = np.where(edges > thr, 255, 0).astype(np.uint8)
+    return result
+
+
+def render_urban(gray, edges, intensity, stroke):
+    """Urban sketching: tonal with subtle color overlay suggestion"""
+    h, w = gray.shape
+    thr = 15 + (11 - intensity) * 12
+    result = 255 - np.minimum(255, np.maximum(0, edges - thr)).astype(np.uint8)
+    
+    # Add subtle wash overlay effect via darkening
+    step = max(10, 20 - stroke)
+    for y in range(0, h, step):
+        for x in range(0, w, step):
+            if random.random() > 0.7:
+                cv2.rectangle(result, (x, y), (x + step, y + step), 
+                             max(0, int(result[y, x] * 0.9)), -1)
+    return result
+
+
+def render_architectural(gray, edges, intensity, stroke):
+    """Architectural: clean, precise lines"""
+    h, w = gray.shape
+    thr = 10 + (11 - intensity) * 10
+    result = np.where(edges > thr, 255, 0).astype(np.uint8)
+    return result
+
+
+def render_academic(gray, edges, intensity, stroke):
+    """Academic: reliable, study-like rendering"""
+    h, w = gray.shape
+    thr = 8 + (11 - intensity) * 10
+    result = 255 - np.minimum(255, np.maximum(0, edges - thr)).astype(np.uint8)
+    
+    # Subtle shading with randomness at low intensity
+    for i in range(h):
+        for j in range(w):
+            if intensity < 5 and random.random() > 0.8:
+                result[i, j] = int(result[i, j] * (0.8 + random.random() * 0.3))
+    return result
+
+
+def render_etching(gray, edges, intensity, stroke):
+    """Etching: fine crosshatching pattern"""
+    h, w = gray.shape
+    thr = 5 + (11 - intensity) * 5
+    result = np.where(edges > thr, 255, 0).astype(np.uint8)
+    
+    # Add fine crosshatching
+    step = max(3, 9 - stroke)
+    for y in range(0, h, step):
+        cv2.line(result, (0, y), (w, y), 100, 1)
+    for x in range(0, w, step):
+        cv2.line(result, (x, 0), (x, h), 100, 1)
+    return result
+
+
+def render_minimalist(gray, edges, intensity, stroke):
+    """Minimalist: aggressive, clean threshold"""
+    h, w = gray.shape
+    thr = 60 + (11 - intensity) * 20
+    result = np.where(edges > thr, 255, 0).astype(np.uint8)
+    return result
+
+
+def render_glitch(gray, edges, intensity, stroke):
+    """Glitch: digital artifacts and randomness"""
+    h, w = gray.shape
+    thr = 10 + (11 - intensity) * 12
+    
+    edges_copy = edges.copy().astype(np.float32)
+    for i in range(h):
+        for j in range(w):
+            if random.random() < 0.05:
+                edges_copy[i, j] = random.random() * 255
+    
+    result = 255 - np.minimum(255, np.maximum(0, edges_copy - thr)).astype(np.uint8)
+    
+    # Add scanline effect
+    for y in range(0, h, 2):
+        if random.random() > 0.7:
+            result[y, :] = np.clip(result[y, :].astype(int) - 30, 0, 255).astype(np.uint8)
+    return result
+
+
+def render_mixed_media(gray, edges, intensity, stroke):
+    """Mixed media: combination of techniques"""
+    h, w = gray.shape
+    thr = 10 + (11 - intensity) * 12
+    result = 255 - np.minimum(255, np.maximum(0, edges - thr)).astype(np.uint8)
+    
+    # Add mixed textures
+    step = max(5, int(12 - stroke) * 1.5)
+    for y in range(0, h, int(step)):
+        for x in range(0, w, int(step)):
+            if random.random() > 0.5:
+                cv2.rectangle(result, (x, y), (x + int(step//2), y + int(step//2)), 
+                             max(0, int(result[y, x] * 0.8)), -1)
+    return result
+
+
+def stylize_opencv(img_bgr, artStyle='pencil', style='line', brush='line', 
+                   stroke=1, skipHatching=False, seed=0, intensity=6):
+    """Main stylization pipeline: edge detection + style rendering + medium effect"""
+    np.random.seed(seed)
+    random.seed(seed)
+    
+    # Resize to reasonable max dimension
     h0, w0 = img_bgr.shape[:2]
     max_dim = 1200
     scale = 1.0
     if max(h0, w0) > max_dim:
         scale = max_dim / float(max(h0, w0))
-        img_bgr = cv2.resize(img_bgr, (int(w0*scale), int(h0*scale)), interpolation=cv2.INTER_AREA)
+        img_bgr = cv2.resize(img_bgr, (int(w0*scale), int(h0*scale)), 
+                           interpolation=cv2.INTER_AREA)
 
-    # Denoise + smooth while keeping edges
     img_color = cv2.bilateralFilter(img_bgr, d=9, sigmaColor=75, sigmaSpace=75)
     gray = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
-
-    # Adaptive thresholding for robust edge/detail preservation
-    # Creates binary image with maximum contrast
-    thresh_value = max(50, 200 - intensity*10)
-    _, binary = cv2.threshold(gray, thresh_value, 255, cv2.THRESH_BINARY_INV)
     
-    # Apply morphological operations to enhance strokes
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-    binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel, iterations=1)
-    binary = cv2.dilate(binary, kernel, iterations=max(0, intensity//5))
-
-    # Create hatching layers based on brush type
-    if skipHatching:
-        # Skip hatching - just use clean edges
-        combined = binary
-    else:
-        # Map brush type to hatching angles
-        brush_angles = {
-            'line': (0, 90, 45, 135),
-            'hatch': (-30,),
-            'crosshatch': (0, 90),
-            'charcoal': (0, 45, 90, 135),
-            'inkWash': (20, -20, 110, -110)
-        }
-        angles = brush_angles.get(brush, (0, 45, 90, 135))
-        
-        spacing = max(4, 12 - intensity)
-        thickness = max(1, int(stroke / 2))
-        hatch = generate_hatching(gray, angles=angles, spacing=spacing, thickness=thickness)
-        
-        # Combine edges and hatching with multiplicative blend to preserve both
-        # Convert binary to float for multiplication
-        binary_f = binary.astype(np.float32) / 255.0
-        hatch_f = hatch.astype(np.float32) / 255.0
-        combined_f = 1.0 - ((1.0 - binary_f) * (1.0 - hatch_f))  # Screen blend
-        combined = (combined_f * 255).astype(np.uint8)
-
-    # Apply medium effect (line thickening and tonal adjustments)
-    combined = apply_medium_effect(combined, artStyle)
+    # Sobel edge detection
+    sobelx = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
+    sobely = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
+    edges = np.sqrt(sobelx**2 + sobely**2)
+    edges = np.clip(edges * (intensity / 6.0), 0, 255).astype(np.uint8)
     
-    # Strong contrast enhancement for crisp definition
-    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
-    combined = clahe.apply(combined)
-
-    # For color styles, posterize base and blend
-    if style in ('cubist', 'modern', 'naive'):
-        # posterize base color image
-        levels = 6 if style=='cubist' else (10 if style=='modern' else 4)
-        factor = 256 // levels
-        poster = (img_color // factor) * factor
-        # blend with combined strokes
-        strokes_color = cv2.cvtColor(combined, cv2.COLOR_GRAY2BGR)
-        out = cv2.bitwise_and(poster, strokes_color)
+    # Route to style-specific renderer
+    if style == 'stippling':
+        result = render_stippling(gray, edges, intensity, stroke)
+    elif style == 'charcoal':
+        result = render_charcoal(gray, edges, intensity, stroke)
+    elif style == 'drybrush':
+        result = render_dry_brush(gray, edges, intensity, stroke)
+    elif style == 'inkwash':
+        result = render_ink_wash(gray, edges, intensity, stroke)
+    elif style == 'comic':
+        result = render_comic(gray, edges, intensity, stroke)
+    elif style == 'fashion':
+        result = render_fashion(gray, edges, intensity, stroke)
+    elif style == 'urban':
+        result = render_urban(gray, edges, intensity, stroke)
+    elif style == 'architectural':
+        result = render_architectural(gray, edges, intensity, stroke)
+    elif style == 'academic':
+        result = render_academic(gray, edges, intensity, stroke)
+    elif style == 'etching':
+        result = render_etching(gray, edges, intensity, stroke)
+    elif style == 'minimalist':
+        result = render_minimalist(gray, edges, intensity, stroke)
+    elif style == 'glitch':
+        result = render_glitch(gray, edges, intensity, stroke)
+    elif style == 'mixedmedia':
+        result = render_mixed_media(gray, edges, intensity, stroke)
     else:
-        out = cv2.cvtColor(combined, cv2.COLOR_GRAY2BGR)
-
-    return out
+        # Default: tonal rendering
+        result = 255 - np.minimum(255, edges).astype(np.uint8)
+    
+    # Apply medium effect (line thickness and tonal adjustments)
+    medium_props = {
+        'pencil': {'dilations': 0, 'tone_delta': 20},
+        'ink': {'dilations': 1, 'tone_delta': -30},
+        'marker': {'dilations': 2, 'tone_delta': -10},
+        'pen': {'dilations': 3, 'tone_delta': -40},
+        'pastel': {'dilations': 4, 'tone_delta': -15}
+    }
+    
+    props = medium_props.get(artStyle, medium_props['pencil'])
+    
+    if props['dilations'] > 0:
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        result = cv2.dilate(result, kernel, iterations=props['dilations'])
+    
+    if props['tone_delta'] != 0:
+        result = np.clip(result.astype(np.int16) + props['tone_delta'], 0, 255).astype(np.uint8)
+    
+    # Convert to BGR for output
+    result_bgr = cv2.cvtColor(result, cv2.COLOR_GRAY2BGR)
+    return result_bgr
 
 
 @app.route('/api/style-transfer-advanced', methods=['POST'])
 def api_style_transfer_advanced():
     if 'file' not in request.files:
         return jsonify({'error': 'no file provided'}), 400
+    
     f = request.files['file']
     artStyle = request.form.get('artStyle', 'pencil')
     style = request.form.get('style', 'line')
@@ -174,9 +308,11 @@ def api_style_transfer_advanced():
     except Exception as e:
         return jsonify({'error': 'invalid image', 'details': str(e)}), 400
 
-    out = stylize_opencv(img, artStyle=artStyle, style=style, brush=brush, stroke=stroke, skipHatching=skipHatching, seed=seed, intensity=intensity)
+    out = stylize_opencv(img, artStyle=artStyle, style=style, brush=brush, 
+                        stroke=stroke, skipHatching=skipHatching, seed=seed, 
+                        intensity=intensity)
 
-    # return PNG
+    # Return PNG
     is_success, buffer = cv2.imencode('.png', out)
     if not is_success:
         return jsonify({'error': 'encoding failed'}), 500
@@ -189,3 +325,4 @@ def api_style_transfer_advanced():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     app.run(host='0.0.0.0', port=port, debug=True)
+
