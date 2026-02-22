@@ -1,9 +1,10 @@
 """
-Sketchify ML Endpoint - Image Processing Service
-Converts images to sketches using OpenCV image processing
+Sketchify ML Endpoint - Image-to-Image Style Transfer
+Uses Stability AI for high-quality style transfer with parameter-based prompts
 Deploy on Railway: https://railway.app
 
 Environment Variables:
+- STABILITY_API_KEY: Your Stability AI API key (from https://platform.stability.ai)
 - FLASK_ENV: production or development
 """
 
@@ -13,156 +14,207 @@ import base64
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import traceback
-import cv2
-import numpy as np
+import requests
 from io import BytesIO
 
 app = Flask(__name__)
 CORS(app)
 
+# Initialize Stability AI client
+API_KEY = os.getenv('STABILITY_API_KEY')
+STABILITY_API_URL = "https://api.stability.ai/v1/image-to-image/stable-diffusion-xl-1024-v1-0"
+
+if not API_KEY:
+    print("⚠️  WARNING: STABILITY_API_KEY not set in environment variables")
+else:
+    print("✓ Stability AI API key configured")
+
 # Sketch style prompts
 STYLE_PROMPTS = {
-    'realistic-pencil': 'highly detailed realistic pencil sketch with light shading',
+    'realistic-pencil': 'highly detailed realistic pencil sketch',
     'detailed-graphite': 'detailed graphite drawing with varied pencil weights',
     'fine-charcoal': 'fine charcoal sketch with soft blending',
     'soft-shading': 'soft shaded sketch with gentle gradients',
     'hard-edges': 'bold sketch with sharp, defined edges',
-    'comic-book': 'comic book style illustration with bold outlines and halftone dots',
-    'comic-bw': 'black and white comic book panel illustration',
+    'comic-book': 'comic book style illustration with bold outlines',
+    'comic-bw': 'black and white comic book illustration',
     'comic-color': 'colored comic book style illustration',
-    'cartoon': 'cartoon illustration with clean lines and simple shapes',
+    'cartoon': 'cartoon illustration with clean lines',
     'simple-lines': 'simple line art with minimal details',
-    'ink-drawing': 'professional ink drawing with flowing lines',
+    'ink-drawing': 'professional ink drawing',
     'pen-ink': 'pen and ink illustration style',
     'charcoal': 'charcoal drawing with rich blacks and grays',
     'chalk-sketch': 'chalk sketch on paper',
-    'oil-painting': 'oil painting style sketch with painterly brushstrokes',
-    'watercolor': 'watercolor sketch with flowing washes',
+    'oil-painting': 'oil painting style',
+    'watercolor': 'watercolor sketch style',
     'pastel': 'soft pastel sketch',
-    'engraving': 'classical engraving style with cross-hatching',
-    'etching': 'etching style with fine parallel lines',
-    'minimalist': 'minimalist line drawing with essential details only',
-    'geometric': 'geometric abstract sketch with angular shapes',
-    'stipple': 'pointillism stippled sketch with dots',
-    'crosshatch': 'cross-hatched sketch with intersecting lines',
-    'hatching': 'hatched sketch with parallel lines'
+    'engraving': 'classical engraving with cross-hatching',
+    'etching': 'etching style with fine lines',
+    'minimalist': 'minimalist line drawing',
+    'geometric': 'geometric abstract sketch',
+    'stipple': 'pointillism stippled effect',
+    'crosshatch': 'cross-hatched drawing',
+    'hatching': 'hatched drawing with parallel lines'
 }
 
+def build_style_prompt(params):
+    """
+    Build a comprehensive prompt from all UI parameters.
+    All parameters combined form the main instruction.
+    """
+    
+    # Extract all parameters
+    style = params.get('style', 'realistic-pencil')
+    medium = params.get('medium', 'all')
+    brush = params.get('brush', 'natural')
+    intensity = int(params.get('intensity', 50))
+    stroke = int(params.get('stroke', 50))
+    smoothing = int(params.get('smoothing', 50))
+    contrast = int(params.get('contrast', 0))
+    saturation = int(params.get('saturation', 0))
+    hue_shift = int(params.get('hueShift', 0))
+    colorize = params.get('colorize', 'false').lower() == 'true'
+    invert = params.get('invert', 'false').lower() == 'true'
+    skip_hatching = params.get('skipHatching', 'false').lower() == 'true'
+    user_prompt = params.get('prompt', '').strip()
+    
+    # Get base style description
+    style_desc = STYLE_PROMPTS.get(style, 'highly detailed sketch')
+    
+    # Build parameter-based prompt segments
+    prompt_parts = [style_desc]
+    
+    # Medium description
+    medium_map = {
+        'pencil': 'pencil medium',
+        'pen': 'pen medium',
+        'marker': 'marker medium',
+        'brush': 'brush medium',
+        'charcoal': 'charcoal medium',
+        'chalk': 'chalk medium',
+        'all': 'mixed media'
+    }
+    if medium in medium_map:
+        prompt_parts.append(medium_map[medium])
+    
+    # Brush style
+    brush_map = {
+        'natural': 'natural, organic brushwork',
+        'precise': 'precise, technical line work',
+        'loose': 'loose, expressive strokes',
+        'firm': 'firm, deliberate strokes',
+        'soft': 'soft, delicate touches'
+    }
+    if brush in brush_map:
+        prompt_parts.append(brush_map[brush])
+    
+    # Intensity (affects detail level and opacity)
+    if intensity > 75:
+        prompt_parts.append('highly detailed, dense detail level')
+    elif intensity > 50:
+        prompt_parts.append('moderate detail level')
+    else:
+        prompt_parts.append('minimal detail, simple rendering')
+    
+    # Stroke width
+    if stroke > 75:
+        prompt_parts.append('thick, bold strokes')
+    elif stroke > 50:
+        prompt_parts.append('medium stroke width')
+    else:
+        prompt_parts.append('thin, delicate strokes')
+    
+    # Smoothing
+    if smoothing > 75:
+        prompt_parts.append('very smooth, polished finish')
+    elif smoothing > 50:
+        prompt_parts.append('smooth, refined appearance')
+    else:
+        prompt_parts.append('textured, rough surface quality')
+    
+    # Contrast
+    if contrast > 20:
+        prompt_parts.append('high contrast between light and dark')
+    elif contrast < -20:
+        prompt_parts.append('low contrast, subtle tones')
+    
+    # Saturation
+    if saturation < -50:
+        prompt_parts.append('completely desaturated, grayscale')
+    elif saturation < -20:
+        prompt_parts.append('desaturated, muted colors')
+    elif saturation > 50:
+        prompt_parts.append('highly saturated, vibrant colors')
+    elif saturation > 20:
+        prompt_parts.append('rich, saturated colors')
+    
+    # Color adjustments
+    if colorize:
+        prompt_parts.append('colorized effect')
+    
+    if invert:
+        prompt_parts.append('inverted colors, negative effect')
+    
+    # Hatching
+    if not skip_hatching:
+        prompt_parts.append('with cross-hatching and tonal shading')
+    else:
+        prompt_parts.append('minimal hatching, emphasis on line work')
+    
+    # Quality descriptors
+    prompt_parts.append('professional quality, artistic rendering')
+    
+    # User's custom prompt (minimal effect)
+    if user_prompt:
+        prompt_parts.append(f'including elements: {user_prompt}')
+    
+    # Combine all parts
+    combined_prompt = ', '.join(prompt_parts)
+    
+    return combined_prompt
+
 @app.route('/health', methods=['GET'])
 def health():
     """Health check endpoint"""
     return jsonify({
-        'status': 'ok',
+        'status': 'ok' if API_KEY else 'warning',
         'service': 'Sketchify ML Endpoint',
-        'version': '2.0.0'
-    }), 200
-
-def apply_sketch_style(image_bgr, style):
-    """Apply sketch effect to image using OpenCV"""
-    try:
-        gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
-        
-        # Apply different effects based on selected style
-        if style in ['realistic-pencil', 'detailed-graphite']:
-            # Pencil sketch effect
-            _, sketch = cv2.pencilSketch(image_bgr, sigma_s=60, sigma_r=0.4, shade_factor=0.02)
-            return sketch
-            
-        elif style in ['fine-charcoal', 'soft-shading', 'charcoal']:
-            # Soft charcoal effect using blur + invert combination
-            blurred = cv2.GaussianBlur(gray, (21, 21), 0)
-            inverted = 255 - blurred
-            sketch = cv2.divide(gray, inverted, scale=256.0)
-            return cv2.cvtColor(sketch.astype(np.uint8), cv2.COLOR_GRAY2BGR)
-            
-        elif style in ['hard-edges', 'simple-lines']:
-            # Edge detection for clean lines
-            edges = cv2.Canny(gray, 50, 150)
-            return cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
-            
-        elif style in ['ink-drawing', 'pen-ink', 'comic-bw']:
-            # Ink effect using adaptive thresholding (strong blacks and whites)
-            threshold = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                             cv2.THRESH_BINARY, 9, 8)
-            return cv2.cvtColor(threshold, cv2.COLOR_GRAY2BGR)
-            
-        elif style in ['engraving', 'etching', 'crosshatch', 'hatching']:
-            # Etching effect with high-pass filtered edges
-            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-            gradient = cv2.morphologyEx(gray, cv2.MORPH_GRADIENT, kernel)
-            return cv2.cvtColor(gradient, cv2.COLOR_GRAY2BGR)
-            
-        elif style in ['stipple']:
-            # Pointillism effect
-            threshold = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                             cv2.THRESH_BINARY, 5, 2)
-            return cv2.cvtColor(threshold, cv2.COLOR_GRAY2BGR)
-            
-        elif style in ['comic-book', 'comic-color', 'cartoon']:
-            # Cartoon effect: bilateral filter + edge detection
-            bilateral = cv2.bilateralFilter(image_bgr, 9, 75, 75)
-            edges = cv2.Canny(gray, 80, 150)
-            edges = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
-            return cv2.addWeighted(bilateral, 0.7, edges, 0.3, 0)
-            
-        elif style == 'minimalist':
-            # Minimalist: strong threshold for silhouettes
-            _, threshold = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
-            return cv2.cvtColor(threshold, cv2.COLOR_GRAY2BGR)
-            
-        elif style == 'geometric':
-            # Geometric: edge detection + morphology
-            edges = cv2.Canny(gray, 100, 200)
-            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
-            morph = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
-            return cv2.cvtColor(morph, cv2.COLOR_GRAY2BGR)
-            
-        else:
-            # Default: pencil sketch
-            _, sketch = cv2.pencilSketch(image_bgr, sigma_s=60, sigma_r=0.4, shade_factor=0.02)
-            return sketch
-            
-    except Exception as e:
-        print(f"❌ Error applying style {style}: {e}")
-        raise
-
-@app.route('/health', methods=['GET'])
-def health():
-    """Health check endpoint"""
-    return jsonify({
-        'status': 'ok',
-        'service': 'Sketchify ML Endpoint',
-        'version': '2.0.0'
+        'version': '3.0.0',
+        'api_configured': bool(API_KEY)
     }), 200
 
 @app.route('/api/sketch', methods=['POST'])
 def generate_sketch():
     """
-    Convert an image to sketch style using OpenCV image processing
+    Convert an image to sketch style using Stability AI image-to-image
     
     Accepts:
-    1. FormData with 'file' field (multipart/form-data) - from web app
-    2. JSON with 'image' field (base64_encoded_image_string)
+    1. FormData with 'file' field + all style parameters
+    2. JSON with 'image' field (base64) + parameters
     
     Returns:
     Binary PNG image (not JSON)
     """
     try:
+        if not API_KEY:
+            return jsonify({
+                'success': False,
+                'error': 'Stability AI API not configured. Set STABILITY_API_KEY environment variable.'
+            }), 500
+
         # Handle both FormData (multipart) and JSON requests
         image_data = None
-        style = 'realistic-pencil'
-
-        # Check if it's FormData (file upload) first
+        
+        # Check if it's FormData (file upload)
         if request.method == 'POST' and request.files and 'file' in request.files:
             file = request.files['file']
             if not file or file.filename == '':
                 return jsonify({'success': False, 'error': 'No file provided'}), 400
             
             try:
-                # Read file and encode to base64
+                # Read file as binary
                 file_content = file.read()
-                image_data = base64.b64encode(file_content).decode('utf-8')
-                style = request.form.get('style', 'realistic-pencil')
+                image_data = file_content
                 print(f"✓ File received: {len(file_content)} bytes from {file.filename}")
             except Exception as e:
                 return jsonify({'success': False, 'error': f'Error reading file: {str(e)}'}), 400
@@ -174,58 +226,88 @@ def generate_sketch():
                 if not data:
                     return jsonify({'success': False, 'error': 'Request body is empty'}), 400
                 
-                image_data = data.get('image')
-                style = data.get('style', 'realistic-pencil')
+                image_b64 = data.get('image')
+                if not image_b64:
+                    return jsonify({'success': False, 'error': 'No image provided'}), 400
+                
+                image_data = base64.b64decode(image_b64)
             except Exception as e:
                 return jsonify({'success': False, 'error': f'Invalid request format: {str(e)}'}), 400
 
         if not image_data:
             return jsonify({'success': False, 'error': 'No image provided'}), 400
 
-        # Validate and decode image
-        try:
-            image_bytes = base64.b64decode(image_data)
-            nparr = np.frombuffer(image_bytes, np.uint8)
-            image_bgr = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            
-            if image_bgr is None:
-                raise ValueError("Failed to decode image")
-            
-            print(f"✓ Image loaded: {image_bgr.shape[1]}x{image_bgr.shape[0]} pixels")
-        except Exception as e:
-            return jsonify({'success': False, 'error': f'Invalid image data: {str(e)}'}), 400
+        # Build style prompt from all parameters
+        print(f"🎨 Building style prompt from parameters...")
+        style_prompt = build_style_prompt(request.form if request.form else request.get_json() or {})
+        print(f"📝 Generated prompt: {style_prompt[:100]}...")
 
-        # Apply sketch effect using OpenCV
-        print(f"🎨 Applying {style} effect to image...")
-        try:
-            processed = apply_sketch_style(image_bgr, style)
-            
-            # Encode result as PNG
-            success, buffer = cv2.imencode('.png', processed)
-            if not success:
-                raise ValueError("Failed to encode processed image")
-            
-            result_bytes = buffer.tobytes()
-            print(f"✓ Sketch effect applied successfully ({len(result_bytes)} bytes)")
-            
-            # Return as binary PNG blob
-            return send_file(
-                BytesIO(result_bytes),
-                mimetype='image/png',
-                as_attachment=False
-            )
-            
-        except Exception as e:
-            error_msg = f"Image processing error: {str(e)}"
-            print(f"❌ {error_msg}")
-            print(traceback.format_exc())
-            return jsonify({'success': False, 'error': error_msg}), 500
+        # Prepare request to Stability AI
+        print(f"🌐 Sending to Stability AI for image-to-image transformation...")
+        
+        files = {
+            'init_image': ('image.png', image_data, 'image/png')
+        }
+        
+        data = {
+            'prompt': style_prompt,
+            'cfg_scale': 7.0,  # Guidance scale - how much to follow the prompt
+            'clip_guidance_preset': 'NONE',
+            'sampler': 'K_EULER_ANCESTRAL',
+            'steps': 30,
+            'seed': 0  # For reproducibility
+        }
+        
+        headers = {
+            'authorization': f'Bearer {API_KEY}'
+        }
+        
+        response = requests.post(
+            STABILITY_API_URL,
+            headers=headers,
+            files=files,
+            data=data,
+            timeout=60
+        )
+        
+        if response.status_code != 200:
+            error_detail = response.text
+            print(f"❌ Stability AI error: {response.status_code}")
+            return jsonify({
+                'success': False,
+                'error': f'Stability AI error {response.status_code}: {error_detail}'
+            }), 500
+        
+        # Parse response
+        response_json = response.json()
+        
+        if 'artifacts' not in response_json or len(response_json['artifacts']) == 0:
+            return jsonify({
+                'success': False,
+                'error': 'No image generated by Stability AI'
+            }), 500
+        
+        # Get the generated image
+        image_base64 = response_json['artifacts'][0]['base64']
+        result_bytes = base64.b64decode(image_base64)
+        
+        print(f"✓ Sketch generated successfully ({len(result_bytes)} bytes)")
+        
+        # Return as binary PNG blob
+        return send_file(
+            BytesIO(result_bytes),
+            mimetype='image/png',
+            as_attachment=False
+        )
 
     except Exception as e:
         error_msg = str(e)
         print(f"❌ Error: {error_msg}")
         print(traceback.format_exc())
-        return jsonify({'success': False, 'error': error_msg}), 500
+        return jsonify({
+            'success': False,
+            'error': error_msg
+        }), 500
 
 @app.route('/api/styles', methods=['GET'])
 def get_styles():
@@ -241,15 +323,16 @@ def root():
     """Root endpoint"""
     return jsonify({
         'service': 'Sketchify ML Endpoint',
-        'version': '2.0.0',
+        'version': '3.0.0',
         'status': 'running',
-        'mode': 'OpenCV Image Processing (preserves original image content)',
+        'mode': 'Stability AI image-to-image with parameter-based prompts',
+        'backend': 'Stability AI',
         'endpoints': {
             '/health': 'Health check',
             '/api/sketch': 'POST - Convert image to sketch style',
             '/api/styles': 'GET - List available styles'
         },
-        'docs': 'Send POST to /api/sketch with FormData (file) or JSON {image: base64, style: sketch-style}'
+        'description': 'All UI parameters (style, medium, brush, intensity, stroke, smoothing, contrast, saturation, hue) are combined into a comprehensive prompt that controls the style transfer'
     }), 200
 
 if __name__ == '__main__':
