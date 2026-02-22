@@ -1,10 +1,9 @@
 """
-Sketchify ML Endpoint
-Converts images to sketches using OpenAI API
+Sketchify ML Endpoint - Image Processing Service
+Converts images to sketches using OpenCV image processing
 Deploy on Railway: https://railway.app
 
 Environment Variables:
-- OPENAI_API_KEY: Your OpenAI API key (sk-...)
 - FLASK_ENV: production or development
 """
 
@@ -13,30 +12,13 @@ import json
 import base64
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
-from openai import OpenAI
 import traceback
-import httpx
-import requests
+import cv2
+import numpy as np
 from io import BytesIO
 
 app = Flask(__name__)
 CORS(app)
-
-# Initialize OpenAI client
-try:
-    api_key = os.getenv('OPENAI_API_KEY')
-    if not api_key:
-        print("⚠️  WARNING: OPENAI_API_KEY not set in environment variables")
-    
-    # Create custom httpx client without proxies to avoid Railway proxy issues
-    http_client = httpx.Client(mounts=None)
-    client = OpenAI(api_key=api_key, http_client=http_client)
-    print("✓ OpenAI client initialized successfully")
-except Exception as e:
-    print(f"❌ Failed to initialize OpenAI client: {e}")
-    import traceback
-    traceback.print_exc()
-    client = None
 
 # Sketch style prompts
 STYLE_PROMPTS = {
@@ -72,38 +54,105 @@ def health():
     return jsonify({
         'status': 'ok',
         'service': 'Sketchify ML Endpoint',
-        'version': '1.0.0'
+        'version': '2.0.0'
+    }), 200
+
+def apply_sketch_style(image_bgr, style):
+    """Apply sketch effect to image using OpenCV"""
+    try:
+        gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
+        
+        # Apply different effects based on selected style
+        if style in ['realistic-pencil', 'detailed-graphite']:
+            # Pencil sketch effect
+            _, sketch = cv2.pencilSketch(image_bgr, sigma_s=60, sigma_r=0.4, shade_factor=0.02)
+            return sketch
+            
+        elif style in ['fine-charcoal', 'soft-shading', 'charcoal']:
+            # Soft charcoal effect using blur + invert combination
+            blurred = cv2.GaussianBlur(gray, (21, 21), 0)
+            inverted = 255 - blurred
+            sketch = cv2.divide(gray, inverted, scale=256.0)
+            return cv2.cvtColor(sketch.astype(np.uint8), cv2.COLOR_GRAY2BGR)
+            
+        elif style in ['hard-edges', 'simple-lines']:
+            # Edge detection for clean lines
+            edges = cv2.Canny(gray, 50, 150)
+            return cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
+            
+        elif style in ['ink-drawing', 'pen-ink', 'comic-bw']:
+            # Ink effect using adaptive thresholding (strong blacks and whites)
+            threshold = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                                             cv2.THRESH_BINARY, 9, 8)
+            return cv2.cvtColor(threshold, cv2.COLOR_GRAY2BGR)
+            
+        elif style in ['engraving', 'etching', 'crosshatch', 'hatching']:
+            # Etching effect with high-pass filtered edges
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+            gradient = cv2.morphologyEx(gray, cv2.MORPH_GRADIENT, kernel)
+            return cv2.cvtColor(gradient, cv2.COLOR_GRAY2BGR)
+            
+        elif style in ['stipple']:
+            # Pointillism effect
+            threshold = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                                             cv2.THRESH_BINARY, 5, 2)
+            return cv2.cvtColor(threshold, cv2.COLOR_GRAY2BGR)
+            
+        elif style in ['comic-book', 'comic-color', 'cartoon']:
+            # Cartoon effect: bilateral filter + edge detection
+            bilateral = cv2.bilateralFilter(image_bgr, 9, 75, 75)
+            edges = cv2.Canny(gray, 80, 150)
+            edges = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
+            return cv2.addWeighted(bilateral, 0.7, edges, 0.3, 0)
+            
+        elif style == 'minimalist':
+            # Minimalist: strong threshold for silhouettes
+            _, threshold = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
+            return cv2.cvtColor(threshold, cv2.COLOR_GRAY2BGR)
+            
+        elif style == 'geometric':
+            # Geometric: edge detection + morphology
+            edges = cv2.Canny(gray, 100, 200)
+            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+            morph = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
+            return cv2.cvtColor(morph, cv2.COLOR_GRAY2BGR)
+            
+        else:
+            # Default: pencil sketch
+            _, sketch = cv2.pencilSketch(image_bgr, sigma_s=60, sigma_r=0.4, shade_factor=0.02)
+            return sketch
+            
+    except Exception as e:
+        print(f"❌ Error applying style {style}: {e}")
+        raise
+
+@app.route('/health', methods=['GET'])
+def health():
+    """Health check endpoint"""
+    return jsonify({
+        'status': 'ok',
+        'service': 'Sketchify ML Endpoint',
+        'version': '2.0.0'
     }), 200
 
 @app.route('/api/sketch', methods=['POST'])
 def generate_sketch():
     """
-    Generate a sketch from an image using OpenAI's DALL-E 3
+    Convert an image to sketch style using OpenCV image processing
     
-    Accepts either:
+    Accepts:
     1. FormData with 'file' field (multipart/form-data) - from web app
     2. JSON with 'image' field (base64_encoded_image_string)
     
-    Response:
-    {
-        "success": true,
-        "sketch_url": "url_to_generated_sketch",
-        "description": "what was generated"
-    }
+    Returns:
+    Binary PNG image (not JSON)
     """
     try:
-        if not client:
-            return jsonify({
-                'success': False,
-                'error': 'OpenAI API not configured. Set OPENAI_API_KEY environment variable.'
-            }), 500
-
         # Handle both FormData (multipart) and JSON requests
         image_data = None
         style = 'realistic-pencil'
-        user_description = ''
 
-        # Check if it's FormData (file upload) first - avoid JSON parsing errors
+        # Check if it's FormData (file upload) first
         if request.method == 'POST' and request.files and 'file' in request.files:
             file = request.files['file']
             if not file or file.filename == '':
@@ -114,7 +163,6 @@ def generate_sketch():
                 file_content = file.read()
                 image_data = base64.b64encode(file_content).decode('utf-8')
                 style = request.form.get('style', 'realistic-pencil')
-                user_description = request.form.get('description', '')
                 print(f"✓ File received: {len(file_content)} bytes from {file.filename}")
             except Exception as e:
                 return jsonify({'success': False, 'error': f'Error reading file: {str(e)}'}), 400
@@ -122,154 +170,62 @@ def generate_sketch():
         # Otherwise expect JSON with base64 image
         else:
             try:
-                # Safely get JSON without triggering parse errors on non-JSON requests
                 data = request.get_json(force=False, silent=False)
                 if not data:
                     return jsonify({'success': False, 'error': 'Request body is empty'}), 400
                 
                 image_data = data.get('image')
                 style = data.get('style', 'realistic-pencil')
-                user_description = data.get('description', '')
             except Exception as e:
                 return jsonify({'success': False, 'error': f'Invalid request format: {str(e)}'}), 400
 
         if not image_data:
             return jsonify({'success': False, 'error': 'No image provided'}), 400
 
-        # Validate image is properly base64 encoded
+        # Validate and decode image
         try:
             image_bytes = base64.b64decode(image_data)
-            img_format = 'jpeg'
-            print(f"✓ Image validated: {len(image_bytes)} bytes")
-        except Exception as e:
-            return jsonify({
-                'success': False,
-                'error': f'Invalid image data: {str(e)}'
-            }), 400
-
-        # Get style prompt
-        style_prompt = STYLE_PROMPTS.get(style, 'realistic pencil sketch')
-
-        # Step 1: Use GPT-4 Vision to analyze the image and create sketch description
-        print(f"📸 Analyzing image for sketch generation...")
-        
-        vision_prompt = f"""You are an expert artist. Analyze this image and describe what an EXCELLENT {style_prompt} version would look like.
-
-Focus on:
-- Main subject and composition
-- Key details and textures to capture
-- Shading and toning approach
-- Appropriate line weights
-- Emotional tone
-
-Be specific but concise (2-3 sentences max). The description will be used to generate the sketch.
-{f"User description: {user_description}" if user_description else ""}"""
-
-        # Step 1: Use GPT-4 Vision to analyze the image and create detailed sketch description
-        print(f"📸 Analyzing image for sketch generation...")
-        
-        vision_prompt = f"""You are an expert artist and image analyst. Analyze this image in EXTREME DETAIL and provide a complete blueprint for recreating it as a {style_prompt}.
-
-CRITICAL: You must describe the EXACT composition, subjects, and arrangement in the image. This will be used to recreate the SAME scene in sketch form.
-
-Provide:
-1. EXACT description of main subjects (people, objects, animals, etc.) - including their poses, positioning, and relative sizes
-2. Specific physical characteristics (facial features if people, textures, details)
-3. Background elements and their positioning
-4. Exact composition and layout
-5. Lighting direction and shadow placement
-6. Line quality and shading approach for {style_prompt}
-7. Emotional tone and atmosphere
-
-IMPORTANT: Your description will be used to generate a {style_prompt} that RECREATES THIS EXACT IMAGE. Be extremely specific about WHO/WHAT is in the image."""
-        
-        vision_response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": vision_prompt
-                        },
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{image_data}"
-                            }
-                        }
-                    ]
-                }
-            ],
-            max_tokens=500
-        )
-
-        vision_description = vision_response.choices[0].message.content
-        print(f"✓ Vision analysis complete: {vision_description[:100]}...")
-
-        # Step 2: Generate sketch using DALL-E 3 with explicit instruction to recreate the exact image
-        print(f"🎨 Generating {style} sketch...")
-
-        dalle_prompt = f"""You are creating a {style_prompt} that EXACTLY RECREATES the following scene. Preserve all elements, composition, and positioning from the original.
-
-RECREATION BLUEPRINT:
-{vision_description}
-
-CRITICAL INSTRUCTIONS:
-1. Recreate the EXACT same composition and subjects
-2. Maintain relative sizes and positioning of all elements
-3. Preserve the original photograph/scene layout
-4. Use {style_prompt} techniques to render it
-5. Output must be monochromatic or limited palette appropriate for {style}
-6. High quality, professional, detailed artwork
-7. Do NOT create a different scene - recreate THIS specific image"""
-
-        dalle_response = client.images.generate(
-            model="dall-e-3",
-            prompt=dalle_prompt,
-            size="1024x1024",
-            quality="hd",
-            n=1
-        )
-
-        sketch_url = dalle_response.data[0].url
-
-        print(f"✓ Sketch generated successfully")
-
-        # Download the generated image from DALL-E URL
-        print(f"📥 Downloading sketch image...")
-        try:
-            image_response = requests.get(sketch_url, timeout=10)
-            image_response.raise_for_status()
-            image_data = image_response.content
+            nparr = np.frombuffer(image_bytes, np.uint8)
+            image_bgr = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
             
-            # Return as binary image blob (PNG format)
+            if image_bgr is None:
+                raise ValueError("Failed to decode image")
+            
+            print(f"✓ Image loaded: {image_bgr.shape[1]}x{image_bgr.shape[0]} pixels")
+        except Exception as e:
+            return jsonify({'success': False, 'error': f'Invalid image data: {str(e)}'}), 400
+
+        # Apply sketch effect using OpenCV
+        print(f"🎨 Applying {style} effect to image...")
+        try:
+            processed = apply_sketch_style(image_bgr, style)
+            
+            # Encode result as PNG
+            success, buffer = cv2.imencode('.png', processed)
+            if not success:
+                raise ValueError("Failed to encode processed image")
+            
+            result_bytes = buffer.tobytes()
+            print(f"✓ Sketch effect applied successfully ({len(result_bytes)} bytes)")
+            
+            # Return as binary PNG blob
             return send_file(
-                BytesIO(image_data),
+                BytesIO(result_bytes),
                 mimetype='image/png',
                 as_attachment=False
             )
-        except Exception as download_err:
-            print(f"⚠️  Warning: Could not download image from DALL-E URL: {download_err}")
-            # Fallback: return JSON with URL
-            return jsonify({
-                'success': True,
-                'sketch_url': sketch_url,
-                'description': vision_description,
-                'style': style,
-                'model': 'dall-e-3'
-            }), 200
+            
+        except Exception as e:
+            error_msg = f"Image processing error: {str(e)}"
+            print(f"❌ {error_msg}")
+            print(traceback.format_exc())
+            return jsonify({'success': False, 'error': error_msg}), 500
 
     except Exception as e:
         error_msg = str(e)
         print(f"❌ Error: {error_msg}")
         print(traceback.format_exc())
-        
-        return jsonify({
-            'success': False,
-            'error': error_msg
-        }), 500
+        return jsonify({'success': False, 'error': error_msg}), 500
 
 @app.route('/api/styles', methods=['GET'])
 def get_styles():
@@ -285,14 +241,15 @@ def root():
     """Root endpoint"""
     return jsonify({
         'service': 'Sketchify ML Endpoint',
-        'version': '1.0.0',
+        'version': '2.0.0',
         'status': 'running',
+        'mode': 'OpenCV Image Processing (preserves original image content)',
         'endpoints': {
             '/health': 'Health check',
-            '/api/sketch': 'POST - Generate sketch from image',
+            '/api/sketch': 'POST - Convert image to sketch style',
             '/api/styles': 'GET - List available styles'
         },
-        'docs': 'Send POST to /api/sketch with {image: base64, style: sketch-style}'
+        'docs': 'Send POST to /api/sketch with FormData (file) or JSON {image: base64, style: sketch-style}'
     }), 200
 
 if __name__ == '__main__':
