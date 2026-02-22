@@ -78,12 +78,9 @@ def generate_sketch():
     """
     Generate a sketch from an image using OpenAI's DALL-E 3
     
-    Request body:
-    {
-        "image": "base64_encoded_image_string",
-        "style": "realistic-pencil",  (optional, default: realistic-pencil)
-        "description": "optional additional description"
-    }
+    Accepts either:
+    1. FormData with 'file' field (multipart/form-data) - from web app
+    2. JSON with 'image' field (base64_encoded_image_string)
     
     Response:
     {
@@ -99,32 +96,53 @@ def generate_sketch():
                 'error': 'OpenAI API not configured. Set OPENAI_API_KEY environment variable.'
             }), 500
 
-        # Parse request
-        data = request.json
-        if not data:
-            return jsonify({'success': False, 'error': 'Request body is empty'}), 400
+        # Handle both FormData (multipart) and JSON requests
+        image_data = None
+        style = 'realistic-pencil'
+        user_description = ''
 
-        image_data = data.get('image')
+        # Check if it's FormData (file upload)
+        if 'file' in request.files:
+            file = request.files['file']
+            if not file:
+                return jsonify({'success': False, 'error': 'No file provided'}), 400
+            
+            # Read file and encode to base64
+            file_content = file.read()
+            image_data = base64.b64encode(file_content).decode('utf-8')
+            style = request.form.get('style', 'realistic-pencil')
+            user_description = request.form.get('description', '')
+            print(f"✓ File received: {len(file_content)} bytes from {file.filename}")
+        
+        # Otherwise expect JSON with base64 image
+        elif request.is_json:
+            data = request.get_json()
+            if not data:
+                return jsonify({'success': False, 'error': 'Request body is empty'}), 400
+            
+            image_data = data.get('image')
+            style = data.get('style', 'realistic-pencil')
+            user_description = data.get('description', '')
+        
+        else:
+            return jsonify({'success': False, 'error': 'Request must be FormData with file or JSON with image'}), 400
+
         if not image_data:
             return jsonify({'success': False, 'error': 'No image provided'}), 400
-
-        style = data.get('style', 'realistic-pencil')
-        user_description = data.get('description', '')
-
-        # Get style prompt
-        style_prompt = STYLE_PROMPTS.get(style, 'realistic pencil sketch')
 
         # Validate image is properly base64 encoded
         try:
             image_bytes = base64.b64decode(image_data)
-            # Assume JPEG format for OpenAI - can be inferred from data
             img_format = 'jpeg'
-            print(f"✓ Image received: {len(image_bytes)} bytes")
+            print(f"✓ Image validated: {len(image_bytes)} bytes")
         except Exception as e:
             return jsonify({
                 'success': False,
-                'error': f'Invalid base64 image: {str(e)}'
+                'error': f'Invalid image data: {str(e)}'
             }), 400
+
+        # Get style prompt
+        style_prompt = STYLE_PROMPTS.get(style, 'realistic pencil sketch')
 
         # Step 1: Use GPT-4 Vision to analyze the image and create sketch description
         print(f"📸 Analyzing image for sketch generation...")
