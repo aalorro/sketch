@@ -280,11 +280,11 @@ def stylize_opencv(img_bgr, artStyle='pencil', style='line', brush='line',
     
     # Apply medium effect (line thickness and tonal adjustments)
     medium_props = {
-        'pencil': {'dilations': 0, 'tone_delta': 20},
-        'ink': {'dilations': 1, 'tone_delta': -30},
-        'marker': {'dilations': 2, 'tone_delta': -10},
-        'pen': {'dilations': 3, 'tone_delta': -40},
-        'pastel': {'dilations': 4, 'tone_delta': -15}
+        'pencil': {'dilations': 0, 'tone_delta': 15},
+        'ink': {'dilations': 1, 'tone_delta': -10},
+        'marker': {'dilations': 1, 'tone_delta': -20},
+        'pen': {'dilations': 2, 'tone_delta': -30},
+        'pastel': {'dilations': 3, 'tone_delta': -35}
     }
     
     props = medium_props.get(artStyle, medium_props['pencil'])

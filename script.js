@@ -964,11 +964,11 @@
     
     // Define medium characteristics: { iterations: line thickening, toneDelta: shading adjustment }
     const mediumProps = {
-      'pencil': { dilations: 0, toneDelta: 30, graininess: 20 },      // Finest lines, lightest
-      'ink': { dilations: 1, toneDelta: -40, graininess: 0 },         // Thicker, darker, crisp
-      'marker': { dilations: 2, toneDelta: -15, graininess: 0 },      // Thicker still, slightly soft
-      'pen': { dilations: 3, toneDelta: -50, graininess: 0 },         // Even thicker, very dark
-      'pastel': { dilations: 4, toneDelta: -20, graininess: 15 }      // Thickest, soft grain
+      'pencil': { dilations: 0, toneDelta: 15, graininess: 20 },      // Finest lines, light
+      'ink': { dilations: 1, toneDelta: -10, graininess: 0 },         // Slight thickening, subtle darkening
+      'marker': { dilations: 1, toneDelta: -20, graininess: 0 },      // Same thickness, more tone
+      'pen': { dilations: 2, toneDelta: -30, graininess: 0 },         // Moderate thickening, darker
+      'pastel': { dilations: 3, toneDelta: -35, graininess: 15 }      // Thickest, soft grain, darkest
     };
     
     const props = mediumProps[medium] || mediumProps['pencil'];
