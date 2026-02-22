@@ -22,12 +22,16 @@ CORS(app)
 
 # Initialize Stability AI client
 API_KEY = os.getenv('STABILITY_API_KEY')
+# Using the correct endpoint for image-to-image
 STABILITY_API_URL = "https://api.stability.ai/v1/image-to-image/stable-diffusion-xl-1024-v1-0"
+ENGINE_ID = "stable-diffusion-xl-1024-v1-0"
 
 if not API_KEY:
     print("⚠️  WARNING: STABILITY_API_KEY not set in environment variables")
+    print("   Get one at: https://platform.stability.ai/")
 else:
-    print("✓ Stability AI API key configured")
+    print(f"✓ Stability AI API key configured (length: {len(API_KEY)} chars)")
+    print(f"✓ Using engine: {ENGINE_ID}")
 
 # Sketch style prompts
 STYLE_PROMPTS = {
@@ -244,6 +248,9 @@ def generate_sketch():
 
         # Prepare request to Stability AI
         print(f"🌐 Sending to Stability AI for image-to-image transformation...")
+        print(f"   Endpoint: {STABILITY_API_URL}")
+        print(f"   API Key set: {bool(API_KEY)}")
+        print(f"   Image size: {len(image_data)} bytes")
         
         files = {
             'init_image': ('image.png', image_data, 'image/png')
@@ -251,16 +258,19 @@ def generate_sketch():
         
         data = {
             'prompt': style_prompt,
-            'cfg_scale': 7.0,  # Guidance scale - how much to follow the prompt
+            'cfg_scale': 7.0,
             'clip_guidance_preset': 'NONE',
             'sampler': 'K_EULER_ANCESTRAL',
             'steps': 30,
-            'seed': 0  # For reproducibility
+            'seed': 0
         }
         
         headers = {
-            'authorization': f'Bearer {API_KEY}'
+            'authorization': f'Bearer {API_KEY}',
+            'accept': 'application/json'
         }
+        
+        print(f"   Headers: authorization={bool(API_KEY)}, accept=application/json")
         
         response = requests.post(
             STABILITY_API_URL,
@@ -270,12 +280,24 @@ def generate_sketch():
             timeout=60
         )
         
+        print(f"   Response status: {response.status_code}")
+        
         if response.status_code != 200:
             error_detail = response.text
             print(f"❌ Stability AI error: {response.status_code}")
+            print(f"   Response: {error_detail[:500]}")
+            
+            # Try to parse JSON error if available
+            try:
+                error_json = response.json()
+                if 'message' in error_json:
+                    error_detail = error_json['message']
+            except:
+                pass
+            
             return jsonify({
                 'success': False,
-                'error': f'Stability AI error {response.status_code}: {error_detail}'
+                'error': f'Stability AI error {response.status_code}: {error_detail[:200]}'
             }), 500
         
         # Parse response
