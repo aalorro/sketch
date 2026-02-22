@@ -404,6 +404,53 @@
   // Reset button
   document.getElementById('resetAll').addEventListener('click', () => {
     console.log('Reset button clicked');
+    
+    // Clear images and canvases FIRST
+    currentFiles = [];
+    currentImageIndex = 0;
+    singleImage = null;
+    lastResults = [];
+    undoStack.length = 0;
+    redoStack.length = 0;
+    currentRenderedImage = null; // Clear stored rendered image
+    panOffsetX = 0; // Reset pan
+    panOffsetY = 0;
+    zoomLevel = 1.0; // Reset zoom
+    
+    // Clear file input
+    if(fileEl){
+      fileEl.value = '';
+    }
+    
+    // Explicitly clear and reset canvases
+    if(preview){
+      const ctx = preview.getContext('2d');
+      // Set canvas to default size
+      const res = parseInt(document.getElementById('resolution').value || '1024', 10);
+      const aspect = document.getElementById('aspect').value || '1:1';
+      const [cw, ch] = aspectToWH(aspect, res);
+      preview.width = cw;
+      preview.height = ch;
+      ctx.clearRect(0, 0, cw, ch);
+      console.log('Cleared preview canvas');
+    }
+    
+    if(original){
+      const octx = original.getContext('2d');
+      const res = parseInt(document.getElementById('resolution').value || '1024', 10);
+      const aspect = document.getElementById('aspect').value || '1:1';
+      const [cw, ch] = aspectToWH(aspect, res);
+      original.width = cw;
+      original.height = ch;
+      octx.clearRect(0, 0, cw, ch);
+      console.log('Cleared original canvas');
+    }
+    
+    // Update nav display
+    if(typeof updateImageNavDisplay === 'function'){
+      updateImageNavDisplay();
+    }
+    
     // Set all controls to their default values
     document.getElementById('artStyle').value = 'pencil';
     document.getElementById('style').value = 'contour';
@@ -428,39 +475,7 @@
     document.getElementById('mlUrl').value = 'https://api.example.com/ml-sketch';
     document.getElementById('useServer').checked = false;
     document.getElementById('serverUrl').value = 'http://localhost:5001/api/style-transfer-advanced';
-    
-    // Clear images and canvases
-    currentFiles = [];
-    currentImageIndex = 0;
-    singleImage = null;
-    lastResults = [];
-    undoStack.length = 0;
-    redoStack.length = 0;
-    currentRenderedImage = null; // Clear stored rendered image
-    panOffsetX = 0; // Reset pan
-    panOffsetY = 0;
-    zoomLevel = 1.0; // Reset zoom
     updateZoomDisplay();
-    console.log('Cleared files and canvas');
-    
-    // Update nav display
-    if(typeof updateImageNavDisplay === 'function'){
-      updateImageNavDisplay();
-    }
-    
-    // Clear file input
-    if(fileEl){
-      fileEl.value = '';
-    }
-    
-    // Clear canvases
-    if(preview && original){
-      const ctx = preview.getContext('2d');
-      ctx.clearRect(0, 0, preview.width, preview.height);
-      const octx = original.getContext('2d');
-      octx.clearRect(0, 0, original.width, original.height);
-      console.log('Cleared canvases');
-    }
     
     // Show notification
     const notification = document.createElement('div');
