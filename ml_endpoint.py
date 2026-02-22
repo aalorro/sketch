@@ -15,6 +15,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from openai import OpenAI
 import traceback
+import httpx
 
 app = Flask(__name__)
 CORS(app)
@@ -24,9 +25,15 @@ try:
     api_key = os.getenv('OPENAI_API_KEY')
     if not api_key:
         print("⚠️  WARNING: OPENAI_API_KEY not set in environment variables")
-    client = OpenAI(api_key=api_key)
+    
+    # Create custom httpx client without proxies to avoid Railway proxy issues
+    http_client = httpx.Client(mounts=None)
+    client = OpenAI(api_key=api_key, http_client=http_client)
+    print("✓ OpenAI client initialized successfully")
 except Exception as e:
     print(f"❌ Failed to initialize OpenAI client: {e}")
+    import traceback
+    traceback.print_exc()
     client = None
 
 # Sketch style prompts
