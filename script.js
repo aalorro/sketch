@@ -436,6 +436,11 @@
     lastResults = [];
     undoStack.length = 0;
     redoStack.length = 0;
+    currentRenderedImage = null; // Clear stored rendered image
+    panOffsetX = 0; // Reset pan
+    panOffsetY = 0;
+    zoomLevel = 1.0; // Reset zoom
+    updateZoomDisplay();
     console.log('Cleared files and canvas');
     
     // Update nav display
