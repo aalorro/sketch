@@ -11,11 +11,13 @@ Environment Variables:
 import os
 import json
 import base64
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from openai import OpenAI
 import traceback
 import httpx
+import requests
+from io import BytesIO
 
 app = Flask(__name__)
 CORS(app)
@@ -210,13 +212,29 @@ High quality, detailed, professional artwork."""
 
         print(f"✓ Sketch generated successfully")
 
-        return jsonify({
-            'success': True,
-            'sketch_url': sketch_url,
-            'description': vision_description,
-            'style': style,
-            'model': 'dall-e-3'
-        }), 200
+        # Download the generated image from DALL-E URL
+        print(f"📥 Downloading sketch image...")
+        try:
+            image_response = requests.get(sketch_url, timeout=10)
+            image_response.raise_for_status()
+            image_data = image_response.content
+            
+            # Return as binary image blob (PNG format)
+            return send_file(
+                BytesIO(image_data),
+                mimetype='image/png',
+                as_attachment=False
+            )
+        except Exception as download_err:
+            print(f"⚠️  Warning: Could not download image from DALL-E URL: {download_err}")
+            # Fallback: return JSON with URL
+            return jsonify({
+                'success': True,
+                'sketch_url': sketch_url,
+                'description': vision_description,
+                'style': style,
+                'model': 'dall-e-3'
+            }), 200
 
     except Exception as e:
         error_msg = str(e)
