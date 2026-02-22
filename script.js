@@ -837,7 +837,7 @@
       default: renderDefault(ctx, w, h, edges, gray, intensity, stroke, rand); break;
     }
 
-    // Apply Medium (artStyle) effects
+    // Apply Medium (artStyle) effects - includes line thickening and shading
     applyMediumEffect(ctx, w, h, art);
     
     // Apply Brush effects
@@ -950,62 +950,75 @@
     const imgData = ctx.getImageData(0, 0, w, h);
     const d = imgData.data;
     
-    if(medium === 'pencil'){
-      // Pencil: lighter, slightly grainy, more delicate
+    // Define medium characteristics: { iterations: line thickening, toneDelta: shading adjustment }
+    const mediumProps = {
+      'pencil': { dilations: 0, toneDelta: 30, graininess: 20 },      // Finest lines, lightest
+      'ink': { dilations: 1, toneDelta: -40, graininess: 0 },         // Thicker, darker, crisp
+      'marker': { dilations: 2, toneDelta: -15, graininess: 0 },      // Thicker still, slightly soft
+      'pen': { dilations: 3, toneDelta: -50, graininess: 0 },         // Even thicker, very dark
+      'pastel': { dilations: 4, toneDelta: -20, graininess: 15 }      // Thickest, soft grain
+    };
+    
+    const props = mediumProps[medium] || mediumProps['pencil'];
+    
+    // Apply line thickening via dilation (morphological operation)
+    if(props.dilations > 0){
+      dilateMask(d, w, h, props.dilations);
+    }
+    
+    // Apply tonal adjustments (shading)
+    for(let i=0; i<d.length; i+=4){
+      d[i] = Math.max(0, Math.min(255, d[i] + props.toneDelta));     // R
+      d[i+1] = Math.max(0, Math.min(255, d[i+1] + props.toneDelta)); // G
+      d[i+2] = Math.max(0, Math.min(255, d[i+2] + props.toneDelta)); // B
+    }
+    
+    // Apply grain texture if needed
+    if(props.graininess > 0){
       for(let i=0; i<d.length; i+=4){
-        d[i] = Math.min(255, d[i] + 30);     // lighter R
-        d[i+1] = Math.min(255, d[i+1] + 30); // lighter G
-        d[i+2] = Math.min(255, d[i+2] + 30); // lighter B
-      }
-      // Add slight grain texture
-      for(let i=0; i<d.length; i+=4){
-        const noise = Math.random() * 20 - 10;
+        const noise = Math.random() * props.graininess - props.graininess/2;
         d[i] = Math.max(0, Math.min(255, d[i] + noise));
         d[i+1] = Math.max(0, Math.min(255, d[i+1] + noise));
         d[i+2] = Math.max(0, Math.min(255, d[i+2] + noise));
       }
-    } else if(medium === 'ink'){
-      // Ink: darker, more saturated, crisp
-      for(let i=0; i<d.length; i+=4){
-        const avg = (d[i] + d[i+1] + d[i+2]) / 3;
-        d[i] = Math.max(0, d[i] - 40);     // darker R
-        d[i+1] = Math.max(0, d[i+1] - 40); // darker G
-        d[i+2] = Math.max(0, d[i+2] - 40); // darker B
-      }
-    } else if(medium === 'marker'){
-      // Marker: bold, slightly softer edges, more opaque
-      for(let i=0; i<d.length; i+=4){
-        if(d[i+3] > 100){  // only if not transparent
-          d[i] = Math.max(0, d[i] - 15);     // slightly darker
-          d[i+1] = Math.max(0, d[i+1] - 15);
-          d[i+2] = Math.max(0, d[i+2] - 15);
-        }
-      }
-      // Add slight blur/softness by averaging with neighbors (simple box)
-      const newData = new Uint8ClampedArray(d);
-      for(let y=1; y<h-1; y++){
-        for(let x=1; x<w-1; x++){
-          const idx = (y*w + x) * 4;
-          const up = ((y-1)*w + x) * 4;
-          const down = ((y+1)*w + x) * 4;
-          const left = (y*w + (x-1)) * 4;
-          const right = (y*w + (x+1)) * 4;
-          newData[idx] = (d[idx] + d[up] + d[down] + d[left] + d[right]) / 5;
-          newData[idx+1] = (d[idx+1] + d[up+1] + d[down+1] + d[left+1] + d[right+1]) / 5;
-          newData[idx+2] = (d[idx+2] + d[up+2] + d[down+2] + d[left+2] + d[right+2]) / 5;
-        }
-      }
-      for(let i=0; i<d.length; i++) d[i] = newData[i];
-    } else if(medium === 'pen'){
-      // Pen: crisp, slight pressure variation, very dark
-      for(let i=0; i<d.length; i+=4){
-        d[i] = Math.max(0, d[i] - 50);     // very dark
-        d[i+1] = Math.max(0, d[i+1] - 50);
-        d[i+2] = Math.max(0, d[i+2] - 50);
-      }
     }
     
     ctx.putImageData(imgData, 0, 0);
+  }
+
+  function dilateMask(data, w, h, iterations){
+    // Morphological dilation: expands dark pixels to thicken lines
+    for(let iter=0; iter<iterations; iter++){
+      const newData = new Uint8ClampedArray(data);
+      for(let y=0; y<h; y++){
+        for(let x=0; x<w; x++){
+          const idx = (y*w + x) * 4;
+          const r = data[idx], g = data[idx+1], b = data[idx+2];
+          const brightness = (r + g + b) / 3;
+          
+          // If this pixel is dark (part of sketch), check neighbors and darken them too
+          if(brightness < 200){
+            // Expand to 4-connected neighbors
+            const neighbors = [
+              (y > 0) ? (y-1)*w + x : null,
+              (y < h-1) ? (y+1)*w + x : null,
+              (x > 0) ? y*w + (x-1) : null,
+              (x < w-1) ? y*w + (x+1) : null
+            ];
+            
+            for(let n of neighbors){
+              if(n !== null){
+                newData[n*4] = Math.min(newData[n*4], r);
+                newData[n*4+1] = Math.min(newData[n*4+1], g);
+                newData[n*4+2] = Math.min(newData[n*4+2], b);
+              }
+            }
+          }
+        }
+      }
+      // Copy back to original data
+      for(let i=0; i<data.length; i++) data[i] = newData[i];
+    }
   }
 
   function applyBrushEffect(ctx, w, h, brush, stroke, intensity, edges, rand){
