@@ -1,26 +1,54 @@
-"""Sketchify ML Endpoint - Local OpenCV Image Processing"""
-import os, cv2, numpy as np, base64, traceback
+"""Sketchify ML Endpoint - Local Pillow Image Processing"""
+import os, base64, traceback
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from io import BytesIO
+from PIL import Image, ImageFilter, ImageOps, ImageEnhance
 
 app = Flask(__name__)
 CORS(app)
 
-print("? OpenCV engine ready (local mode)")
+print("? Pillow engine ready")
+
+def apply_pencil_sketch(img):
+    img = img.convert("RGB")
+    gray = ImageOps.grayscale(img)
+    inv = ImageOps.invert(gray)
+    blur = inv.filter(ImageFilter.GaussianBlur(21))
+    inv_blur = ImageOps.invert(blur)
+    return Image.blend(gray, inv_blur, 0.5)
+
+def apply_charcoal(img):
+    img = img.convert("RGB")
+    gray = ImageOps.grayscale(img)
+    return gray.filter(ImageFilter.FIND_EDGES)
+
+def apply_ink(img):
+    img = img.convert("RGB")
+    gray = ImageOps.grayscale(img)
+    return ImageOps.posterize(ImageEnhance.Contrast(gray).enhance(2), 4)
 
 def process_sketch(img, params):
-    h,w = img.shape[:2]
-    if max(h,w) > 1024: img = cv2.resize(img, (int(w*1024/max(h,w)), int(h*1024/max(h,w))))
+    style = params.get("style", "realistic-pencil")
+    invert = params.get("invert") in [True, "true"]
     
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    inv = 255 - gray
-    blur = cv2.GaussianBlur(inv, (21,21), 0)
-    inv_blur = 255 - blur
-    result = cv2.divide(gray, inv_blur, scale=256)
+    max_dim = max(img.size)
+    if max_dim > 1024:
+        scale = 1024 / max_dim
+        img = img.resize((int(img.width*scale), int(img.height*scale)), Image.Resampling.LANCZOS)
     
-    if params.get("invert") in [True, "true"]: result = 255 - result
-    return np.uint8(result)
+    if "pencil" in style.lower():
+        result = apply_pencil_sketch(img)
+    elif "charcoal" in style.lower():
+        result = apply_charcoal(img)
+    elif "ink" in style.lower():
+        result = apply_ink(img)
+    else:
+        result = apply_pencil_sketch(img)
+    
+    if result.mode != "L": result = ImageOps.grayscale(result)
+    if invert: result = ImageOps.invert(result)
+    return result
 
 @app.route("/health", methods=["GET"])
 def health():
@@ -29,28 +57,32 @@ def health():
 @app.route("/api/sketch", methods=["POST"])
 def generate():
     try:
+        img = None
         if "file" in request.files:
-            f = request.files["file"]
-            img_arr = np.frombuffer(f.read(), np.uint8)
-            img = cv2.imdecode(img_arr, cv2.IMREAD_COLOR)
+            img = Image.open(BytesIO(request.files["file"].read()))
         else:
-            data = request.get_json()
-            img_bytes = base64.b64decode(data.get("image",""))
-            img_arr = np.frombuffer(img_bytes, np.uint8)
-            img = cv2.imdecode(img_arr, cv2.IMREAD_COLOR)
+            data = request.get_json() or {}
+            if "image" in data:
+                img = Image.open(BytesIO(base64.b64decode(data["image"])))
         
-        if img is None: return jsonify({"error": "Bad image"}), 400
-        params = request.form if request.form else request.get_json() or {}
+        if not img: return jsonify({"error": "No image"}), 400
+        params = request.form if request.form else (request.get_json() or {})
         result = process_sketch(img, params)
-        _, png = cv2.imencode(".png", result)
-        return send_file(BytesIO(png.tobytes()), mimetype="image/png")
+        
+        output = BytesIO()
+        result.save(output, "PNG")
+        output.seek(0)
+        return send_file(output, mimetype="image/png")
     except Exception as e:
-        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+
+@app.route("/api/styles", methods=["GET"])
+def styles():
+    return jsonify({"styles": ["realistic-pencil", "charcoal", "ink-drawing"]}), 200
 
 @app.route("/", methods=["GET"])
 def root():
-    return jsonify({"service": "Sketchify ML", "mode": "OpenCV"}), 200
+    return jsonify({"service": "Sketchify ML", "mode": "Pillow"}), 200
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5001)))
