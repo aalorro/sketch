@@ -67,16 +67,42 @@ def build_style_prompt(params):
     All parameters combined form the main instruction.
     """
     
-    # Extract all parameters
+    # Extract all parameters - convert safely to int/float
     style = params.get('style', 'realistic-pencil')
     medium = params.get('medium', 'all')
     brush = params.get('brush', 'natural')
-    intensity = int(params.get('intensity', 50))
-    stroke = int(params.get('stroke', 50))
-    smoothing = int(params.get('smoothing', 50))
-    contrast = int(params.get('contrast', 0))
-    saturation = int(params.get('saturation', 0))
-    hue_shift = int(params.get('hueShift', 0))
+    
+    # Handle both int and float values
+    try:
+        intensity = int(float(params.get('intensity', 50)))
+    except (ValueError, TypeError):
+        intensity = 50
+    
+    try:
+        stroke = int(float(params.get('stroke', 50)))
+    except (ValueError, TypeError):
+        stroke = 50
+    
+    try:
+        smoothing = int(float(params.get('smoothing', 50)))
+    except (ValueError, TypeError):
+        smoothing = 50
+    
+    try:
+        contrast = int(float(params.get('contrast', 0)))
+    except (ValueError, TypeError):
+        contrast = 0
+    
+    try:
+        saturation = int(float(params.get('saturation', 0)))
+    except (ValueError, TypeError):
+        saturation = 0
+    
+    try:
+        hue_shift = int(float(params.get('hueShift', 0)))
+    except (ValueError, TypeError):
+        hue_shift = 0
+    
     colorize = params.get('colorize', 'false').lower() == 'true'
     invert = params.get('invert', 'false').lower() == 'true'
     skip_hatching = params.get('skipHatching', 'false').lower() == 'true'
