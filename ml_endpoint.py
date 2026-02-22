@@ -296,7 +296,9 @@ def generate_sketch():
             'accept': 'application/json'
         }
         
-        print(f"   Headers: authorization={bool(API_KEY)}, accept=application/json")
+        print(f"   Headers: authorization={'Yes' if API_KEY else 'NO - MISSING!'}, accept=application/json")
+        print(f"   API_KEY length: {len(API_KEY) if API_KEY else 0}")
+        print(f"   API_KEY first 10 chars: {API_KEY[:10] if API_KEY else 'NOT SET'}")
         
         response = requests.post(
             STABILITY_API_URL,
@@ -311,15 +313,18 @@ def generate_sketch():
         if response.status_code != 200:
             error_detail = response.text
             print(f"❌ Stability AI error: {response.status_code}")
-            print(f"   Response: {error_detail[:500]}")
+            print(f"   Full response body: {error_detail[:1000]}")
+            print(f"   URL: {STABILITY_API_URL}")
+            print(f"   Engine ID: {ENGINE_ID}")
             
             # Try to parse JSON error if available
             try:
                 error_json = response.json()
+                print(f"   Parsed JSON error: {json.dumps(error_json, indent=2)}")
                 if 'message' in error_json:
                     error_detail = error_json['message']
-            except:
-                pass
+            except Exception as json_err:
+                print(f"   Could not parse JSON: {json_err}")
             
             return jsonify({
                 'success': False,
