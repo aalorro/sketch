@@ -165,6 +165,24 @@ Focus on:
 Be specific but concise (2-3 sentences max). The description will be used to generate the sketch.
 {f"User description: {user_description}" if user_description else ""}"""
 
+        # Step 1: Use GPT-4 Vision to analyze the image and create detailed sketch description
+        print(f"📸 Analyzing image for sketch generation...")
+        
+        vision_prompt = f"""You are an expert artist and image analyst. Analyze this image in EXTREME DETAIL and provide a complete blueprint for recreating it as a {style_prompt}.
+
+CRITICAL: You must describe the EXACT composition, subjects, and arrangement in the image. This will be used to recreate the SAME scene in sketch form.
+
+Provide:
+1. EXACT description of main subjects (people, objects, animals, etc.) - including their poses, positioning, and relative sizes
+2. Specific physical characteristics (facial features if people, textures, details)
+3. Background elements and their positioning
+4. Exact composition and layout
+5. Lighting direction and shadow placement
+6. Line quality and shading approach for {style_prompt}
+7. Emotional tone and atmosphere
+
+IMPORTANT: Your description will be used to generate a {style_prompt} that RECREATES THIS EXACT IMAGE. Be extremely specific about WHO/WHAT is in the image."""
+        
         vision_response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
@@ -184,21 +202,28 @@ Be specific but concise (2-3 sentences max). The description will be used to gen
                     ]
                 }
             ],
-            max_tokens=200
+            max_tokens=500
         )
 
         vision_description = vision_response.choices[0].message.content
         print(f"✓ Vision analysis complete: {vision_description[:100]}...")
 
-        # Step 2: Generate sketch using DALL-E 3
+        # Step 2: Generate sketch using DALL-E 3 with explicit instruction to recreate the exact image
         print(f"🎨 Generating {style} sketch...")
 
-        dalle_prompt = f"""Create a {style_prompt} from this description:
+        dalle_prompt = f"""You are creating a {style_prompt} that EXACTLY RECREATES the following scene. Preserve all elements, composition, and positioning from the original.
 
+RECREATION BLUEPRINT:
 {vision_description}
 
-The output should be monochromatic or limited palette (appropriate for {style}).
-High quality, detailed, professional artwork."""
+CRITICAL INSTRUCTIONS:
+1. Recreate the EXACT same composition and subjects
+2. Maintain relative sizes and positioning of all elements
+3. Preserve the original photograph/scene layout
+4. Use {style_prompt} techniques to render it
+5. Output must be monochromatic or limited palette appropriate for {style}
+6. High quality, professional, detailed artwork
+7. Do NOT create a different scene - recreate THIS specific image"""
 
         dalle_response = client.images.generate(
             model="dall-e-3",
