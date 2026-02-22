@@ -101,31 +101,35 @@ def generate_sketch():
         style = 'realistic-pencil'
         user_description = ''
 
-        # Check if it's FormData (file upload)
-        if 'file' in request.files:
+        # Check if it's FormData (file upload) first - avoid JSON parsing errors
+        if request.method == 'POST' and request.files and 'file' in request.files:
             file = request.files['file']
-            if not file:
+            if not file or file.filename == '':
                 return jsonify({'success': False, 'error': 'No file provided'}), 400
             
-            # Read file and encode to base64
-            file_content = file.read()
-            image_data = base64.b64encode(file_content).decode('utf-8')
-            style = request.form.get('style', 'realistic-pencil')
-            user_description = request.form.get('description', '')
-            print(f"✓ File received: {len(file_content)} bytes from {file.filename}")
+            try:
+                # Read file and encode to base64
+                file_content = file.read()
+                image_data = base64.b64encode(file_content).decode('utf-8')
+                style = request.form.get('style', 'realistic-pencil')
+                user_description = request.form.get('description', '')
+                print(f"✓ File received: {len(file_content)} bytes from {file.filename}")
+            except Exception as e:
+                return jsonify({'success': False, 'error': f'Error reading file: {str(e)}'}), 400
         
         # Otherwise expect JSON with base64 image
-        elif request.is_json:
-            data = request.get_json()
-            if not data:
-                return jsonify({'success': False, 'error': 'Request body is empty'}), 400
-            
-            image_data = data.get('image')
-            style = data.get('style', 'realistic-pencil')
-            user_description = data.get('description', '')
-        
         else:
-            return jsonify({'success': False, 'error': 'Request must be FormData with file or JSON with image'}), 400
+            try:
+                # Safely get JSON without triggering parse errors on non-JSON requests
+                data = request.get_json(force=False, silent=False)
+                if not data:
+                    return jsonify({'success': False, 'error': 'Request body is empty'}), 400
+                
+                image_data = data.get('image')
+                style = data.get('style', 'realistic-pencil')
+                user_description = data.get('description', '')
+            except Exception as e:
+                return jsonify({'success': False, 'error': f'Invalid request format: {str(e)}'}), 400
 
         if not image_data:
             return jsonify({'success': False, 'error': 'No image provided'}), 400
