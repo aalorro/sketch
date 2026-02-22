@@ -94,23 +94,26 @@ def stylize_opencv(img_bgr, artStyle='pencil', style='line', brush='line', strok
         scale = max_dim / float(max(h0, w0))
         img_bgr = cv2.resize(img_bgr, (int(w0*scale), int(h0*scale)), interpolation=cv2.INTER_AREA)
 
-    # Denoise + smooth while keeping edges (more balanced filter)
-    img_color = cv2.bilateralFilter(img_bgr, d=7, sigmaColor=50, sigmaSpace=50)
+    # Denoise + smooth while keeping edges
+    img_color = cv2.bilateralFilter(img_bgr, d=9, sigmaColor=75, sigmaSpace=75)
     gray = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
 
-    # Edge detection (Canny) with lower thresholds to catch more detail
-    canny_low = max(30, 150 - intensity*8)
-    canny_high = canny_low * 2
-    edges = cv2.Canny(gray, canny_low, canny_high)
-    # Dilate edges slightly for visibility
-    edges = cv2.dilate(edges, np.ones((1+intensity//4,)*2, np.uint8))
+    # Adaptive thresholding for robust edge/detail preservation
+    # Creates binary image with maximum contrast
+    thresh_value = max(50, 200 - intensity*10)
+    _, binary = cv2.threshold(gray, thresh_value, 255, cv2.THRESH_BINARY_INV)
+    
+    # Apply morphological operations to enhance strokes
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel, iterations=1)
+    binary = cv2.dilate(binary, kernel, iterations=max(0, intensity//5))
 
     # Create hatching layers based on brush type
     if skipHatching:
         # Skip hatching - just use clean edges
-        combined = 255 - edges
+        combined = binary
     else:
-        # Map brush type to hatching angles (match HTML form values)
+        # Map brush type to hatching angles
         brush_angles = {
             'line': (0, 90, 45, 135),
             'hatch': (-30,),
@@ -124,20 +127,19 @@ def stylize_opencv(img_bgr, artStyle='pencil', style='line', brush='line', strok
         thickness = max(1, int(stroke / 2))
         hatch = generate_hatching(gray, angles=angles, spacing=spacing, thickness=thickness)
         
-        # Better blending: apply hatching across wider tonal range using addWeighted
-        edges_inv = 255 - edges
-        # Apply hatching only where there's tonal variation (not pure white)
-        mask = (gray < 230).astype(np.uint8)
-        hatched = cv2.bitwise_and(hatch, hatch, mask=mask)
-        combined = cv2.addWeighted(edges_inv, 0.7, hatched, 0.3, 0)
+        # Combine edges and hatching with multiplicative blend to preserve both
+        # Convert binary to float for multiplication
+        binary_f = binary.astype(np.float32) / 255.0
+        hatch_f = hatch.astype(np.float32) / 255.0
+        combined_f = 1.0 - ((1.0 - binary_f) * (1.0 - hatch_f))  # Screen blend
+        combined = (combined_f * 255).astype(np.uint8)
 
     # Apply medium effect (line thickening and tonal adjustments)
     combined = apply_medium_effect(combined, artStyle)
     
-    # Enhance contrast for better definition
-    contrast_boost = 1.25
-    combined = cv2.convertScaleAbs(combined.astype(np.float32) * contrast_boost)
-    combined = np.clip(combined, 0, 255).astype(np.uint8)
+    # Strong contrast enhancement for crisp definition
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+    combined = clahe.apply(combined)
 
     # For color styles, posterize base and blend
     if style in ('cubist', 'modern', 'naive'):
