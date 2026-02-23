@@ -482,8 +482,26 @@ def api_style_transfer_advanced():
             hueShift = int(request.form.get('hueShift', '0') or '0')
         except:
             hueShift = 0
+        
+        # Parse resolution and aspect ratio
+        try:
+            resolution = int(request.form.get('resolution', '1024') or '1024')
+        except:
+            resolution = 1024
+        
+        aspect_str = request.form.get('aspect', '1:1').strip()
+        try:
+            asp_parts = aspect_str.split(':')
+            aw, ah = int(asp_parts[0]), int(asp_parts[1])
+        except:
+            aw, ah = 1, 1
 
         img = read_image_from_stream(f.stream)
+        
+        # Resize image to match requested resolution and aspect ratio
+        target_width = resolution
+        target_height = int(resolution * ah / aw)
+        img = cv2.resize(img, (target_width, target_height), interpolation=cv2.INTER_LANCZOS4)
     except Exception as e:
         return make_response(jsonify({'error': 'invalid image', 'details': str(e)}), 400)
 
