@@ -507,6 +507,56 @@
     setTimeout(() => notification.remove(), 6000);
   });
 
+  // Clear Queue button - removes all loaded images but keeps settings
+  const clearQueueBtn = document.getElementById('clearQueue');
+  if(clearQueueBtn) {
+    clearQueueBtn.addEventListener('click', () => {
+      console.log('Clear Queue button clicked');
+      
+      // Clear only image data
+      currentFiles = [];
+      currentImageIndex = 0;
+      singleImage = null;
+      lastResults = [];
+      currentRenderedImage = null;
+      panOffsetX = 0;
+      panOffsetY = 0;
+      zoomLevel = 1.0;
+      
+      // Clear file input
+      if(fileEl){
+        fileEl.value = '';
+      }
+      
+      // Clear canvases
+      if(preview){
+        const ctx = preview.getContext('2d');
+        const res = parseInt(document.getElementById('resolution').value || '1024', 10);
+        const aspect = document.getElementById('aspect').value || '1:1';
+        const [cw, ch] = aspectToWH(aspect, res);
+        preview.width = cw;
+        preview.height = ch;
+      }
+      
+      if(original){
+        const octx = original.getContext('2d');
+        const res = parseInt(document.getElementById('resolution').value || '1024', 10);
+        const aspect = document.getElementById('aspect').value || '1:1';
+        const [cw, ch] = aspectToWH(aspect, res);
+        original.width = cw;
+        original.height = ch;
+      }
+      
+      // Update displays
+      updateFileInfo();
+      updateImageNavDisplay();
+      updateZoomDisplay();
+      disableControls();
+      
+      console.log('Image queue cleared');
+    });
+  }
+
   // Error message display function
   function showErrorMessage(message) {
     const notification = document.createElement('div');
@@ -575,17 +625,32 @@
   }
 
   fileEl.addEventListener('change', e=>{
-    currentFiles = Array.from(e.target.files || []);
-    currentImageIndex = 0;
-    panOffsetX = 0; // Reset pan on new files
-    panOffsetY = 0;
-    zoomLevel = 1.0; // Reset zoom on new files
-    updateZoomDisplay();
-    updateFileInfo();
-    if(currentFiles.length){
+    const newFiles = Array.from(e.target.files || []);
+    
+    // If a file was already selected, append to the queue. Otherwise, start fresh.
+    if(currentFiles.length === 0 && newFiles.length > 0) {
+      currentFiles = newFiles;
+      currentImageIndex = 0;
+      panOffsetX = 0;
+      panOffsetY = 0;
+      zoomLevel = 1.0;
+      currentRenderedImage = null;
+      updateZoomDisplay();
+      // Load the first image
       enableControls();
-      loadImageFromFile(currentFiles[0]).then(img=>{ singleImage = img; drawPreview(); updateImageNavDisplay(); }).catch(err=>console.error('Failed to load first image', err));
+      loadImageFromFile(currentFiles[0]).then(img=>{
+        singleImage = img;
+        drawPreview();
+        updateImageNavDisplay();
+      }).catch(err=>console.error('Failed to load first image', err));
+    } else if(newFiles.length > 0) {
+      // Append new files to existing queue
+      currentFiles = currentFiles.concat(newFiles);
+      // Don't change currentImageIndex - stay on current image
+      // Don't reset zoom/pan - let user continue working
     }
+    
+    updateFileInfo();
   });
 
   // Test Server button (posts demo image served by static server)
@@ -771,18 +836,27 @@
   }
 
   fileEl.addEventListener('change', e=>{
-    currentFiles = Array.from(e.target.files || []);
-    panOffsetX = 0; // Reset pan on new files
-    panOffsetY = 0;
-    zoomLevel = 1.0; // Reset zoom on new files
-    currentRenderedImage = null; // Clear stored rendered image
-    updateZoomDisplay();
-    if(currentFiles.length){
-      enableControls();
-      loadImageFromFile(currentFiles[0]).then(img=>{
-        singleImage = img;
-        drawPreview();
-      }).catch(err=>console.error('Failed to load first image', err));
+    const newFiles = Array.from(e.target.files || []);
+    
+    if(currentFiles.length === 0 && newFiles.length > 0) {
+      // First time uploading files - start fresh
+      currentFiles = newFiles;
+      panOffsetX = 0;
+      panOffsetY = 0;
+      zoomLevel = 1.0;
+      currentRenderedImage = null;
+      updateZoomDisplay();
+      if(currentFiles.length){
+        enableControls();
+        loadImageFromFile(currentFiles[0]).then(img=>{
+          singleImage = img;
+          drawPreview();
+        }).catch(err=>console.error('Failed to load first image', err));
+      }
+    } else if(newFiles.length > 0) {
+      // Appending more files to existing queue
+      currentFiles = currentFiles.concat(newFiles);
+      // Stay on current image, don't reset zoom/pan
     }
   });
 
