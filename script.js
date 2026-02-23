@@ -692,7 +692,6 @@
       fd.append('contrast', document.getElementById('contrast').value);
       fd.append('saturation', document.getElementById('saturation').value);
       fd.append('hueShift', document.getElementById('hueShift').value);
-      fd.append('prompt', document.getElementById('prompt').value);
       try{
         const resp = await fetch(mlUrl, {method:'POST', body:fd});
         console.log('ML response:', resp.status);
@@ -720,7 +719,6 @@
       fd.append('contrast', document.getElementById('contrast').value);
       fd.append('saturation', document.getElementById('saturation').value);
       fd.append('hueShift', document.getElementById('hueShift').value);
-      fd.append('prompt', document.getElementById('prompt').value);
       try{
         const resp = await fetch(serverUrl, {method:'POST', body:fd});
         console.log('Server response:', resp.status);
