@@ -108,15 +108,11 @@
         </div>
       </div>
 
-      <div id="imageNav" style="display:none;margin-bottom:12px;padding:8px;background:#f0f0f0;border-radius:6px">
-        <div style="font-size:12px;color:#666;margin-bottom:6px;text-align:center">
-          <span id="currentImageInfo"></span>
+      <div id="imageNav" style="display:none;margin-bottom:12px;padding:8px;background:var(--card);border:2px solid var(--primary);border-radius:6px">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:6px;text-align:center;font-weight:600">
+          <span id="currentImageInfo">Images</span>
         </div>
-        <div id="imageThumbnailContainer" style="display:flex;gap:6px;overflow-y:auto;flex-direction:column;max-height:300px;padding:4px;background:#fff;border:1px solid #ddd;border-radius:4px"></div>
-      </div>
-
-      <div class="buttons" style="margin-bottom:12px">
-        <button id="generateTop" style="width:100%;flex:1">Generate</button>
+        <div id="imageThumbnailContainer" style="display:flex;gap:8px;overflow-y:auto;flex-direction:column;min-height:60px;max-height:300px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:4px"></div>
       </div>
 
       <label>Medium
@@ -246,6 +242,16 @@
       <label><input id="useServer" type="checkbox"> Use server style-transfer (requires running server) <button type="button" class="info-btn" data-modal="modal-server">?</button></label>
       <label>Server API URL <input id="serverUrl" type="text" value="http://localhost:5001/api/style-transfer-advanced" placeholder="https://example.com/api/style-transfer"></label>
 
+      <div style="margin:12px 0;padding:12px;background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.2);border-radius:8px">
+        <div style="font-size:14px;font-weight:600;margin-bottom:10px;color:var(--text)">Rendering Engine</div>
+        <div id="renderingEngineSwitch" style="display:flex;align-items:center;justify-content:space-between;background:var(--border);padding:2px;border-radius:20px;position:relative;height:40px;width:100%;cursor:pointer;transition:all 0.3s">
+          <label id="canvasLabel" style="flex:1;padding:8px;text-align:center;font-weight:600;font-size:14px;color:white;background:#10b981;border-radius:18px;z-index:1;transition:all 0.3s;margin:0;cursor:pointer;user-select:none">Browser</label>
+          <label id="opencvLabel" style="flex:1;padding:8px;text-align:center;font-weight:600;font-size:14px;color:var(--muted);background:transparent;z-index:1;transition:all 0.3s;margin:0;cursor:pointer;user-select:none">Server</label>
+          <input id="renderingEngineInput" type="checkbox" style="display:none">
+        </div>
+        <small style="display:block;margin-top:8px;color:var(--muted);font-size:12px">Server: Instant refresh on parameter changes. Browser: Traditional generate.</small>
+      </div>
+
       <label>Generate <button type="button" class="info-btn" data-modal="modal-generate">?</button></label>
 
       <div class="buttons" style="margin-bottom:8px">
@@ -282,17 +288,21 @@
 
     </section>
 
-    <section class="preview" style="display:flex; flex-direction:row; gap:16px; align-items:flex-start;">
-      <div style="flex:1; text-align:center;">
-        <div style="font-size:13px; color:#888; margin-bottom:4px;">Original</div>
-        <canvas id="original" width="512" height="512" style="background:#fff;border:1px solid #ccc;display:block;width:100%;height:auto"></canvas>
-      </div>
-      <div style="flex:1; text-align:center;">
-        <div style="font-size:13px; color:#888; margin-bottom:4px;">Rendered <button type="button" class="info-btn" data-modal="modal-pan">?</button></div>
-        <div style="position:relative; display:block; width:100%; border:1px solid #ccc; border-radius:4px;">
-          <canvas id="preview" width="512" height="512" style="background:#fff;display:block;width:100%;height:auto"></canvas>
+    <section class="preview" style="display:flex; flex-direction:row; gap:16px; align-items:stretch; justify-content:space-between; min-height:600px;">
+      <div style="flex:1; text-align:center; display:flex; flex-direction:column;">
+        <div style="font-size:13px; color:#888; margin-bottom:8px; font-weight:600;">Original</div>
+        <div style="position:relative; display:flex; flex:1; width:100%; min-height:400px; overflow:hidden; border-radius:4px;">
+          <img id="originalPlaceholder" src="img/panel1.png" alt="Original" style="display:block; width:100%; height:100%; object-fit:contain; border:1px solid var(--border); border-radius:4px;">
+          <canvas id="original" width="512" height="512" style="background:#fff;border:1px solid var(--border);display:none;width:100%;height:100%;border-radius:4px;position:absolute;top:0;left:0;"></canvas>
         </div>
-        <div style="margin-top:8px; display:flex; gap:8px; justify-content:center; align-items:center;">
+      </div>
+      <div style="flex:1; text-align:center; display:flex; flex-direction:column;">
+        <div style="font-size:13px; color:#888; margin-bottom:8px; font-weight:600;">Rendered <button type="button" class="info-btn" data-modal="modal-pan">?</button></div>
+        <div style="position:relative; display:flex; flex:1; width:100%; min-height:400px; overflow:hidden; border:1px solid var(--border); border-radius:4px;">
+          <img id="renderedPlaceholder" src="img/panel2.png" alt="Rendered" style="display:block; width:100%; height:100%; object-fit:contain;">
+          <canvas id="preview" width="512" height="512" style="background:#fff;display:none;width:100%;height:100%;position:absolute;top:0;left:0;"></canvas>
+        </div>
+        <div style="margin-top:12px; display:flex; gap:8px; justify-content:center; align-items:center;">
           <button id="zoomOut" type="button" style="padding:6px 12px; background:#06b6d4; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:14px;">−</button>
           <span id="zoomLevel" style="min-width:60px; text-align:center; font-size:13px; color:#888; font-weight:600;">100%</span>
           <button id="zoomIn" type="button" style="padding:6px 12px; background:#06b6d4; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:14px;">+</button>

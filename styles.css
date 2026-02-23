@@ -129,6 +129,20 @@ body.dark-mode .discord-button {
   font-weight: 500;
 }
 
+/* Rendering engine switch styling */
+#renderingEngineSwitch {
+  user-select: none;
+}
+
+#canvasLabel, #opencvLabel {
+  border-radius: 18px;
+  transition: all 0.3s ease;
+}
+
+#canvasLabel:hover, #opencvLabel:hover {
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.2);
+}
+
 .thumbnail-delete {
   width: 28px;
   height: 28px;

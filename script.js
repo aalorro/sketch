@@ -5,7 +5,6 @@
   const original = document.getElementById('original');
   const preview = document.getElementById('preview');
   const generateBtn = document.getElementById('generate');
-  const generateTopBtn = document.getElementById('generateTop');
   const downloadPng = document.getElementById('downloadPng');
   const downloadJpg = document.getElementById('downloadJpg');
   const downloadZip = document.getElementById('downloadZip');
@@ -97,6 +96,7 @@
   let panStartX = 0; // Start X position of pan
   let panStartY = 0; // Start Y position of pan
   let currentRenderedImage = null; // Store the rendered image (server or canvas) to preserve during zoom/pan
+  let renderingEngine = 'canvas'; // 'canvas' or 'opencv' - controls which renderer is used
   const undoStack = [];
   const redoStack = [];
   const MAX_HISTORY = 50;
@@ -107,20 +107,30 @@
   function updateImageNavDisplay(){
     const nav = document.getElementById('imageNav');
     const info = document.getElementById('currentImageInfo');
+    console.log('updateImageNavDisplay called, currentFiles.length:', currentFiles.length);
     if(currentFiles.length >= 1){
       nav.style.display = 'block';
       info.textContent = `${currentImageIndex + 1} of ${currentFiles.length} image${currentFiles.length === 1 ? '' : 's'}`;
+      console.log('Showing nav panel with text:', info.textContent);
       generateThumbnails();
     } else {
       nav.style.display = 'none';
+      console.log('Hiding nav panel');
     }
   }
 
   function generateThumbnails(){
+    console.log('generateThumbnails called, currentFiles.length:', currentFiles.length);
     const container = document.getElementById('imageThumbnailContainer');
+    console.log('Container found:', !!container);
+    if(!container){
+      console.error('imageThumbnailContainer not found!');
+      return;
+    }
     container.innerHTML = '';
     
     currentFiles.forEach((file, index) => {
+      console.log('Creating thumbnail for:', file.name);
       const url = URL.createObjectURL(file);
       const item = document.createElement('div');
       item.className = 'thumbnail-item';
@@ -152,6 +162,7 @@
       item.addEventListener('click', () => selectImage(index));
       container.appendChild(item);
     });
+    console.log('Thumbnails generated, container has', container.children.length, 'children');
   }
 
   function deleteImage(index){
@@ -193,17 +204,9 @@
       drawPreview(); 
       updateImageNavDisplay();
       
-      // If server render is enabled, re-process the new image with server
-      const useServer = document.getElementById('useServer').checked;
-      if(useServer){
-        processFile(currentFiles[currentImageIndex], currentImageIndex, currentFiles.length)
-          .then(blob=>{
-            loadImageFromFile(new File([blob], 'render.png')).then(renderedImg=>{
-              currentRenderedImage = renderedImg;
-              drawPreview();
-            }).catch(err=>console.error('Failed to load rendered image', err));
-          })
-          .catch(err=>console.error('Server re-render failed:', err));
+      // If OpenCV rendering is enabled, immediately render with server
+      if(renderingEngine === 'opencv'){
+        renderCurrentImageWithOpenCV();
       }
     }).catch(err=>console.error('Failed to load image', err));
   }
@@ -278,20 +281,102 @@
   // initialize preset list from localStorage
   refreshPresetList();
 
-  // Processing queue for batch
+  // Rendering Engine Toggle Logic
+  function updateRenderingEngineToggle(){
+    const useServer = document.getElementById('useServer').checked;
+    const serverUrl = document.getElementById('serverUrl').value.trim();
+    const renderingSwitch = document.getElementById('renderingEngineSwitch');
+    const opencvLabel = document.getElementById('opencvLabel');
+    
+    // Enable OpenCV only if server is checked AND URL is provided
+    const canUseOpenCV = useServer && serverUrl.length > 0;
+    renderingSwitch.style.opacity = canUseOpenCV ? '1' : '0.5';
+    renderingSwitch.style.pointerEvents = canUseOpenCV ? 'auto' : 'none';
+    opencvLabel.style.opacity = canUseOpenCV ? '1' : '0.6';
+    
+    // If OpenCV becomes disabled and currently selected, switch back to Canvas
+    if(!canUseOpenCV && renderingEngine === 'opencv'){
+      renderingEngine = 'canvas';
+      updateSwitchUI();
+      currentRenderedImage = null;
+      if(currentFiles.length) drawPreview();
+    }
+  }
+  
+  function switchRenderingEngine(engine){
+    if(engine === 'opencv'){
+      const useServer = document.getElementById('useServer').checked;
+      const serverUrl = document.getElementById('serverUrl').value.trim();
+      if(!useServer || !serverUrl){
+        alert('Server must be enabled with a valid URL to use OpenCV rendering.');
+        return;
+      }
+      renderingEngine = 'opencv';
+      
+      // If we have an image loaded, immediately render it with OpenCV
+      if(currentFiles.length && singleImage){
+        renderCurrentImageWithOpenCV();
+      }
+    } else {
+      renderingEngine = 'canvas';
+      currentRenderedImage = null;
+      if(currentFiles.length) drawPreview();
+    }
+  }
+  
+  async function renderCurrentImageWithOpenCV(){
+    if(!singleImage || renderingEngine !== 'opencv') return;
+    try{
+      const blob = await processFile(currentFiles[currentImageIndex], currentImageIndex, currentFiles.length);
+      const renderedImg = await loadImageFromFile(new File([blob], 'render.png'));
+      currentRenderedImage = renderedImg;
+      if(currentFiles.length) drawPreview();
+    }catch(err){
+      console.error('OpenCV render failed:', err);
+    }
+  }
+  
+  // Attach listeners to rendering engine switch
+  const renderingSwitch = document.getElementById('renderingEngineSwitch');
+  const canvasLabel = document.getElementById('canvasLabel');
+  const opencvLabel = document.getElementById('opencvLabel');
+  const renderingEngineInput = document.getElementById('renderingEngineInput');
+  
+  function updateSwitchUI(){
+    if(renderingEngine === 'canvas'){
+      renderingEngineInput.checked = false;
+      canvasLabel.style.background = '#10b981';
+      canvasLabel.style.color = 'white';
+      opencvLabel.style.background = 'transparent';
+      opencvLabel.style.color = 'var(--muted)';
+    } else {
+      renderingEngineInput.checked = true;
+      canvasLabel.style.background = 'transparent';
+      canvasLabel.style.color = 'var(--muted)';
+      opencvLabel.style.background = '#10b981';
+      opencvLabel.style.color = 'white';
+    }
+  }
+  
+  renderingSwitch.addEventListener('click', ()=>{
+    if(renderingEngine === 'canvas'){
+      switchRenderingEngine('opencv');
+    } else {
+      switchRenderingEngine('canvas');
+    }
+    updateSwitchUI();
+  });
+  
+  // Listen to server checkbox and URL changes to update toggle availability
+  document.getElementById('useServer').addEventListener('change', updateRenderingEngineToggle);
+  document.getElementById('serverUrl').addEventListener('change', updateRenderingEngineToggle);
+  document.getElementById('serverUrl').addEventListener('input', updateRenderingEngineToggle);
+  
+  // Initialize the switch state
+  updateRenderingEngineToggle();
+  updateSwitchUI();
   generateBtn.addEventListener('click', ()=>{
     console.log('Generate clicked. currentFiles:', currentFiles.length, 'singleImage:', !!singleImage);
-    if(!currentFiles.length){ alert('Please select one or more images.'); return; }
-    pushUndo();
-    lastResults = [];
-    const useZip = true;
-    console.log('Starting processQueue with', currentFiles.length, 'file(s)');
-    processQueue(currentFiles);
-  });
-
-  // Top Generate button - same functionality as bottom button
-  generateTopBtn.addEventListener('click', ()=>{
-    console.log('Generate (top) clicked. currentFiles:', currentFiles.length, 'singleImage:', !!singleImage);
     if(!currentFiles.length){ alert('Please select one or more images.'); return; }
     pushUndo();
     lastResults = [];
@@ -351,8 +436,14 @@
 
   // Helper: Clear stored rendered image and re-preview when parameters change
   function clearAndRedraw(){
-    currentRenderedImage = null; // Clear stored image so parameters can be previewed
-    if(currentFiles.length && singleImage) drawPreview();
+    // If in OpenCV mode, re-render immediately
+    if(renderingEngine === 'opencv'){
+      renderCurrentImageWithOpenCV();
+    } else {
+      // Canvas mode: clear stored image and redraw preview
+      currentRenderedImage = null;
+      if(currentFiles.length && singleImage) drawPreview();
+    }
   }
 
   // Add change listeners to all parameter controls to enable live preview
@@ -464,6 +555,14 @@
     if(fileEl){
       fileEl.value = '';
     }
+    
+    // Show placeholders and hide canvases
+    const originalPlaceholder = document.getElementById('originalPlaceholder');
+    const renderedPlaceholder = document.getElementById('renderedPlaceholder');
+    if(originalPlaceholder) originalPlaceholder.style.display = 'block';
+    if(renderedPlaceholder) renderedPlaceholder.style.display = 'block';
+    if(original) original.style.display = 'none';
+    if(preview) preview.style.display = 'none';
     
     // Explicitly clear and reset canvases
     if(preview){
@@ -597,10 +696,13 @@
   }
 
   fileEl.addEventListener('change', e=>{
+    console.log('File input changed');
     const newFiles = Array.from(e.target.files || []);
+    console.log('New files selected:', newFiles.length);
     
     // If a file was already selected, append to the queue. Otherwise, start fresh.
     if(currentFiles.length === 0 && newFiles.length > 0) {
+      console.log('Starting fresh with', newFiles.length, 'files');
       currentFiles = newFiles;
       currentImageIndex = 0;
       panOffsetX = 0;
@@ -613,10 +715,12 @@
       loadImageFromFile(currentFiles[0]).then(img=>{
         singleImage = img;
         drawPreview();
+        console.log('First image loaded, calling updateImageNavDisplay');
         updateImageNavDisplay();
       }).catch(err=>console.error('Failed to load first image', err));
     } else if(newFiles.length > 0) {
       // Append new files to existing queue
+      console.log('Appending', newFiles.length, 'files to existing queue');
       currentFiles = currentFiles.concat(newFiles);
       // Refresh the thumbnail panel immediately
       updateImageNavDisplay();
@@ -783,6 +887,15 @@
   // real-time preview: applies sketch transforms to loaded image
   function drawPreview(){
     if(!singleImage) return;
+    
+    // Hide placeholders and show canvases when drawing
+    const originalPlaceholder = document.getElementById('originalPlaceholder');
+    const renderedPlaceholder = document.getElementById('renderedPlaceholder');
+    if(originalPlaceholder) originalPlaceholder.style.display = 'none';
+    if(renderedPlaceholder) renderedPlaceholder.style.display = 'none';
+    original.style.display = 'block';
+    preview.style.display = 'block';
+    
     const res = parseInt(document.getElementById('resolution').value,10);
     const aspect = document.getElementById('aspect').value;
     const [canvasW, canvasH] = aspectToWH(aspect, res);
@@ -1449,20 +1562,26 @@
     }
     ctx.putImageData(overlay, 0, 0);
     
+    // Intensity controls edge threshold (high intensity = more aggressive edges)
+    const edgeThreshold = 50 - (intensity / 11) * 40;  // 50 at low intensity, 10 at high
+    const definitionAlpha = 0.2 + (intensity / 11) * 0.6;  // 0.2 to 0.8
+    
     // Add dramatic edge definition with soft blending
     ctx.globalCompositeOperation = 'multiply';
-    ctx.globalAlpha = 0.5;
+    ctx.globalAlpha = definitionAlpha;
     
-    // Soft brush strokes along strong edges
-    const edgeStep = Math.max(2, 5 - stroke * 0.3);
-    for(let y=0; y<h; y+=edgeStep) {
-      for(let x=0; x<w; x+=edgeStep) {
+    // Soft brush strokes along strong edges - add fixed margin to prevent edge smudges
+    const margin = 8;
+    const edgeStep = Math.max(3, 6 - stroke * 0.2);
+    for(let y=margin; y<h-margin; y+=edgeStep) {
+      for(let x=margin; x<w-margin; x+=edgeStep) {
         const idx = y*w + x;
-        if(idx < w*h && edges[idx] > 40) {
-          // Vary stroke width based on edge strength
-          const edgeStrength = Math.min(1, edges[idx] / 200);
-          const size = 2 + edgeStrength * 3;
-          ctx.fillStyle = `rgba(0, 0, 0, ${0.3 + edgeStrength * 0.4})`;
+        if(idx < w*h && edges[idx] > edgeThreshold) {
+          // Vary stroke width based on edge strength and intensity
+          const edgeStrength = Math.min(1, edges[idx] / 150);
+          const sizeScale = 0.5 + (intensity / 11) * 0.8;
+          const size = 1 + edgeStrength * 2.5 * sizeScale;
+          ctx.fillStyle = `rgba(0, 0, 0, ${0.25 + edgeStrength * 0.5})`;
           ctx.beginPath();
           ctx.arc(x, y, size, 0, Math.PI * 2);
           ctx.fill();
