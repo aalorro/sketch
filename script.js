@@ -630,37 +630,6 @@
   });
 
   // Test Server button (posts demo image served by static server)
-  const testServerBtn = document.getElementById('testServer');
-  if(testServerBtn){
-    testServerBtn.addEventListener('click', async ()=>{
-      try{
-        setProgress(0, 'Fetching demo image...');
-        const demoResp = await fetch('test_image.png');
-        if(!demoResp.ok) throw new Error('Failed to fetch demo image');
-        const blob = await demoResp.blob();
-        setProgress(0.2, 'Posting to server...');
-        const fd = new FormData(); fd.append('file', blob, 'test_image.png');
-        fd.append('artStyle', document.getElementById('artStyle').value);
-        fd.append('style', document.getElementById('style').value);
-        fd.append('seed', getSeed());
-        fd.append('intensity', document.getElementById('intensity').value);
-        const serverUrl = document.getElementById('serverUrl').value.trim();
-        const resp = await fetch(serverUrl, {method:'POST', body:fd});
-        if(!resp.ok) throw new Error('Server error '+resp.status);
-        const outBlob = await resp.blob();
-        setProgress(0.9, 'Rendering result...');
-        const url = URL.createObjectURL(outBlob);
-        const im = new Image();
-        await new Promise((r, rej)=>{ im.onload = r; im.onerror = rej; im.src = url; });
-        renderToCanvas(im);
-        lastResults.push({name:'demo.png', blob: outBlob});
-        URL.revokeObjectURL(url);
-        setProgress(1, 'Done');
-        setTimeout(resetProgress, 800);
-      }catch(err){ resetProgress(); alert('Test failed: '+err.message); }
-    });
-  }
-
   function setProgress(p, text){ progressWrap.hidden = false; progressFill.style.width = (p*100|0) + '%'; progressText.textContent = text || '' }
   function resetProgress(){ progressWrap.hidden = true; progressFill.style.width = '0%'; progressText.textContent = 'Idle' }
 
