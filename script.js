@@ -188,7 +188,24 @@
     panOffsetY = 0;
     zoomLevel = 1.0; // Reset zoom on image selection
     currentRenderedImage = null; // Clear stored rendered image
-    loadImageFromFile(currentFiles[currentImageIndex]).then(img=>{ singleImage = img; drawPreview(); updateImageNavDisplay(); }).catch(err=>console.error('Failed to load image', err));
+    loadImageFromFile(currentFiles[currentImageIndex]).then(img=>{ 
+      singleImage = img; 
+      drawPreview(); 
+      updateImageNavDisplay();
+      
+      // If server render is enabled, re-process the new image with server
+      const useServer = document.getElementById('useServer').checked;
+      if(useServer){
+        processFile(currentFiles[currentImageIndex], currentImageIndex, currentFiles.length)
+          .then(blob=>{
+            loadImageFromFile(new File([blob], 'render.png')).then(renderedImg=>{
+              currentRenderedImage = renderedImg;
+              drawPreview();
+            }).catch(err=>console.error('Failed to load rendered image', err));
+          })
+          .catch(err=>console.error('Server re-render failed:', err));
+      }
+    }).catch(err=>console.error('Failed to load image', err));
   }
 
   // helper RNG
