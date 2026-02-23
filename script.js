@@ -327,12 +327,44 @@
   async function renderCurrentImageWithOpenCV(){
     if(!singleImage || renderingEngine !== 'opencv') return;
     try{
-      const blob = await processFile(currentFiles[currentImageIndex], currentImageIndex, currentFiles.length);
-      const renderedImg = await loadImageFromFile(new File([blob], 'render.png'));
-      currentRenderedImage = renderedImg;
-      if(currentFiles.length) drawPreview();
+      // Show progress bar
+      const progressContainer = document.getElementById('progressContainer');
+      const progressBar = document.getElementById('progressBar');
+      if(progressContainer) progressContainer.style.display = 'block';
+      if(progressBar) progressBar.style.width = '0%';
+      
+      // Simulate initial progress
+      let progress = 0;
+      if(progressBar){
+        const progressInterval = setInterval(() => {
+          progress = Math.min(progress + Math.random() * 40, 90);
+          progressBar.style.width = progress + '%';
+        }, 100);
+        
+        const blob = await processFile(currentFiles[currentImageIndex], currentImageIndex, currentFiles.length);
+        clearInterval(progressInterval);
+        progressBar.style.width = '95%';
+        
+        const renderedImg = await loadImageFromFile(new File([blob], 'render.png'));
+        progressBar.style.width = '100%';
+        currentRenderedImage = renderedImg;
+        if(currentFiles.length) drawPreview();
+        
+        // Hide progress bar after completion
+        setTimeout(() => {
+          if(progressContainer) progressContainer.style.display = 'none';
+          progressBar.style.width = '0%';
+        }, 500);
+      } else {
+        const blob = await processFile(currentFiles[currentImageIndex], currentImageIndex, currentFiles.length);
+        const renderedImg = await loadImageFromFile(new File([blob], 'render.png'));
+        currentRenderedImage = renderedImg;
+        if(currentFiles.length) drawPreview();
+      }
     }catch(err){
       console.error('OpenCV render failed:', err);
+      const progressContainer = document.getElementById('progressContainer');
+      if(progressContainer) progressContainer.style.display = 'none';
     }
   }
   
