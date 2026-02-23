@@ -13,19 +13,27 @@ import io
 from PIL import Image
 import os
 import random
+from functools import wraps
 
 app = Flask(__name__)
 
 # Custom CORS decorator
 def add_cors_headers(f):
+    @wraps(f)
     def decorated_function(*args, **kwargs):
         response = make_response(f(*args, **kwargs))
         response.headers['Access-Control-Allow-Origin'] = '*'
         response.headers['Access-Control-Allow-Methods'] = 'POST, GET, OPTIONS'
         response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
         return response
-    decorated_function.__name__ = f.__name__
     return decorated_function
+
+
+# Health check endpoint
+@app.route('/health', methods=['GET'])
+@add_cors_headers
+def health():
+    return jsonify({'status': 'ok'}), 200
 
 
 def read_image_from_stream(stream):

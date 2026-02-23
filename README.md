@@ -100,24 +100,86 @@ Server API (optional)
 - The UI exposes a `Use server style-transfer` toggle and `Server API URL` field. When enabled, the app will POST the uploaded file and parameters to the provided endpoint and expect an image blob in the response.
 - The server API should accept multipart form-data with fields: `file`, `artStyle`, `style`, `brush`, `seed`, `intensity`, `stroke`, `skipHatching` and respond with a processed image (PNG/JPEG).
 
-Example local server
-1. A minimal example Flask server is included as `server.py` which implements `/api/style-transfer` using Pillow-based filters.
-2. Install dependencies and run locally:
+## Local Development Setup (Recommended for Testing)
 
+To run Sketchify locally with server-side processing, you need **two servers running simultaneously**:
+
+### Prerequisites
+- **Python 3.8+** installed
+- Virtual environment: `python -m venv .venv` then activate it
+- Dependencies: `pip install -r requirements.txt`
+
+### Quick Start (Windows)
+
+**Terminal 1 - Start Web Server (serves UI)**
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-python server.py
+python -m http.server 8000
+```
+Shows: `Serving HTTP on 0.0.0.0 port 8000`
+
+**Terminal 2 - Start Flask Server (processes images)**
+```powershell
+python server_advanced.py
+```
+Shows: `Running on http://127.0.0.1:5001`
+
+**Browser - Open Sketchify**
+```
+http://localhost:8000
 ```
 
-3. Point the `Server API URL` in the UI to `http://localhost:5000/api/style-transfer` and enable `Use server style-transfer`.
+### How It Works
+```
+Browser (http://localhost:8000)
+    ↓
+Web Server (port 8000) - serves HTML/JS/CSS
+    ↓ (when clicking Generate)
+Flask Server (port 5001) - processes images with OpenCV
+```
 
-**Note:** By default, `Use server style-transfer` is **disabled**. The app uses fast, privacy-friendly client-side processing. Enable the server option only if you have a server running and want to use it instead of client-side processing.
+### Using the Web App
+1. Upload an image to `http://localhost:8000`
+2. Check **"Use server style-transfer"** checkbox
+3. Verify URL: `http://localhost:5001/api/style-transfer-advanced`
+4. Click **Generate** to process with backend
 
-Advanced example (OpenCV)
-- An advanced CPU-based example using OpenCV/NumPy is provided in `server_advanced.py` which exposes `/api/style-transfer-advanced` and produces richer hatching and posterize blends.
-- Run the advanced server the same way as above but point the UI to `http://localhost:5001/api/style-transfer-advanced`.
+### macOS/Linux
+```bash
+# Terminal 1
+python3 -m http.server 8000
+
+# Terminal 2
+python3 server_advanced.py
+```
+
+### Troubleshooting
+- **Connection refused:** Make sure BOTH terminal windows have a running server
+- **Port already in use:** `Get-Process python | Stop-Process -Force` (Windows) or `pkill -f python` (macOS/Linux)
+- **Blank page:** Navigate to `http://localhost:8000`, not 5001
+- **Server not responding:** Check Flask terminal for error messages
+
+---
+
+## Server Options
+
+### Basic Server (Pillow)
+File: `server.py` — Port: 5000
+- Lightweight, simple Pillow-based processing
+- For basic testing only
+
+### Advanced Server (OpenCV) ⭐ **Recommended**
+File: `server_advanced.py` — Port: 5001
+- Professional-quality OpenCV + NumPy rendering
+- 13+ stylization algorithms
+- Full parameter support (Medium, Intensity, Stroke, etc.)
+- Includes CORS headers for browser compatibility
+- **Use this for local development**
+
+### Standalone Package
+Folder: `server-package/`
+- Self-contained with all dependencies
+- Easy to share or deploy
+- Includes batch/shell launchers
 
 Example note: OpenCV builds can be large; if you plan to use an ML model, consider deploying on a GPU-enabled server and calling it from the UI.
 

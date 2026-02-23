@@ -100,49 +100,84 @@ This guide explains when to use each advanced setting in Sketchify to get the be
 
 **When to use:**
 - **Turn it ON if:**
-  - You have `server.py` or `server_advanced.py` running locally
+  - You have both web server AND Flask server running locally
   - You want richer, more sophisticated processing than client-side
   - You're working with very large images and want to offload computation
-  - You have a deployed server instance (not local)
+  - You have a deployed server instance
   
 - **Leave it OFF if:**
   - You want full privacy (no data leaves your browser)
-  - You're not running a local server
+  - You're not running a server
   - The built-in client-side styles meet your needs
   - You want minimal setup complexity
 
-**Default server URLs:**
-- **Server URL field:** `http://localhost:5001/api/style-transfer-advanced` (default)
-- Change this to point to wherever your server is running
+**⚠️ Important: Dual-Server Architecture Required**
 
-**How to set up:**
+Sketchify uses TWO servers working together:
 
-1. **Option A: Basic Pillow-based server (slower, simpler)**
-   ```powershell
-   python -m venv .venv
-   .\.venv\Scripts\Activate.ps1
-   pip install -r requirements.txt
-   python server.py
-   ```
-   - Uses PIL/Pillow for image processing
-   - Endpoint: `http://localhost:5000/api/style-transfer`
-   - Update the "Server URL" in UI to this address
+```
+Your Browser
+    ↓
+Web Server (port 8000) - Serves HTML/JS/CSS
+    ↓
+Flask Server (port 5001) - Processes images with OpenCV
+```
 
-2. **Option B: Advanced OpenCV server (recommended)**
-   ```powershell
-   python -m venv .venv
-   .\.venv\Scripts\Activate.ps1
-   pip install -r requirements.txt
-   python server_advanced.py
-   ```
-   - Uses OpenCV and NumPy for better quality
-   - Endpoint: `http://localhost:5001/api/style-transfer-advanced`
-   - Already configured as default in UI
+Both must be running for server mode to work!
+
+**How to set up (Recommended):**
+
+Terminal 1 - Start Web Server:
+```powershell
+python -m http.server 8000
+```
+Shows: `Serving HTTP on 0.0.0.0 port 8000`
+
+Terminal 2 - Start Flask Server (Advanced, recommended):
+```powershell
+pip install -r requirements.txt
+python server_advanced.py
+```
+Shows: `Running on http://127.0.0.1:5001`
+
+Browser - Open Sketchify:
+```
+http://localhost:8000
+```
+
+Then in the UI:
+- Check "Use server style-transfer"
+- Server URL: `http://localhost:5001/api/style-transfer-advanced` (already default)
+- Click Generate
+
+**Alternative - Basic Pillow Server (port 5000):**
+```powershell
+python server.py
+```
+- Lighter weight, simpler
+- Endpoint: `http://localhost:5000/api/style-transfer`
+- Update URL field in UI accordingly
+
+**For macOS/Linux:**
+```bash
+# Terminal 1
+python3 -m http.server 8000
+
+# Terminal 2
+python3 server_advanced.py
+```
 
 **Server performance:**
-- **Pillow:** Fast, basic processing (~100-300ms per image)
-- **OpenCV:** Slower but higher quality (~500-1500ms per image)
+- **OpenCV (Advanced):** Higher quality, 500-1500ms per image ⭐ Recommended
+- **Pillow (Basic):** Faster, 100-300ms per image
 - **Network latency:** Add 50-500ms depending on connection
+
+**Common Issues:**
+- **"Connection refused":** Make sure BOTH servers are running
+- **Blank page:** You navigated to port 5001 instead of 8000
+- **404 error:** Web server not running, or Flask not responding
+
+See [README.md](README.md#local-development-setup-recommended-for-testing) for complete setup guide.
 
 **When to prefer server over client-side:**
 - ✅ You want custom preprocessing (color correction, noise reduction)
