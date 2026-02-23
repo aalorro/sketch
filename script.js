@@ -327,12 +327,61 @@
   async function renderCurrentImageWithOpenCV(){
     if(!singleImage || renderingEngine !== 'opencv') return;
     try{
+      // Show progress percentage overlay
+      const progressPercent = document.getElementById('progressPercent');
+      if(progressPercent){
+        progressPercent.style.display = 'block';
+        progressPercent.style.opacity = '1';
+      }
+      
+      const startTime = Date.now();
+      
+      // Simulate progress animation with percentage updates
+      let progress = 5;
+      let processingComplete = false;
+      
+      const progressInterval = setInterval(() => {
+        if(!processingComplete){
+          progress = Math.min(progress + Math.random() * 25, 85);
+          if(progressPercent){
+            progressPercent.textContent = Math.round(progress) + '%';
+          }
+        }
+      }, 100);
+      
       const blob = await processFile(currentFiles[currentImageIndex], currentImageIndex, currentFiles.length);
+      processingComplete = true;
+      clearInterval(progressInterval);
+      
+      if(progressPercent) progressPercent.textContent = '100%';
+      
       const renderedImg = await loadImageFromFile(new File([blob], 'render.png'));
+      
       currentRenderedImage = renderedImg;
       if(currentFiles.length) drawPreview();
+      
+      // Keep progress visible for at least 800ms before hiding
+      const elapsedTime = Date.now() - startTime;
+      const remainingTime = Math.max(0, 800 - elapsedTime);
+      
+      setTimeout(() => {
+        if(progressPercent){
+          progressPercent.style.opacity = '0';
+          setTimeout(() => {
+            progressPercent.style.display = 'none';
+            progressPercent.textContent = '0%';
+          }, 200);
+        }
+      }, remainingTime);
     }catch(err){
       console.error('OpenCV render failed:', err);
+      const progressPercent = document.getElementById('progressPercent');
+      if(progressPercent){
+        progressPercent.style.opacity = '0';
+        setTimeout(() => {
+          progressPercent.style.display = 'none';
+        }, 200);
+      }
     }
   }
   
