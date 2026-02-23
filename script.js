@@ -819,6 +819,8 @@
     }
     if(useServer && serverUrl){
       // POST to server and expect image blob back
+      const resolution = document.getElementById('resolution').value;
+      const aspect = document.getElementById('aspect').value;
       console.log('Using server:', serverUrl);
       const fd = new FormData(); fd.append('file', file);
       fd.append('artStyle', document.getElementById('artStyle').value);
@@ -834,8 +836,8 @@
       fd.append('contrast', document.getElementById('contrast').value);
       fd.append('saturation', document.getElementById('saturation').value);
       fd.append('hueShift', document.getElementById('hueShift').value);
-      fd.append('resolution', document.getElementById('resolution').value);
-      fd.append('aspect', document.getElementById('aspect').value);
+      fd.append('resolution', resolution);
+      fd.append('aspect', aspect);
       try{
         const resp = await fetch(serverUrl, {method:'POST', body:fd});
         console.log('Server response:', resp.status);
@@ -913,9 +915,16 @@
     
     const res = parseInt(document.getElementById('resolution').value,10);
     const aspect = document.getElementById('aspect').value;
-    const [canvasW, canvasH] = aspectToWH(aspect, res);
+    const [reqW, reqH] = aspectToWH(aspect, res);
     
-    // Set both canvases to same dimensions
+    // Limit canvas internal size to 1024px max per dimension to avoid rendering artifacts
+    // CSS will scale it to fill the container; the resolution param only affects download size
+    const maxCanvasSize = 1024;
+    const scale = Math.max(reqW, reqH) > maxCanvasSize ? maxCanvasSize / Math.max(reqW, reqH) : 1;
+    const canvasW = Math.round(reqW * scale);
+    const canvasH = Math.round(reqH * scale);
+    
+    // Set both canvases to bounded dimensions
     original.width = canvasW; original.height = canvasH;
     preview.width = canvasW; preview.height = canvasH;
     
