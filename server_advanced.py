@@ -135,18 +135,33 @@ def render_fashion(gray, edges, intensity, stroke):
 
 
 def render_urban(gray, edges, intensity, stroke):
-    """Urban sketching: tonal with subtle color overlay suggestion"""
+    """Urban sketching: pen lines + quick washes; loose perspective, on-location feel"""
     h, w = gray.shape
-    thr = 15 + (11 - intensity) * 12
-    result = 255 - np.minimum(255, np.maximum(0, edges - thr)).astype(np.uint8)
     
-    # Add subtle wash overlay effect via darkening
-    step = max(10, 20 - stroke)
-    for y in range(0, h, step):
-        for x in range(0, w, step):
-            if random.random() > 0.7:
-                cv2.rectangle(result, (x, y), (x + step, y + step), 
-                             max(0, int(result[y, x] * 0.9)), -1)
+    # Crisp pen outlines from edges (light touch, not dark)
+    thr = 20 + (11 - intensity) * 10
+    lines = np.where(edges > thr, 0, 255).astype(np.uint8)  # Black lines on white
+    
+    # Start with light base
+    result = np.full((h, w), 245, dtype=np.uint8)  # Near-white paper base
+    
+    # Apply pen lines
+    result = np.where(lines < 128, 20, result)  # Dark lines where edges exist
+    
+    # Add quick wash effects (soft, not pixelated)
+    # Use soft brush strokes following tone, not random blocks
+    wash_intensity = stroke * 0.15  # 0-1.5 wash amount
+    
+    # Create a soft wash layer based on original image tone
+    wash_strength = (255 - gray) / 255.0 * wash_intensity
+    wash_array = (wash_strength * 60).astype(np.uint8)  # Max wash darkening = 60
+    
+    # Apply wash with slight blur for that quick-watercolor feel
+    wash_array = cv2.GaussianBlur(wash_array, (5, 5), 1)
+    
+    # Combine: lines + light wash
+    result = np.minimum(result.astype(np.int16) + wash_array.astype(np.int16), 255).astype(np.uint8)
+    
     return result
 
 
