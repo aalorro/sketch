@@ -209,7 +209,7 @@
   }
 
   // helper RNG
-  function getSeed(){ return parseInt(document.getElementById('seed').value) || 0; }
+  function getSeed(){ return 0; }
   function mulberry32(a){return function(){ var t = a += 0x6D2B79F5; t = Math.imul(t ^ t>>>15, t | 1); t ^= t + Math.imul(t ^ t>>>7, t | 61); return ((t ^ t>>>14) >>> 0) / 4294967296; }}
 
   // undo/redo system
@@ -217,8 +217,6 @@
     return {
       artStyle: document.getElementById('artStyle').value,
       style: document.getElementById('style').value,
-      prompt: document.getElementById('prompt').value,
-      seed: document.getElementById('seed').value,
       resolution: document.getElementById('resolution').value,
       aspect: document.getElementById('aspect').value,
       intensity: document.getElementById('intensity').value,
@@ -1853,6 +1851,7 @@
 
   function renderPhotorealism(ctx, w, h, edges, gray, intensity, stroke, rand){
     // Retro pen & ink: clean line drawing with tonal shading
+    const thr = 20 + (11 - intensity) * 8;  // Use intensity to control edge sensitivity
     const overlay = ctx.createImageData(w, h);
     
     // Start with white background
@@ -1860,7 +1859,7 @@
       overlay.data[i] = 255;
       overlay.data[i+1] = 255;
       overlay.data[i+2] = 255;
-      overlay.data[i+3] = 255;
+      overlay.data[i*4+3] = 255;
     }
     ctx.putImageData(overlay, 0, 0);
     
@@ -1869,7 +1868,7 @@
     for(let y=0; y<h; y++){
       for(let x=0; x<w; x++){
         const idx = y*w + x;
-        if(edges[idx] > 50){
+        if(edges[idx] > thr){
           ctx.fillRect(x, y, 1, 1);
         }
       }
@@ -1883,7 +1882,7 @@
     for(let y=0; y<h; y+=2){
       for(let x=0; x<w; x+=2){
         const idx = y*w + x;
-        if(idx < w*h && edges[idx] > 40){
+        if(idx < w*h && edges[idx] > thr * 0.8){
           ctx.fillRect(x, y, 2, 2);
         }
       }
@@ -1928,6 +1927,7 @@
 
   function renderWatercolor(ctx, w, h, edges, gray, intensity, stroke, rand){
     // Pen & wash: clean ink lines with soft tonal washes
+    const thr = 15 + (11 - intensity) * 5;  // Use intensity to control edge sensitivity
     const overlay = ctx.createImageData(w, h);
     
     // White background
@@ -1947,7 +1947,7 @@
     for(let y=0; y<h; y+=2){
       for(let x=0; x<w; x+=2){
         const idx = y*w + x;
-        if(idx < w*h && edges[idx] > 30){
+        if(idx < w*h && edges[idx] > thr * 0.6){
           ctx.fillRect(x, y, 2, 2);
         }
       }
@@ -1961,7 +1961,7 @@
     for(let y=0; y<h; y++){
       for(let x=0; x<w; x++){
         const idx = y*w + x;
-        if(idx < w*h && edges[idx] > 50){
+        if(idx < w*h && edges[idx] > thr){
           ctx.fillRect(x, y, 1, 1);
         }
       }
@@ -1971,6 +1971,7 @@
   function renderGraphitePortrait(ctx, w, h, edges, gray, intensity, stroke, rand){
     // Graphite portrait: simple smooth tonal portrait
     // Just use edge detection to create clean portrait lines
+    const thr = 25 + (11 - intensity) * 6;  // Use intensity to control edge sensitivity
     const overlay = ctx.createImageData(w, h);
     const d = overlay.data;
     
@@ -1986,7 +1987,7 @@
     for(let y=0; y<h; y++){
       for(let x=0; x<w; x++){
         const idx = y*w + x;
-        if(edges[idx] > 45){
+        if(edges[idx] > thr){
           const lineVal = Math.max(0, 248 - edges[idx] * 0.8);
           d[idx*4] = lineVal;
           d[idx*4+1] = lineVal;
@@ -2005,7 +2006,7 @@
     for(let y=0; y<h; y+=3){
       for(let x=0; x<w; x+=3){
         const idx = y*w + x;
-        if(idx < w*h && edges[idx] < 40){
+        if(idx < w*h && edges[idx] < thr * 0.7){
           ctx.fillRect(x, y, 3, 3);
         }
       }
