@@ -327,25 +327,25 @@
   async function renderCurrentImageWithOpenCV(){
     if(!singleImage || renderingEngine !== 'opencv') return;
     try{
-      // Show progress bar
-      const progressContainer = document.getElementById('progressContainer');
-      const progressBar = document.getElementById('progressBar');
-      if(progressContainer) {
-        progressContainer.style.visibility = 'visible';
-        progressContainer.style.opacity = '1';
+      // Show progress percentage overlay
+      const progressPercent = document.getElementById('progressPercent');
+      if(progressPercent){
+        progressPercent.style.display = 'block';
+        progressPercent.style.opacity = '1';
       }
-      if(progressBar) progressBar.style.width = '5%';
       
       const startTime = Date.now();
       
-      // Simulate progress animation with more frequent updates
+      // Simulate progress animation with percentage updates
       let progress = 5;
       let processingComplete = false;
       
       const progressInterval = setInterval(() => {
         if(!processingComplete){
           progress = Math.min(progress + Math.random() * 25, 85);
-          if(progressBar) progressBar.style.width = progress + '%';
+          if(progressPercent){
+            progressPercent.textContent = Math.round(progress) + '%';
+          }
         }
       }, 100);
       
@@ -353,10 +353,9 @@
       processingComplete = true;
       clearInterval(progressInterval);
       
-      if(progressBar) progressBar.style.width = '95%';
+      if(progressPercent) progressPercent.textContent = '100%';
       
       const renderedImg = await loadImageFromFile(new File([blob], 'render.png'));
-      if(progressBar) progressBar.style.width = '100%';
       
       currentRenderedImage = renderedImg;
       if(currentFiles.length) drawPreview();
@@ -366,21 +365,21 @@
       const remainingTime = Math.max(0, 800 - elapsedTime);
       
       setTimeout(() => {
-        if(progressContainer){
-          progressContainer.style.opacity = '0';
+        if(progressPercent){
+          progressPercent.style.opacity = '0';
           setTimeout(() => {
-            progressContainer.style.visibility = 'hidden';
-            progressBar.style.width = '0%';
+            progressPercent.style.display = 'none';
+            progressPercent.textContent = '0%';
           }, 200);
         }
       }, remainingTime);
     }catch(err){
       console.error('OpenCV render failed:', err);
-      const progressContainer = document.getElementById('progressContainer');
-      if(progressContainer){
-        progressContainer.style.opacity = '0';
+      const progressPercent = document.getElementById('progressPercent');
+      if(progressPercent){
+        progressPercent.style.opacity = '0';
         setTimeout(() => {
-          progressContainer.style.visibility = 'hidden';
+          progressPercent.style.display = 'none';
         }, 200);
       }
     }
