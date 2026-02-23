@@ -129,33 +129,18 @@ body.dark-mode .discord-button {
   font-weight: 500;
 }
 
-/* Rendering engine toggle buttons */
-#renderCanvas {
-  background: #fff !important;
-  color: var(--text) !important;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+/* Rendering engine switch styling */
+#renderingEngineSwitch {
+  user-select: none;
 }
 
-#renderCanvas:hover:not(:disabled) {
-  background: #f9fafb !important;
+#canvasLabel, #opencvLabel {
+  border-radius: 18px;
+  transition: all 0.3s ease;
 }
 
-#renderOpenCV {
-  background: var(--border) !important;
-  color: var(--muted) !important;
-  opacity: 0.5;
-}
-
-#renderOpenCV:not(:disabled) {
-  opacity: 1 !important;
-  background: var(--primary) !important;
-  color: white !important;
-  box-shadow: 0 2px 4px rgba(124, 58, 237, 0.2) !important;
-}
-
-#renderOpenCV:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--primary) 0%, #6d28d9 100%) !important;
-  box-shadow: 0 4px 8px rgba(124, 58, 237, 0.3) !important;
+#canvasLabel:hover, #opencvLabel:hover {
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.2);
 }
 
 .thumbnail-delete {

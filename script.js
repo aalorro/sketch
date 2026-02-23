@@ -275,21 +275,19 @@
   function updateRenderingEngineToggle(){
     const useServer = document.getElementById('useServer').checked;
     const serverUrl = document.getElementById('serverUrl').value.trim();
-    const renderCanvasBtn = document.getElementById('renderCanvas');
-    const renderOpenCVBtn = document.getElementById('renderOpenCV');
+    const renderingSwitch = document.getElementById('renderingEngineSwitch');
+    const opencvLabel = document.getElementById('opencvLabel');
     
-    // Enable OpenCV button only if server is checked AND URL is provided
+    // Enable OpenCV only if server is checked AND URL is provided
     const canUseOpenCV = useServer && serverUrl.length > 0;
-    renderOpenCVBtn.disabled = !canUseOpenCV;
+    renderingSwitch.style.opacity = canUseOpenCV ? '1' : '0.5';
+    renderingSwitch.style.pointerEvents = canUseOpenCV ? 'auto' : 'none';
+    opencvLabel.style.opacity = canUseOpenCV ? '1' : '0.6';
     
     // If OpenCV becomes disabled and currently selected, switch back to Canvas
     if(!canUseOpenCV && renderingEngine === 'opencv'){
       renderingEngine = 'canvas';
-      renderCanvasBtn.style.background = '#fff';
-      renderCanvasBtn.style.color = 'var(--text)';
-      renderOpenCVBtn.style.background = 'var(--border)';
-      renderOpenCVBtn.style.color = 'var(--muted)';
-      renderOpenCVBtn.style.opacity = '0.5';
+      updateSwitchUI();
       currentRenderedImage = null;
       if(currentFiles.length) drawPreview();
     }
@@ -304,11 +302,6 @@
         return;
       }
       renderingEngine = 'opencv';
-      document.getElementById('renderCanvas').style.background = 'var(--border)';
-      document.getElementById('renderCanvas').style.color = 'var(--muted)';
-      document.getElementById('renderOpenCV').style.background = 'var(--primary)';
-      document.getElementById('renderOpenCV').style.color = 'white';
-      document.getElementById('renderOpenCV').style.opacity = '1';
       
       // If we have an image loaded, immediately render it with OpenCV
       if(currentFiles.length && singleImage){
@@ -316,11 +309,6 @@
       }
     } else {
       renderingEngine = 'canvas';
-      document.getElementById('renderCanvas').style.background = '#fff';
-      document.getElementById('renderCanvas').style.color = 'var(--text)';
-      document.getElementById('renderOpenCV').style.background = 'var(--border)';
-      document.getElementById('renderOpenCV').style.color = 'var(--muted)';
-      document.getElementById('renderOpenCV').style.opacity = '0.5';
       currentRenderedImage = null;
       if(currentFiles.length) drawPreview();
     }
@@ -338,17 +326,45 @@
     }
   }
   
-  // Attach listeners to rendering engine toggle buttons
-  document.getElementById('renderCanvas').addEventListener('click', ()=>switchRenderingEngine('canvas'));
-  document.getElementById('renderOpenCV').addEventListener('click', ()=>switchRenderingEngine('opencv'));
+  // Attach listeners to rendering engine switch
+  const renderingSwitch = document.getElementById('renderingEngineSwitch');
+  const canvasLabel = document.getElementById('canvasLabel');
+  const opencvLabel = document.getElementById('opencvLabel');
+  const renderingEngineInput = document.getElementById('renderingEngineInput');
+  
+  function updateSwitchUI(){
+    if(renderingEngine === 'canvas'){
+      renderingEngineInput.checked = false;
+      canvasLabel.style.background = '#10b981';
+      canvasLabel.style.color = 'white';
+      opencvLabel.style.background = 'transparent';
+      opencvLabel.style.color = 'var(--muted)';
+    } else {
+      renderingEngineInput.checked = true;
+      canvasLabel.style.background = 'transparent';
+      canvasLabel.style.color = 'var(--muted)';
+      opencvLabel.style.background = '#10b981';
+      opencvLabel.style.color = 'white';
+    }
+  }
+  
+  renderingSwitch.addEventListener('click', ()=>{
+    if(renderingEngine === 'canvas'){
+      switchRenderingEngine('opencv');
+    } else {
+      switchRenderingEngine('canvas');
+    }
+    updateSwitchUI();
+  });
   
   // Listen to server checkbox and URL changes to update toggle availability
   document.getElementById('useServer').addEventListener('change', updateRenderingEngineToggle);
   document.getElementById('serverUrl').addEventListener('change', updateRenderingEngineToggle);
   document.getElementById('serverUrl').addEventListener('input', updateRenderingEngineToggle);
   
-  // Initialize the toggle state
+  // Initialize the switch state
   updateRenderingEngineToggle();
+  updateSwitchUI();
   generateBtn.addEventListener('click', ()=>{
     console.log('Generate clicked. currentFiles:', currentFiles.length, 'singleImage:', !!singleImage);
     if(!currentFiles.length){ alert('Please select one or more images.'); return; }
