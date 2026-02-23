@@ -107,9 +107,9 @@
   function updateImageNavDisplay(){
     const nav = document.getElementById('imageNav');
     const info = document.getElementById('currentImageInfo');
-    if(currentFiles.length > 1){
+    if(currentFiles.length >= 1){
       nav.style.display = 'block';
-      info.textContent = `${currentImageIndex + 1} of ${currentFiles.length} images`;
+      info.textContent = `${currentImageIndex + 1} of ${currentFiles.length} image${currentFiles.length === 1 ? '' : 's'}`;
       generateThumbnails();
     } else {
       nav.style.display = 'none';
@@ -513,56 +513,6 @@
     console.log('Reset complete');
     setTimeout(() => notification.remove(), 6000);
   });
-
-  // Clear Queue button - removes all loaded images but keeps settings
-  const clearQueueBtn = document.getElementById('clearQueue');
-  if(clearQueueBtn) {
-    clearQueueBtn.addEventListener('click', () => {
-      console.log('Clear Queue button clicked');
-      
-      // Clear only image data
-      currentFiles = [];
-      currentImageIndex = 0;
-      singleImage = null;
-      lastResults = [];
-      currentRenderedImage = null;
-      panOffsetX = 0;
-      panOffsetY = 0;
-      zoomLevel = 1.0;
-      
-      // Clear file input
-      if(fileEl){
-        fileEl.value = '';
-      }
-      
-      // Clear canvases
-      if(preview){
-        const ctx = preview.getContext('2d');
-        const res = parseInt(document.getElementById('resolution').value || '1024', 10);
-        const aspect = document.getElementById('aspect').value || '1:1';
-        const [cw, ch] = aspectToWH(aspect, res);
-        preview.width = cw;
-        preview.height = ch;
-      }
-      
-      if(original){
-        const octx = original.getContext('2d');
-        const res = parseInt(document.getElementById('resolution').value || '1024', 10);
-        const aspect = document.getElementById('aspect').value || '1:1';
-        const [cw, ch] = aspectToWH(aspect, res);
-        original.width = cw;
-        original.height = ch;
-      }
-      
-      // Update displays
-      updateFileInfo();
-      updateImageNavDisplay();
-      updateZoomDisplay();
-      disableControls();
-      
-      console.log('Image queue cleared');
-    });
-  }
 
   // Error message display function
   function showErrorMessage(message) {
