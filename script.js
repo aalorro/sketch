@@ -386,10 +386,23 @@
   });
 
   // Real-time updates for aspect and resolution
-  document.getElementById('aspect').addEventListener('change', ()=>{ pushUndo(); if(currentFiles.length) drawPreview(); });
+  document.getElementById('aspect').addEventListener('change', ()=>{ 
+    pushUndo(); 
+    currentRenderedImage = null;
+    if(renderingEngine === 'opencv' && currentFiles.length){
+      renderCurrentImageWithOpenCV();
+    } else if(currentFiles.length){
+      drawPreview();
+    }
+  });
   document.getElementById('resolution').addEventListener('change', ()=>{ 
     pushUndo(); 
-    if(currentFiles.length) drawPreview(); 
+    currentRenderedImage = null;
+    if(renderingEngine === 'opencv' && currentFiles.length){
+      renderCurrentImageWithOpenCV();
+    } else if(currentFiles.length){
+      drawPreview();
+    }
     // Show 4K warning if 4096 selected
     const resolution = document.getElementById('resolution').value;
     const warning = document.getElementById('4k-warning');
