@@ -1449,24 +1449,26 @@
     }
     ctx.putImageData(overlay, 0, 0);
     
-    // Intensity controls edge threshold and definition strength
-    const edgeThreshold = 20 + (11 - intensity) * 6;
-    const definitionAlpha = 0.3 + (intensity / 11) * 0.4;
+    // Intensity controls edge threshold (high intensity = more aggressive edges)
+    const edgeThreshold = 50 - (intensity / 11) * 40;  // 50 at low intensity, 10 at high
+    const definitionAlpha = 0.2 + (intensity / 11) * 0.6;  // 0.2 to 0.8
     
     // Add dramatic edge definition with soft blending
     ctx.globalCompositeOperation = 'multiply';
     ctx.globalAlpha = definitionAlpha;
     
-    // Soft brush strokes along strong edges
-    const edgeStep = Math.max(2, 5 - stroke * 0.3);
-    for(let y=edgeStep; y<h-edgeStep; y+=edgeStep) {
-      for(let x=edgeStep; x<w-edgeStep; x+=edgeStep) {
+    // Soft brush strokes along strong edges - add fixed margin to prevent edge smudges
+    const margin = 8;
+    const edgeStep = Math.max(3, 6 - stroke * 0.2);
+    for(let y=margin; y<h-margin; y+=edgeStep) {
+      for(let x=margin; x<w-margin; x+=edgeStep) {
         const idx = y*w + x;
         if(idx < w*h && edges[idx] > edgeThreshold) {
-          // Vary stroke width based on edge strength
-          const edgeStrength = Math.min(1, edges[idx] / 200);
-          const size = 2 + edgeStrength * 3;
-          ctx.fillStyle = `rgba(0, 0, 0, ${0.3 + edgeStrength * 0.4})`;
+          // Vary stroke width based on edge strength and intensity
+          const edgeStrength = Math.min(1, edges[idx] / 150);
+          const sizeScale = 0.5 + (intensity / 11) * 0.8;
+          const size = 1 + edgeStrength * 2.5 * sizeScale;
+          ctx.fillStyle = `rgba(0, 0, 0, ${0.25 + edgeStrength * 0.5})`;
           ctx.beginPath();
           ctx.arc(x, y, size, 0, Math.PI * 2);
           ctx.fill();
