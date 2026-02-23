@@ -97,6 +97,7 @@
   let panStartX = 0; // Start X position of pan
   let panStartY = 0; // Start Y position of pan
   let currentRenderedImage = null; // Store the rendered image (server or canvas) to preserve during zoom/pan
+  let renderingEngine = 'canvas'; // 'canvas' or 'opencv' - controls which renderer is used
   const undoStack = [];
   const redoStack = [];
   const MAX_HISTORY = 50;
@@ -193,17 +194,9 @@
       drawPreview(); 
       updateImageNavDisplay();
       
-      // If server render is enabled, re-process the new image with server
-      const useServer = document.getElementById('useServer').checked;
-      if(useServer){
-        processFile(currentFiles[currentImageIndex], currentImageIndex, currentFiles.length)
-          .then(blob=>{
-            loadImageFromFile(new File([blob], 'render.png')).then(renderedImg=>{
-              currentRenderedImage = renderedImg;
-              drawPreview();
-            }).catch(err=>console.error('Failed to load rendered image', err));
-          })
-          .catch(err=>console.error('Server re-render failed:', err));
+      // If OpenCV rendering is enabled, immediately render with server
+      if(renderingEngine === 'opencv'){
+        renderCurrentImageWithOpenCV();
       }
     }).catch(err=>console.error('Failed to load image', err));
   }
@@ -278,7 +271,84 @@
   // initialize preset list from localStorage
   refreshPresetList();
 
-  // Processing queue for batch
+  // Rendering Engine Toggle Logic
+  function updateRenderingEngineToggle(){
+    const useServer = document.getElementById('useServer').checked;
+    const serverUrl = document.getElementById('serverUrl').value.trim();
+    const renderCanvasBtn = document.getElementById('renderCanvas');
+    const renderOpenCVBtn = document.getElementById('renderOpenCV');
+    
+    // Enable OpenCV button only if server is checked AND URL is provided
+    const canUseOpenCV = useServer && serverUrl.length > 0;
+    renderOpenCVBtn.disabled = !canUseOpenCV;
+    
+    // If OpenCV becomes disabled and currently selected, switch back to Canvas
+    if(!canUseOpenCV && renderingEngine === 'opencv'){
+      renderingEngine = 'canvas';
+      renderCanvasBtn.style.background = '#fff';
+      renderCanvasBtn.style.color = 'var(--text)';
+      renderOpenCVBtn.style.background = 'var(--border)';
+      renderOpenCVBtn.style.color = 'var(--muted)';
+      renderOpenCVBtn.style.opacity = '0.5';
+      currentRenderedImage = null;
+      if(currentFiles.length) drawPreview();
+    }
+  }
+  
+  function switchRenderingEngine(engine){
+    if(engine === 'opencv'){
+      const useServer = document.getElementById('useServer').checked;
+      const serverUrl = document.getElementById('serverUrl').value.trim();
+      if(!useServer || !serverUrl){
+        alert('Server must be enabled with a valid URL to use OpenCV rendering.');
+        return;
+      }
+      renderingEngine = 'opencv';
+      document.getElementById('renderCanvas').style.background = 'var(--border)';
+      document.getElementById('renderCanvas').style.color = 'var(--muted)';
+      document.getElementById('renderOpenCV').style.background = 'var(--primary)';
+      document.getElementById('renderOpenCV').style.color = 'white';
+      document.getElementById('renderOpenCV').style.opacity = '1';
+      
+      // If we have an image loaded, immediately render it with OpenCV
+      if(currentFiles.length && singleImage){
+        renderCurrentImageWithOpenCV();
+      }
+    } else {
+      renderingEngine = 'canvas';
+      document.getElementById('renderCanvas').style.background = '#fff';
+      document.getElementById('renderCanvas').style.color = 'var(--text)';
+      document.getElementById('renderOpenCV').style.background = 'var(--border)';
+      document.getElementById('renderOpenCV').style.color = 'var(--muted)';
+      document.getElementById('renderOpenCV').style.opacity = '0.5';
+      currentRenderedImage = null;
+      if(currentFiles.length) drawPreview();
+    }
+  }
+  
+  async function renderCurrentImageWithOpenCV(){
+    if(!singleImage || renderingEngine !== 'opencv') return;
+    try{
+      const blob = await processFile(currentFiles[currentImageIndex], currentImageIndex, currentFiles.length);
+      const renderedImg = await loadImageFromFile(new File([blob], 'render.png'));
+      currentRenderedImage = renderedImg;
+      if(currentFiles.length) drawPreview();
+    }catch(err){
+      console.error('OpenCV render failed:', err);
+    }
+  }
+  
+  // Attach listeners to rendering engine toggle buttons
+  document.getElementById('renderCanvas').addEventListener('click', ()=>switchRenderingEngine('canvas'));
+  document.getElementById('renderOpenCV').addEventListener('click', ()=>switchRenderingEngine('opencv'));
+  
+  // Listen to server checkbox and URL changes to update toggle availability
+  document.getElementById('useServer').addEventListener('change', updateRenderingEngineToggle);
+  document.getElementById('serverUrl').addEventListener('change', updateRenderingEngineToggle);
+  document.getElementById('serverUrl').addEventListener('input', updateRenderingEngineToggle);
+  
+  // Initialize the toggle state
+  updateRenderingEngineToggle();
   generateBtn.addEventListener('click', ()=>{
     console.log('Generate clicked. currentFiles:', currentFiles.length, 'singleImage:', !!singleImage);
     if(!currentFiles.length){ alert('Please select one or more images.'); return; }
@@ -351,8 +421,14 @@
 
   // Helper: Clear stored rendered image and re-preview when parameters change
   function clearAndRedraw(){
-    currentRenderedImage = null; // Clear stored image so parameters can be previewed
-    if(currentFiles.length && singleImage) drawPreview();
+    // If in OpenCV mode, re-render immediately
+    if(renderingEngine === 'opencv'){
+      renderCurrentImageWithOpenCV();
+    } else {
+      // Canvas mode: clear stored image and redraw preview
+      currentRenderedImage = null;
+      if(currentFiles.length && singleImage) drawPreview();
+    }
   }
 
   // Add change listeners to all parameter controls to enable live preview

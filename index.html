@@ -246,6 +246,15 @@
       <label><input id="useServer" type="checkbox"> Use server style-transfer (requires running server) <button type="button" class="info-btn" data-modal="modal-server">?</button></label>
       <label>Server API URL <input id="serverUrl" type="text" value="http://localhost:5001/api/style-transfer-advanced" placeholder="https://example.com/api/style-transfer"></label>
 
+      <div style="margin:12px 0;padding:12px;background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.2);border-radius:8px">
+        <div style="font-size:14px;font-weight:600;margin-bottom:10px;color:var(--text)">Rendering Engine</div>
+        <div style="display:flex;gap:2px;background:var(--border);padding:2px;border-radius:6px">
+          <button id="renderCanvas" type="button" style="flex:1;padding:8px;border:none;background:#fff;color:var(--text);font-weight:600;font-size:14px;border-radius:4px;cursor:pointer;transition:all 0.2s;box-shadow:0 2px 4px rgba(0,0,0,0.1)">Canvas</button>
+          <button id="renderOpenCV" type="button" style="flex:1;padding:8px;border:none;background:var(--border);color:var(--muted);font-weight:600;font-size:14px;border-radius:4px;cursor:pointer;opacity:0.5;transition:all 0.2s" disabled>OpenCV</button>
+        </div>
+        <small style="display:block;margin-top:8px;color:var(--muted);font-size:12px">OpenCV: Instant refresh on parameter changes. Canvas: Traditional generate.</small>
+      </div>
+
       <label>Generate <button type="button" class="info-btn" data-modal="modal-generate">?</button></label>
 
       <div class="buttons" style="margin-bottom:8px">
