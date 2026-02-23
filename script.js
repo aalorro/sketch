@@ -327,6 +327,27 @@
     document.getElementById('zoomLevel').textContent = Math.round(zoomLevel * 100) + '%';
   }
 
+  // Helper: Clear stored rendered image and re-preview when parameters change
+  function clearAndRedraw(){
+    currentRenderedImage = null; // Clear stored image so parameters can be previewed
+    if(currentFiles.length && singleImage) drawPreview();
+  }
+
+  // Add change listeners to all parameter controls to enable live preview
+  const parameterControls = [
+    'artStyle', 'style', 'brush', 'intensity', 'stroke', 'smoothing',
+    'skipHatching', 'colorize', 'invert', 'contrast', 'saturation', 'hueShift',
+    'resolution', 'aspect', 'useWebGL'
+  ];
+
+  parameterControls.forEach(id => {
+    const el = document.getElementById(id);
+    if(el){
+      el.addEventListener('change', clearAndRedraw);
+      el.addEventListener('input', clearAndRedraw); // Also on input for range sliders
+    }
+  });
+
   // Pan/drag functionality for image positioning
   preview.addEventListener('mousedown', (e) => {
     if(!singleImage) return;
