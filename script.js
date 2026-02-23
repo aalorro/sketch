@@ -156,6 +156,12 @@
 
   function deleteImage(index){
     currentFiles.splice(index, 1);
+    
+    // Clear file input to stay in sync with currentFiles
+    if(fileEl) {
+      fileEl.value = '';
+    }
+    
     if(currentImageIndex >= currentFiles.length) currentImageIndex = Math.max(0, currentFiles.length - 1);
     panOffsetX = 0; // Reset pan on image delete
     panOffsetY = 0;
@@ -172,6 +178,7 @@
       const previewCanvas = document.getElementById('preview');
       const pctx = previewCanvas.getContext('2d');
       pctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+      disableControls();
     }
   }
 
