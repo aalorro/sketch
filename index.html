@@ -197,14 +197,6 @@
       <label>Saturation <input id="saturation" type="range" min="0" max="2" step="0.1" value="1"></label>
       <label>Hue Shift <input id="hueShift" type="range" min="0" max="360" step="5" value="0">°</label>
 
-      <label>Prompt (optional) <button type="button" class="info-btn" data-modal="modal-prompt">?</button>
-        <input id="prompt" type="text" placeholder="e.g. dramatic cross-hatching">
-      </label>
-
-      <label>Seed <button type="button" class="info-btn" data-modal="modal-seed">?</button>
-        <input id="seed" type="number" placeholder="0.." />
-      </label>
-
       <label>Resolution
         <select id="resolution">
           <option value="512">512 px</option>
@@ -433,32 +425,6 @@
       </ul>
       <p><strong>Note:</strong> Pan position resets when you switch to a different image.</p>
       <p><strong>Tip:</strong> Combine with zoom controls to get the exact portion of your image you want to sketch.</p>
-    </div>
-  </div>
-
-  <div id="modal-prompt" class="modal" style="display:none">
-    <div class="modal-content">
-      <button class="modal-close" type="button">&times;</button>
-      <h3>Prompt</h3>
-      <p>An optional text description sent to external ML services or custom servers to guide image processing.</p>
-      <p><strong>When it works:</strong> Only used if "Use external ML service" or "Use server style-transfer" is enabled.</p>
-      <p><strong>Example prompts:</strong></p>
-      <ul>
-        <li>"dramatic cross-hatching with bold lines"</li>
-        <li>"soft watercolor wash effect"</li>
-        <li>"detailed pen stippling"</li>
-      </ul>
-      <p><strong>Note:</strong> Has no effect during default client-side processing.</p>
-    </div>
-  </div>
-
-  <div id="modal-seed" class="modal" style="display:none">
-    <div class="modal-content">
-      <button class="modal-close" type="button">&times;</button>
-      <h3>Seed</h3>
-      <p>A number that makes random effects (like scribbling or stippling) reproducible. Use the same seed to generate identical sketches from the same image.</p>
-      <p><strong>Example:</strong> If Seed = 42 creates a style you like, you can reuse Seed 42 with other images for consistent results.</p>
-      <p>Leave blank or 0 for random variation each time.</p>
     </div>
   </div>
 
