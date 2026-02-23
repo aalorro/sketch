@@ -157,8 +157,8 @@
   function deleteImage(index){
     currentFiles.splice(index, 1);
     
-    // Clear file input to stay in sync with currentFiles
-    if(fileEl) {
+    // Only clear file input if ALL images are deleted
+    if(currentFiles.length === 0 && fileEl) {
       fileEl.value = '';
     }
     
