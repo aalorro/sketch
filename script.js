@@ -1200,6 +1200,7 @@
   }
 
   function renderGesture(ctx, w, h, edges, gray, intensity, stroke, rand) {
+    const edgeThreshold = 30 + (11 - intensity) * 6;  // Use intensity to control edge sensitivity
     const overlay = ctx.createImageData(w,h);
     const d = overlay.data;
     
@@ -1210,7 +1211,7 @@
       
       // Emphasize edges strongly, keep light areas light
       let v = 250;
-      if(edgeVal > 50) {
+      if(edgeVal > edgeThreshold) {
         v = 230 - (edgeVal / 255) * 150; // Strong edge darkening
       } else if(grayVal > 150) {
         v = 245; // Keep highlights very light
@@ -1237,7 +1238,7 @@
     for(let y=0; y<h; y+=lineStep) {
       for(let x=0; x<w; x+=lineStep) {
         const idx = y*w + x;
-        if(idx < w*h && edges[idx] > 60) {
+        if(idx < w*h && edges[idx] > edgeThreshold) {
           ctx.globalAlpha = Math.min(1, edges[idx] / 200);
           ctx.lineWidth = 0.8 + (edges[idx] / 255) * 2;
           
@@ -1384,6 +1385,7 @@
   }
 
   function renderStippling(ctx, w, h, edges, gray, intensity, stroke, rand) {
+    const edgeThreshold = 0.05 - (intensity / 11) * 0.04;  // Use intensity to control dot density
     const overlay = ctx.createImageData(w,h);
     for(let i=0; i<w*h; i++) {
       overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=255;
@@ -1397,7 +1399,7 @@
       for(let x=0; x<w; x+=step) {
         const i = y*w+x;
         const val = edges[i]/255;
-        if(val > 0.05) {  // Lower threshold
+        if(val > edgeThreshold) {  // Use intensity-based threshold
           const r = Math.max(1.5, val*(1.0 + stroke*0.5));  // Larger dots
           ctx.beginPath();
           ctx.arc(x, y, r, 0, Math.PI*2);
@@ -1408,12 +1410,14 @@
   }
 
   function renderTonalPencil(ctx, w, h, edges, gray, intensity, stroke, rand) {
-    // Smooth, blended tonal rendering
+    // Smooth, blended tonal rendering with intensity control
+    const edgeWeight = (intensity / 11) * 0.7;  // Higher intensity = more edge emphasis
+    const grayWeight = (1 - (intensity / 11) * 0.5);  // Higher intensity = less gray smoothing
     const overlay = ctx.createImageData(w,h);
     for(let i=0; i<w*h; i++) {
       const e = edges[i];
-      const g = gray[Math.floor(Math.random()*i)];
-      const blended = Math.max(e, g*0.5);
+      const g = gray[i];
+      const blended = edgeWeight * e + grayWeight * g * 0.5;
       const v = 255 - Math.min(255, blended);
       overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v;
       overlay.data[i*4+3]=255;
