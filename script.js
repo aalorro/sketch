@@ -330,41 +330,59 @@
       // Show progress bar
       const progressContainer = document.getElementById('progressContainer');
       const progressBar = document.getElementById('progressBar');
-      if(progressContainer) progressContainer.style.display = 'block';
-      if(progressBar) progressBar.style.width = '0%';
-      
-      // Simulate initial progress
-      let progress = 0;
-      if(progressBar){
-        const progressInterval = setInterval(() => {
-          progress = Math.min(progress + Math.random() * 40, 90);
-          progressBar.style.width = progress + '%';
-        }, 100);
-        
-        const blob = await processFile(currentFiles[currentImageIndex], currentImageIndex, currentFiles.length);
-        clearInterval(progressInterval);
-        progressBar.style.width = '95%';
-        
-        const renderedImg = await loadImageFromFile(new File([blob], 'render.png'));
-        progressBar.style.width = '100%';
-        currentRenderedImage = renderedImg;
-        if(currentFiles.length) drawPreview();
-        
-        // Hide progress bar after completion
-        setTimeout(() => {
-          if(progressContainer) progressContainer.style.display = 'none';
-          progressBar.style.width = '0%';
-        }, 500);
-      } else {
-        const blob = await processFile(currentFiles[currentImageIndex], currentImageIndex, currentFiles.length);
-        const renderedImg = await loadImageFromFile(new File([blob], 'render.png'));
-        currentRenderedImage = renderedImg;
-        if(currentFiles.length) drawPreview();
+      if(progressContainer) {
+        progressContainer.style.visibility = 'visible';
+        progressContainer.style.opacity = '1';
       }
+      if(progressBar) progressBar.style.width = '5%';
+      
+      const startTime = Date.now();
+      
+      // Simulate progress animation with more frequent updates
+      let progress = 5;
+      let processingComplete = false;
+      
+      const progressInterval = setInterval(() => {
+        if(!processingComplete){
+          progress = Math.min(progress + Math.random() * 25, 85);
+          if(progressBar) progressBar.style.width = progress + '%';
+        }
+      }, 100);
+      
+      const blob = await processFile(currentFiles[currentImageIndex], currentImageIndex, currentFiles.length);
+      processingComplete = true;
+      clearInterval(progressInterval);
+      
+      if(progressBar) progressBar.style.width = '95%';
+      
+      const renderedImg = await loadImageFromFile(new File([blob], 'render.png'));
+      if(progressBar) progressBar.style.width = '100%';
+      
+      currentRenderedImage = renderedImg;
+      if(currentFiles.length) drawPreview();
+      
+      // Keep progress visible for at least 800ms before hiding
+      const elapsedTime = Date.now() - startTime;
+      const remainingTime = Math.max(0, 800 - elapsedTime);
+      
+      setTimeout(() => {
+        if(progressContainer){
+          progressContainer.style.opacity = '0';
+          setTimeout(() => {
+            progressContainer.style.visibility = 'hidden';
+            progressBar.style.width = '0%';
+          }, 200);
+        }
+      }, remainingTime);
     }catch(err){
       console.error('OpenCV render failed:', err);
       const progressContainer = document.getElementById('progressContainer');
-      if(progressContainer) progressContainer.style.display = 'none';
+      if(progressContainer){
+        progressContainer.style.opacity = '0';
+        setTimeout(() => {
+          progressContainer.style.visibility = 'hidden';
+        }, 200);
+      }
     }
   }
   
