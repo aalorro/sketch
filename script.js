@@ -1426,15 +1426,21 @@
   }
 
   function renderCharcoal(ctx, w, h, edges, gray, intensity, stroke, rand) {
-    const overlay = ctx.createImageData(w,h);
+    // Start with light paper base
+    ctx.fillStyle = '#f5f5f5';
+    ctx.fillRect(0, 0, w, h);
+    
+    const overlay = ctx.createImageData(w, h);
     const d = overlay.data;
     
-    // Build richer, darker charcoal drawing from grayscale values
-    // Light paper (250) to very dark charcoal (20)
+    // Build charcoal with bold darks and soft transitions
+    // Use natural tonal range from image content
     for(let i=0; i<w*h; i++) {
       const grayVal = gray[i];
-      // Darker range: amplify the shadows
-      const tonalValue = 250 - (grayVal / 255) * 230;
+      // Extract shadows: darker image areas become darker charcoal
+      // Light areas stay near paper color
+      const shadowAmount = (255 - grayVal) / 255;  // 0=light image, 1=dark image
+      const tonalValue = 245 - (shadowAmount * 200);  // 245 (light) to 45 (dark)
       
       d[i*4] = Math.round(tonalValue);
       d[i*4+1] = Math.round(tonalValue);
@@ -1443,17 +1449,23 @@
     }
     ctx.putImageData(overlay, 0, 0);
     
-    // Add stronger edge definition
+    // Add dramatic edge definition with soft blending
     ctx.globalCompositeOperation = 'multiply';
-    ctx.globalAlpha = 0.4;
-    ctx.fillStyle = '#000000';
+    ctx.globalAlpha = 0.5;
     
-    const edgeStep = Math.max(3, 8 - stroke * 0.5);
+    // Soft brush strokes along strong edges
+    const edgeStep = Math.max(2, 5 - stroke * 0.3);
     for(let y=0; y<h; y+=edgeStep) {
       for(let x=0; x<w; x+=edgeStep) {
         const idx = y*w + x;
-        if(idx < w*h && edges[idx] > 50) {
-          ctx.fillRect(x, y, 3, 3);
+        if(idx < w*h && edges[idx] > 40) {
+          // Vary stroke width based on edge strength
+          const edgeStrength = Math.min(1, edges[idx] / 200);
+          const size = 2 + edgeStrength * 3;
+          ctx.fillStyle = `rgba(0, 0, 0, ${0.3 + edgeStrength * 0.4})`;
+          ctx.beginPath();
+          ctx.arc(x, y, size, 0, Math.PI * 2);
+          ctx.fill();
         }
       }
     }
@@ -1516,30 +1528,56 @@
   }
 
   function renderComic(ctx, w, h, edges, gray, intensity, stroke, rand) {
-    const thr = 5 + (11-intensity)*8;
-    const overlay = ctx.createImageData(w,h);
+    // Comic/Manga: varied line weight, spot blacks, speed lines
+    const baseThreshold = 10 + (11 - intensity) * 8;
+    const overlay = ctx.createImageData(w, h);
+    const d = overlay.data;
+    
+    // Create line art with varied line weight based on edge strength
     for(let i=0; i<w*h; i++) {
-      const v = (edges[i]>thr) ? 0 : 255;
-      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v;
-      overlay.data[i*4+3]=255;
+      const edgeVal = edges[i];
+      // Vary line thickness: weak edges are light gray, strong edges are black
+      const lineWeight = Math.max(0, Math.min(255, (edgeVal - baseThreshold * 0.5) * 2));
+      const v = edgeVal > baseThreshold ? Math.max(0, 50 - lineWeight * 0.3) : 255;
+      
+      d[i*4] = d[i*4+1] = d[i*4+2] = v;
+      d[i*4+3] = 255;
     }
-    ctx.putImageData(overlay,0,0);
-    // Add aggressive spot blacks in dark areas (increased coverage)
+    ctx.putImageData(overlay, 0, 0);
+    
+    // Add stylized spot blacks in dark areas
     ctx.globalCompositeOperation = 'darken';
     ctx.fillStyle = '#000';
-    const step = Math.max(5, 12 - stroke);
-    for(let y=step/2; y<h; y+=step) {
-      for(let x=step/2; x<w; x+=step) {
-        const idx = (y*w + x) * 4;
-        // More frequent spot blacks (0.4 instead of 0.6)
-        if(gray[Math.floor(y)*w + Math.floor(x)] < 140 && rand()>0.4) {
-          const radius = 1 + (rand()>0.5 ? 1 : 0);
+    const spotStep = Math.max(4, 8 - stroke * 0.5);
+    for(let y=spotStep; y<h; y+=spotStep) {
+      for(let x=spotStep; x<w; x+=spotStep) {
+        const idx = y*w + x;
+        if(idx < w*h && gray[idx] < 120 && rand() > 0.35) {
+          // Vary spot black sizes for expressiveness
+          const size = 1 + Math.floor(rand() * 2);
           ctx.beginPath();
-          ctx.arc(x, y, radius, 0, Math.PI*2);
+          ctx.arc(x + rand() * 2, y + rand() * 2, size, 0, Math.PI * 2);
           ctx.fill();
         }
       }
     }
+    
+    // Add speed lines in high-contrast areas for motion feel
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.lineWidth = 1;
+    const speedStep = Math.max(8, 16 - stroke);
+    for(let y=0; y<h; y+=speedStep*2) {
+      for(let x=0; x<w; x+=speedStep) {
+        const idx = y*w + x;
+        if(idx < w*h && edges[idx] > baseThreshold * 1.5 && rand() > 0.5) {
+          ctx.beginPath();
+          ctx.moveTo(x - speedStep, y);
+          ctx.lineTo(x + speedStep, y);
+          ctx.stroke();
+        }
+      }
+    }
+    
     ctx.globalCompositeOperation = 'source-over';
   }
 

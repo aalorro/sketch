@@ -61,23 +61,34 @@ def render_stippling(gray, edges, intensity, stroke):
 
 
 def render_charcoal(gray, edges, intensity, stroke):
-    """Charcoal: richer, darker tonal range from light paper to dark charcoal"""
+    """Charcoal: bold darks, soft edges, dramatic light on light paper base"""
     h, w = gray.shape
-    result = np.zeros((h, w), dtype=np.uint8)
     
-    # Map grayscale to darker charcoal tones (250=light -> 20=very dark)
+    # Start with light paper base
+    result = np.full((h, w), 245, dtype=np.uint8)
+    
+    # Build charcoal with bold darks naturally from image tone
     for i in range(h):
         for j in range(w):
             gray_val = gray[i, j]
-            # Darker range: amplify shadows
-            tonal_value = 250 - (gray_val / 255.0) * 230
+            # Extract shadow information: darker image areas become darker charcoal
+            shadow_amount = (255.0 - gray_val) / 255.0  # 0=light, 1=dark
+            tonal_value = 245 - (shadow_amount * 200)  # 245 (light) to 45 (dark)
             result[i, j] = int(tonal_value)
     
-    # Add stronger edge emphasis
-    for i in range(h):
-        for j in range(w):
-            if edges[i, j] > 50:
-                result[i, j] = max(0, result[i, j] - 50)
+    # Soften edges with gaussian blur for realistic charcoal effect
+    result = cv2.GaussianBlur(result, (5, 5), 1.5)
+    
+    # Add dramatic edge definition with soft blending
+    edge_mask = (edges > 40).astype(np.float32)
+    edge_strength = np.minimum(1.0, edges.astype(np.float32) / 200.0)
+    
+    # Dark accents along strong edges for definition
+    edge_darkening = (edge_strength * edge_mask * 80).astype(np.uint8)
+    result = np.maximum(0, result.astype(np.int16) - edge_darkening).astype(np.uint8)
+    
+    # Soften the result slightly for that smudged charcoal feel
+    result = cv2.GaussianBlur(result, (3, 3), 1)
     
     return result
 
@@ -109,20 +120,44 @@ def render_ink_wash(gray, edges, intensity, stroke):
 
 
 def render_comic(gray, edges, intensity, stroke):
-    """Comic/manga: high-contrast binary with aggressive spot blacks"""
+    """Comic/manga: varied line weight, spot blacks, speed lines, stylized features"""
     h, w = gray.shape
-    thr = 5 + (11 - intensity) * 8
+    base_threshold = 10 + (11 - intensity) * 8
     
-    # Binary edges
-    result = np.where(edges > thr, 255, 0).astype(np.uint8)
+    # Create line art with varied line weight based on edge strength
+    result = np.ones((h, w), dtype=np.uint8) * 255  # Start with white
     
-    # Add more spot blacks in dark areas (increased coverage)
-    step = max(5, 12 - stroke)
-    for y in range(step // 2, h, step):
-        for x in range(step // 2, w, step):
-            if gray[y, x] < 140 and random.random() > 0.4:  # More frequent (was 0.6)
-                radius = 1 if random.random() > 0.4 else 2  # More variety
-                cv2.circle(result, (x, y), radius, 0, -1)
+    for i in range(h):
+        for j in range(w):
+            edge_val = edges[i, j]
+            if edge_val > base_threshold:
+                # Vary line darkness: weak edges are light gray, strong edges are black
+                line_weight = max(0, min(255, (edge_val - base_threshold * 0.5) * 2))
+                darkness = max(0, 50 - int(line_weight * 0.3))
+                result[i, j] = darkness
+            else:
+                result[i, j] = 255
+    
+    # Add stylized spot blacks in dark areas for dramatic effect
+    spot_step = max(4, 8 - stroke // 2)
+    for y in range(spot_step, h, spot_step):
+        for x in range(spot_step, w, spot_step):
+            if gray[y, x] < 120 and random.random() > 0.35:
+                # Vary spot black sizes for expressiveness
+                radius = 1 if random.random() > 0.5 else 2
+                offset_x = x + random.randint(-1, 1)
+                offset_y = y + random.randint(-1, 1)
+                cv2.circle(result, (offset_x, offset_y), radius, 0, -1)
+    
+    # Add speed lines in high-contrast areas for motion feel
+    speed_step = max(8, 16 - stroke // 2)
+    for y in range(0, h, speed_step * 2):
+        for x in range(0, w, speed_step):
+            if edges[y, x] > base_threshold * 1.5 and random.random() > 0.5:
+                # Horizontal speed lines
+                cv2.line(result, (max(0, x - speed_step), y), 
+                        (min(w - 1, x + speed_step), y), 100, 1)
+    
     return result
 
 
