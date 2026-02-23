@@ -835,31 +835,6 @@
       const url = URL.createObjectURL(file); const im = new Image(); im.onload = ()=>{ URL.revokeObjectURL(url); resolve(im); }; im.onerror = reject; im.src = url; });
   }
 
-  fileEl.addEventListener('change', e=>{
-    const newFiles = Array.from(e.target.files || []);
-    
-    if(currentFiles.length === 0 && newFiles.length > 0) {
-      // First time uploading files - start fresh
-      currentFiles = newFiles;
-      panOffsetX = 0;
-      panOffsetY = 0;
-      zoomLevel = 1.0;
-      currentRenderedImage = null;
-      updateZoomDisplay();
-      if(currentFiles.length){
-        enableControls();
-        loadImageFromFile(currentFiles[0]).then(img=>{
-          singleImage = img;
-          drawPreview();
-        }).catch(err=>console.error('Failed to load first image', err));
-      }
-    } else if(newFiles.length > 0) {
-      // Appending more files to existing queue
-      currentFiles = currentFiles.concat(newFiles);
-      // Stay on current image, don't reset zoom/pan
-    }
-  });
-
   // utilities
   function fitCropRect(iw, ih, cw, ch){ const ir = iw/ih, cr = cw/ch; if(ir>cr){ const sw = ih*cr; return {sx: Math.round((iw-sw)/2), sy:0, sw, sh: ih}; } else { const sh = iw/cr; return {sx:0, sy: Math.round((ih-sh)/2), sw: iw, sh}; } }
   function aspectToWH(aspect, base){ const [w,h] = aspect.split(':').map(Number); const ratio = w/h; let width = base; let height = Math.round(base/ratio); if(ratio<1){ height = base; width = Math.round(base*ratio); } return [width,height]; }
