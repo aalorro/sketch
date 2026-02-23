@@ -603,6 +603,8 @@
     } else if(newFiles.length > 0) {
       // Append new files to existing queue
       currentFiles = currentFiles.concat(newFiles);
+      // Refresh the thumbnail panel immediately
+      updateImageNavDisplay();
       // Don't change currentImageIndex - stay on current image
       // Don't reset zoom/pan - let user continue working
     }
