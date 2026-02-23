@@ -5,7 +5,6 @@
   const original = document.getElementById('original');
   const preview = document.getElementById('preview');
   const generateBtn = document.getElementById('generate');
-  const generateTopBtn = document.getElementById('generateTop');
   const downloadPng = document.getElementById('downloadPng');
   const downloadJpg = document.getElementById('downloadJpg');
   const downloadZip = document.getElementById('downloadZip');
@@ -108,20 +107,30 @@
   function updateImageNavDisplay(){
     const nav = document.getElementById('imageNav');
     const info = document.getElementById('currentImageInfo');
+    console.log('updateImageNavDisplay called, currentFiles.length:', currentFiles.length);
     if(currentFiles.length >= 1){
       nav.style.display = 'block';
       info.textContent = `${currentImageIndex + 1} of ${currentFiles.length} image${currentFiles.length === 1 ? '' : 's'}`;
+      console.log('Showing nav panel with text:', info.textContent);
       generateThumbnails();
     } else {
       nav.style.display = 'none';
+      console.log('Hiding nav panel');
     }
   }
 
   function generateThumbnails(){
+    console.log('generateThumbnails called, currentFiles.length:', currentFiles.length);
     const container = document.getElementById('imageThumbnailContainer');
+    console.log('Container found:', !!container);
+    if(!container){
+      console.error('imageThumbnailContainer not found!');
+      return;
+    }
     container.innerHTML = '';
     
     currentFiles.forEach((file, index) => {
+      console.log('Creating thumbnail for:', file.name);
       const url = URL.createObjectURL(file);
       const item = document.createElement('div');
       item.className = 'thumbnail-item';
@@ -153,6 +162,7 @@
       item.addEventListener('click', () => selectImage(index));
       container.appendChild(item);
     });
+    console.log('Thumbnails generated, container has', container.children.length, 'children');
   }
 
   function deleteImage(index){
@@ -375,17 +385,6 @@
     processQueue(currentFiles);
   });
 
-  // Top Generate button - same functionality as bottom button
-  generateTopBtn.addEventListener('click', ()=>{
-    console.log('Generate (top) clicked. currentFiles:', currentFiles.length, 'singleImage:', !!singleImage);
-    if(!currentFiles.length){ alert('Please select one or more images.'); return; }
-    pushUndo();
-    lastResults = [];
-    const useZip = true;
-    console.log('Starting processQueue with', currentFiles.length, 'file(s)');
-    processQueue(currentFiles);
-  });
-
   // Real-time updates for aspect and resolution
   document.getElementById('aspect').addEventListener('change', ()=>{ pushUndo(); if(currentFiles.length) drawPreview(); });
   document.getElementById('resolution').addEventListener('change', ()=>{ 
@@ -557,6 +556,14 @@
       fileEl.value = '';
     }
     
+    // Show placeholders and hide canvases
+    const originalPlaceholder = document.getElementById('originalPlaceholder');
+    const renderedPlaceholder = document.getElementById('renderedPlaceholder');
+    if(originalPlaceholder) originalPlaceholder.style.display = 'block';
+    if(renderedPlaceholder) renderedPlaceholder.style.display = 'block';
+    if(original) original.style.display = 'none';
+    if(preview) preview.style.display = 'none';
+    
     // Explicitly clear and reset canvases
     if(preview){
       const ctx = preview.getContext('2d');
@@ -689,10 +696,13 @@
   }
 
   fileEl.addEventListener('change', e=>{
+    console.log('File input changed');
     const newFiles = Array.from(e.target.files || []);
+    console.log('New files selected:', newFiles.length);
     
     // If a file was already selected, append to the queue. Otherwise, start fresh.
     if(currentFiles.length === 0 && newFiles.length > 0) {
+      console.log('Starting fresh with', newFiles.length, 'files');
       currentFiles = newFiles;
       currentImageIndex = 0;
       panOffsetX = 0;
@@ -705,10 +715,12 @@
       loadImageFromFile(currentFiles[0]).then(img=>{
         singleImage = img;
         drawPreview();
+        console.log('First image loaded, calling updateImageNavDisplay');
         updateImageNavDisplay();
       }).catch(err=>console.error('Failed to load first image', err));
     } else if(newFiles.length > 0) {
       // Append new files to existing queue
+      console.log('Appending', newFiles.length, 'files to existing queue');
       currentFiles = currentFiles.concat(newFiles);
       // Refresh the thumbnail panel immediately
       updateImageNavDisplay();
@@ -875,6 +887,15 @@
   // real-time preview: applies sketch transforms to loaded image
   function drawPreview(){
     if(!singleImage) return;
+    
+    // Hide placeholders and show canvases when drawing
+    const originalPlaceholder = document.getElementById('originalPlaceholder');
+    const renderedPlaceholder = document.getElementById('renderedPlaceholder');
+    if(originalPlaceholder) originalPlaceholder.style.display = 'none';
+    if(renderedPlaceholder) renderedPlaceholder.style.display = 'none';
+    original.style.display = 'block';
+    preview.style.display = 'block';
+    
     const res = parseInt(document.getElementById('resolution').value,10);
     const aspect = document.getElementById('aspect').value;
     const [canvasW, canvasH] = aspectToWH(aspect, res);
