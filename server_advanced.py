@@ -6,15 +6,34 @@ Returns PNG image.
 
 Implements 20+ rendering styles ported from Canvas versions.
 """
-from flask import Flask, request, send_file, jsonify
+from flask import Flask, request, send_file, jsonify, make_response
 import numpy as np
 import cv2
 import io
 from PIL import Image
 import os
 import random
+from functools import wraps
 
 app = Flask(__name__)
+
+# Custom CORS decorator
+def add_cors_headers(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        response = make_response(f(*args, **kwargs))
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'POST, GET, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        return response
+    return decorated_function
+
+
+# Health check endpoint
+@app.route('/health', methods=['GET'])
+@add_cors_headers
+def health():
+    return jsonify({'status': 'ok'}), 200
 
 
 def read_image_from_stream(stream):
@@ -116,18 +135,33 @@ def render_fashion(gray, edges, intensity, stroke):
 
 
 def render_urban(gray, edges, intensity, stroke):
-    """Urban sketching: tonal with subtle color overlay suggestion"""
+    """Urban sketching: pen lines + quick washes; loose perspective, on-location feel"""
     h, w = gray.shape
-    thr = 15 + (11 - intensity) * 12
-    result = 255 - np.minimum(255, np.maximum(0, edges - thr)).astype(np.uint8)
     
-    # Add subtle wash overlay effect via darkening
-    step = max(10, 20 - stroke)
-    for y in range(0, h, step):
-        for x in range(0, w, step):
-            if random.random() > 0.7:
-                cv2.rectangle(result, (x, y), (x + step, y + step), 
-                             max(0, int(result[y, x] * 0.9)), -1)
+    # Crisp pen outlines from edges (light touch, not dark)
+    thr = 20 + (11 - intensity) * 10
+    lines = np.where(edges > thr, 0, 255).astype(np.uint8)  # Black lines on white
+    
+    # Start with light base
+    result = np.full((h, w), 245, dtype=np.uint8)  # Near-white paper base
+    
+    # Apply pen lines
+    result = np.where(lines < 128, 20, result)  # Dark lines where edges exist
+    
+    # Add quick wash effects (soft, not pixelated)
+    # Use soft brush strokes following tone, not random blocks
+    wash_intensity = stroke * 0.15  # 0-1.5 wash amount
+    
+    # Create a soft wash layer based on original image tone
+    wash_strength = (255 - gray) / 255.0 * wash_intensity
+    wash_array = (wash_strength * 60).astype(np.uint8)  # Max wash darkening = 60
+    
+    # Apply wash with slight blur for that quick-watercolor feel
+    wash_array = cv2.GaussianBlur(wash_array, (5, 5), 1)
+    
+    # Combine: lines + light wash
+    result = np.minimum(result.astype(np.int16) + wash_array.astype(np.int16), 255).astype(np.uint8)
+    
     return result
 
 
@@ -356,10 +390,15 @@ def apply_color_adjustments(img_bgr, contrast, saturation, hue_shift):
     return np.clip(result, 0, 255).astype(np.uint8)
 
 
-@app.route('/api/style-transfer-advanced', methods=['POST'])
+@app.route('/api/style-transfer-advanced', methods=['POST', 'OPTIONS'])
+@add_cors_headers
 def api_style_transfer_advanced():
+    # Handle CORS preflight
+    if request.method == 'OPTIONS':
+        return '', 204
+    
     if 'file' not in request.files:
-        return jsonify({'error': 'no file provided'}), 400
+        return make_response(jsonify({'error': 'no file provided'}), 400)
     
     try:
         f = request.files['file']
@@ -411,7 +450,7 @@ def api_style_transfer_advanced():
 
         img = read_image_from_stream(f.stream)
     except Exception as e:
-        return jsonify({'error': 'invalid image', 'details': str(e)}), 400
+        return make_response(jsonify({'error': 'invalid image', 'details': str(e)}), 400)
 
     try:
         out = stylize_opencv(img, artStyle=artStyle, style=style, brush=brush, 
@@ -421,19 +460,19 @@ def api_style_transfer_advanced():
                             contrast=contrast, saturation=saturation, 
                             hueShift=hueShift)
     except Exception as e:
-        return jsonify({'error': 'processing failed', 'details': str(e)}), 500
+        return make_response(jsonify({'error': 'processing failed', 'details': str(e)}), 500)
 
     # Return PNG
     try:
         is_success, buffer = cv2.imencode('.png', out)
         if not is_success:
-            return jsonify({'error': 'encoding failed'}), 500
+            return make_response(jsonify({'error': 'encoding failed'}), 500)
         bio = io.BytesIO(buffer.tobytes())
         resp = send_file(bio, mimetype='image/png')
         resp.headers['Access-Control-Allow-Origin'] = '*'
         return resp
     except Exception as e:
-        return jsonify({'error': 'PNG encoding failed', 'details': str(e)}), 500
+        return make_response(jsonify({'error': 'PNG encoding failed', 'details': str(e)}), 500)
 
 
 if __name__ == '__main__':

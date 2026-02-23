@@ -107,9 +107,9 @@
   function updateImageNavDisplay(){
     const nav = document.getElementById('imageNav');
     const info = document.getElementById('currentImageInfo');
-    if(currentFiles.length > 1){
+    if(currentFiles.length >= 1){
       nav.style.display = 'block';
-      info.textContent = `${currentImageIndex + 1} of ${currentFiles.length} images`;
+      info.textContent = `${currentImageIndex + 1} of ${currentFiles.length} image${currentFiles.length === 1 ? '' : 's'}`;
       generateThumbnails();
     } else {
       nav.style.display = 'none';
@@ -156,6 +156,12 @@
 
   function deleteImage(index){
     currentFiles.splice(index, 1);
+    
+    // Only clear file input if ALL images are deleted
+    if(currentFiles.length === 0 && fileEl) {
+      fileEl.value = '';
+    }
+    
     if(currentImageIndex >= currentFiles.length) currentImageIndex = Math.max(0, currentFiles.length - 1);
     panOffsetX = 0; // Reset pan on image delete
     panOffsetY = 0;
@@ -172,6 +178,7 @@
       const previewCanvas = document.getElementById('preview');
       const pctx = previewCanvas.getContext('2d');
       pctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+      disableControls();
     }
   }
 
@@ -181,7 +188,24 @@
     panOffsetY = 0;
     zoomLevel = 1.0; // Reset zoom on image selection
     currentRenderedImage = null; // Clear stored rendered image
-    loadImageFromFile(currentFiles[currentImageIndex]).then(img=>{ singleImage = img; drawPreview(); updateImageNavDisplay(); }).catch(err=>console.error('Failed to load image', err));
+    loadImageFromFile(currentFiles[currentImageIndex]).then(img=>{ 
+      singleImage = img; 
+      drawPreview(); 
+      updateImageNavDisplay();
+      
+      // If server render is enabled, re-process the new image with server
+      const useServer = document.getElementById('useServer').checked;
+      if(useServer){
+        processFile(currentFiles[currentImageIndex], currentImageIndex, currentFiles.length)
+          .then(blob=>{
+            loadImageFromFile(new File([blob], 'render.png')).then(renderedImg=>{
+              currentRenderedImage = renderedImg;
+              drawPreview();
+            }).catch(err=>console.error('Failed to load rendered image', err));
+          })
+          .catch(err=>console.error('Server re-render failed:', err));
+      }
+    }).catch(err=>console.error('Failed to load image', err));
   }
 
   // helper RNG
@@ -575,17 +599,34 @@
   }
 
   fileEl.addEventListener('change', e=>{
-    currentFiles = Array.from(e.target.files || []);
-    currentImageIndex = 0;
-    panOffsetX = 0; // Reset pan on new files
-    panOffsetY = 0;
-    zoomLevel = 1.0; // Reset zoom on new files
-    updateZoomDisplay();
-    updateFileInfo();
-    if(currentFiles.length){
+    const newFiles = Array.from(e.target.files || []);
+    
+    // If a file was already selected, append to the queue. Otherwise, start fresh.
+    if(currentFiles.length === 0 && newFiles.length > 0) {
+      currentFiles = newFiles;
+      currentImageIndex = 0;
+      panOffsetX = 0;
+      panOffsetY = 0;
+      zoomLevel = 1.0;
+      currentRenderedImage = null;
+      updateZoomDisplay();
+      // Load the first image
       enableControls();
-      loadImageFromFile(currentFiles[0]).then(img=>{ singleImage = img; drawPreview(); updateImageNavDisplay(); }).catch(err=>console.error('Failed to load first image', err));
+      loadImageFromFile(currentFiles[0]).then(img=>{
+        singleImage = img;
+        drawPreview();
+        updateImageNavDisplay();
+      }).catch(err=>console.error('Failed to load first image', err));
+    } else if(newFiles.length > 0) {
+      // Append new files to existing queue
+      currentFiles = currentFiles.concat(newFiles);
+      // Refresh the thumbnail panel immediately
+      updateImageNavDisplay();
+      // Don't change currentImageIndex - stay on current image
+      // Don't reset zoom/pan - let user continue working
     }
+    
+    updateFileInfo();
   });
 
   // Test Server button (posts demo image served by static server)
@@ -769,22 +810,6 @@
     return new Promise((resolve, reject)=>{
       const url = URL.createObjectURL(file); const im = new Image(); im.onload = ()=>{ URL.revokeObjectURL(url); resolve(im); }; im.onerror = reject; im.src = url; });
   }
-
-  fileEl.addEventListener('change', e=>{
-    currentFiles = Array.from(e.target.files || []);
-    panOffsetX = 0; // Reset pan on new files
-    panOffsetY = 0;
-    zoomLevel = 1.0; // Reset zoom on new files
-    currentRenderedImage = null; // Clear stored rendered image
-    updateZoomDisplay();
-    if(currentFiles.length){
-      enableControls();
-      loadImageFromFile(currentFiles[0]).then(img=>{
-        singleImage = img;
-        drawPreview();
-      }).catch(err=>console.error('Failed to load first image', err));
-    }
-  });
 
   // utilities
   function fitCropRect(iw, ih, cw, ch){ const ir = iw/ih, cr = cw/ch; if(ir>cr){ const sw = ih*cr; return {sx: Math.round((iw-sw)/2), sy:0, sw, sh: ih}; } else { const sh = iw/cr; return {sx:0, sy: Math.round((ih-sh)/2), sw: iw, sh}; } }

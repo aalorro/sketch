@@ -1,5 +1,13 @@
 # ML Endpoint Quick Start - 5 Minutes to Deployment
 
+## ⚠️ Important: Local Testing Requires Two Servers
+
+To test the ML endpoint locally with Sketchify, you need **both**:
+- **Web Server (port 8000):** `python -m http.server 8000`
+- **ML Service (port 5001):** `python ml_endpoint.py` (this module)
+
+See [README.md](README.md#local-development-setup-recommended-for-testing) for complete local setup instructions.
+
 ## 📋 Files Created
 
 ```
