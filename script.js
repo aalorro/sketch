@@ -255,7 +255,11 @@
       
       // Show notification about using Reset
       const notification = document.createElement('div');
-      notification.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #3b82f6; color: white; padding: 30px 40px; border-radius: 12px; font-size: 18px; z-index: 9999; box-shadow: 0 8px 32px rgba(0,0,0,0.3); text-align: center; max-width: 500px;';
+      const isMobileScreen = window.innerWidth <= 768;
+      const padding = isMobileScreen ? '20px 30px' : '30px 40px';
+      const fontSize = isMobileScreen ? '16px' : '18px';
+      const maxWidth = isMobileScreen ? '90vw' : '500px';
+      notification.style.cssText = `position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #3b82f6; color: white; padding: ${padding}; border-radius: 12px; font-size: ${fontSize}; z-index: 9999; box-shadow: 0 8px 32px rgba(0,0,0,0.3); text-align: center; max-width: ${maxWidth};`;
       notification.textContent = 'Last image deleted. Click "Reset" button to start fresh.';
       document.body.appendChild(notification);
       setTimeout(() => notification.remove(), 5000);
