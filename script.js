@@ -387,6 +387,40 @@
     }
   }
   
+  // Styles available in both canvas and server
+  const serverStyles = ['stippling', 'charcoal', 'drybrush', 'inkwash', 'comic', 'fashion', 'urban', 'architectural', 'academic', 'etching', 'minimalist', 'glitch', 'mixedmedia'];
+  
+  // Canvas-only styles (not available in server)
+  const canvasOnlyStyles = ['contour', 'gesture', 'lineart', 'crosscontour', 'hatching', 'crosshatching', 'scribble', 'tonalpencil', 'photorealism', 'graphiteportrait', 'oilpainting', 'watercolor'];
+  
+  // Update style menu based on rendering engine
+  function updateStyleMenu(){
+    const styleSelect = document.getElementById('style');
+    const options = styleSelect.querySelectorAll('option');
+    const currentStyle = styleSelect.value;
+    
+    options.forEach(option => {
+      const styleValue = option.value;
+      const isCanvasOnly = canvasOnlyStyles.includes(styleValue);
+      
+      if(renderingEngine === 'opencv'){
+        // Hide canvas-only styles in OpenCV mode
+        option.style.display = isCanvasOnly ? 'none' : 'block';
+        option.disabled = isCanvasOnly;
+      } else {
+        // Show all styles in Canvas mode
+        option.style.display = 'block';
+        option.disabled = false;
+      }
+    });
+    
+    // If current style is canvas-only and we switched to OpenCV, switch to a server style
+    if(renderingEngine === 'opencv' && canvasOnlyStyles.includes(currentStyle)){
+      styleSelect.value = 'stippling';
+      if(currentFiles.length) drawPreview();
+    }
+  }
+  
   function switchRenderingEngine(engine){
     if(engine === 'opencv'){
       // Block OpenCV on mobile devices unless force override is enabled
@@ -403,6 +437,7 @@
         return;
       }
       renderingEngine = 'opencv';
+      updateStyleMenu();
       
       // If we have an image loaded, immediately render it with OpenCV
       if(currentFiles.length && singleImage){
@@ -410,6 +445,7 @@
       }
     } else {
       renderingEngine = 'canvas';
+      updateStyleMenu();
       currentRenderedImage = null;
       if(currentFiles.length) drawPreview();
     }
@@ -505,6 +541,7 @@
       switchRenderingEngine('canvas');
     }
     updateSwitchUI();
+    updateStyleMenu();
   });
   
   // Listen to server checkbox and URL changes to update toggle availability
@@ -540,6 +577,7 @@
   // Initialize the switch state
   updateRenderingEngineToggle();
   updateSwitchUI();
+  updateStyleMenu();
   generateBtn.addEventListener('click', ()=>{
     console.log('Generate clicked. currentFiles:', currentFiles.length, 'singleImage:', !!singleImage);
     if(!currentFiles.length){ alert('Please select one or more images.'); return; }
