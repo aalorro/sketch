@@ -241,6 +241,9 @@
       <small id="webglStatus" style="display:none;color:green">✓ GPU accelerated</small>
       <label><input id="useServer" type="checkbox"> Use server style-transfer (requires running server) <button type="button" class="info-btn" data-modal="modal-server">?</button></label>
       <label>Server API URL <input id="serverUrl" type="text" value="http://localhost:5001/api/style-transfer-advanced" placeholder="https://example.com/api/style-transfer"></label>
+      <label id="forceServerLabel" style="display:none; background:rgba(251,191,36,0.1); padding:8px 12px; border-radius:6px; border:1px solid rgba(251,191,36,0.3); cursor:pointer; margin-top:8px;">
+        <input id="forceServer" type="checkbox"> <strong>⚡ Advanced: Force Enable Server Mode</strong> <span style="font-size:12px; color:#888;">(for desktop use)</span>
+      </label>
 
       <div style="margin:12px 0;padding:12px;background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.2);border-radius:8px">
         <div style="font-size:14px;font-weight:600;margin-bottom:10px;color:var(--text)">Rendering Engine</div>
