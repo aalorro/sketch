@@ -98,11 +98,62 @@
   let currentRenderedImage = null; // Store the rendered image (server or canvas) to preserve during zoom/pan
   let renderingEngine = 'canvas'; // 'canvas' or 'opencv' - controls which renderer is used
   
-  // Mobile detection and optimization
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  // Mobile detection and optimization - detect mobile devices, tablets, and small screens
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 1280;
+  let forceServerOverride = false; // User can manually override the auto-disable
+  
   const disableMobileServer = () => {
     const useServerCheckbox = document.getElementById('useServer');
     const serverUrlInput = document.getElementById('serverUrl');
+    const forceServerLabel = document.getElementById('forceServerLabel');
+    
+    if(useServerCheckbox){
+      useServerCheckbox.checked = false;
+      useServerCheckbox.disabled = true;
+      useServerCheckbox.style.cursor = 'not-allowed';
+      useServerCheckbox.style.opacity = '0.6';
+      useServerCheckbox.parentElement.style.opacity = '0.6';
+      useServerCheckbox.parentElement.style.cursor = 'not-allowed';
+      useServerCheckbox.parentElement.style.pointerEvents = 'none';
+    }
+    if(serverUrlInput){
+      serverUrlInput.disabled = true;
+      serverUrlInput.style.opacity = '0.5';
+      serverUrlInput.style.cursor = 'not-allowed';
+      serverUrlInput.style.backgroundColor = 'var(--border)';
+    }
+    // Show the override toggle
+    if(forceServerLabel){
+      forceServerLabel.style.display = 'block';
+    }
+  };
+  
+  const enableServerForce = () => {
+    forceServerOverride = true;
+    const useServerCheckbox = document.getElementById('useServer');
+    const serverUrlInput = document.getElementById('serverUrl');
+    
+    if(useServerCheckbox){
+      useServerCheckbox.disabled = false;
+      useServerCheckbox.style.cursor = 'pointer';
+      useServerCheckbox.style.opacity = '1';
+      useServerCheckbox.parentElement.style.opacity = '1';
+      useServerCheckbox.parentElement.style.cursor = 'pointer';
+      useServerCheckbox.parentElement.style.pointerEvents = 'auto';
+    }
+    if(serverUrlInput){
+      serverUrlInput.disabled = false;
+      serverUrlInput.style.opacity = '1';
+      serverUrlInput.style.cursor = 'text';
+      serverUrlInput.style.backgroundColor = 'var(--card)';
+    }
+  };
+  
+  const disableServerForce = () => {
+    forceServerOverride = false;
+    const useServerCheckbox = document.getElementById('useServer');
+    const serverUrlInput = document.getElementById('serverUrl');
+    
     if(useServerCheckbox){
       useServerCheckbox.checked = false;
       useServerCheckbox.disabled = true;
@@ -121,10 +172,11 @@
   };
   
   if(isMobile){
-    // Disable server mode on mobile devices for better performance
+    // Disable server mode on mobile devices and tablets for better performance
     disableMobileServer();
-    console.log('📱 Mobile device detected - Server mode disabled for performance. Using browser rendering only.');
+    console.log('📱 Mobile/tablet device detected - Server mode disabled for performance. Use "Force Enable Server Mode" if needed.');
   }
+  
   
   const undoStack = [];
   const redoStack = [];
@@ -317,8 +369,8 @@
     const renderingSwitch = document.getElementById('renderingEngineSwitch');
     const opencvLabel = document.getElementById('opencvLabel');
     
-    // Enable OpenCV only if: server is checked AND URL is provided AND not on mobile
-    const canUseOpenCV = !isMobile && useServer && serverUrl.length > 0;
+    // Enable OpenCV only if: server is checked AND URL is provided AND (not on mobile OR force override enabled)
+    const canUseOpenCV = useServer && serverUrl.length > 0 && (!isMobile || forceServerOverride);
     renderingSwitch.style.opacity = canUseOpenCV ? '1' : '0.5';
     renderingSwitch.style.pointerEvents = canUseOpenCV ? 'auto' : 'none';
     opencvLabel.style.opacity = canUseOpenCV ? '1' : '0.6';
@@ -334,8 +386,8 @@
   
   function switchRenderingEngine(engine){
     if(engine === 'opencv'){
-      // Block OpenCV on mobile devices
-      if(isMobile){
+      // Block OpenCV on mobile devices unless force override is enabled
+      if(isMobile && !forceServerOverride){
         alert('Server rendering is not available on mobile devices. Using browser rendering for better performance.');
         renderingEngine = 'canvas';
         updateSwitchUI();
@@ -457,12 +509,27 @@
   document.getElementById('serverUrl').addEventListener('change', updateRenderingEngineToggle);
   document.getElementById('serverUrl').addEventListener('input', updateRenderingEngineToggle);
   
-  // Prevent server checkbox from being checked on mobile
+  // Prevent server checkbox from being checked on mobile (unless force enabled)
   if(isMobile){
     document.getElementById('useServer').addEventListener('change', (e) => {
-      if(e.target.checked){
+      if(e.target.checked && !forceServerOverride){
         e.target.checked = false;
         alert('Server rendering is not available on mobile devices. Using browser rendering for better performance.');
+      }
+    });
+  }
+  
+  // Force enable server mode toggle
+  const forceServerToggle = document.getElementById('forceServer');
+  if(forceServerToggle){
+    forceServerToggle.addEventListener('change', (e) => {
+      if(e.target.checked){
+        console.log('⚡ Force enabling server mode - user override active');
+        enableServerForce();
+      } else {
+        console.log('📱 Re-disabling server mode - returning to safe defaults');
+        disableServerForce();
+        updateRenderingEngineToggle();
       }
     });
   }
