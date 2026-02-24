@@ -387,6 +387,40 @@
     }
   }
   
+  // Styles available in both canvas and server
+  const serverStyles = ['stippling', 'charcoal', 'drybrush', 'inkwash', 'comic', 'fashion', 'urban', 'architectural', 'academic', 'etching', 'minimalist', 'glitch', 'mixedmedia'];
+  
+  // Canvas-only styles (not available in server)
+  const canvasOnlyStyles = ['contour', 'gesture', 'lineart', 'crosscontour', 'hatching', 'crosshatching', 'scribble', 'tonalpencil', 'photorealism', 'graphiteportrait', 'oilpainting', 'watercolor'];
+  
+  // Update style menu based on rendering engine
+  function updateStyleMenu(){
+    const styleSelect = document.getElementById('style');
+    const options = styleSelect.querySelectorAll('option');
+    const currentStyle = styleSelect.value;
+    
+    options.forEach(option => {
+      const styleValue = option.value;
+      const isCanvasOnly = canvasOnlyStyles.includes(styleValue);
+      
+      if(renderingEngine === 'opencv'){
+        // Hide canvas-only styles in OpenCV mode
+        option.style.display = isCanvasOnly ? 'none' : 'block';
+        option.disabled = isCanvasOnly;
+      } else {
+        // Show all styles in Canvas mode
+        option.style.display = 'block';
+        option.disabled = false;
+      }
+    });
+    
+    // If current style is canvas-only and we switched to OpenCV, switch to a server style
+    if(renderingEngine === 'opencv' && canvasOnlyStyles.includes(currentStyle)){
+      styleSelect.value = 'stippling';
+      if(currentFiles.length) drawPreview();
+    }
+  }
+  
   function switchRenderingEngine(engine){
     if(engine === 'opencv'){
       // Block OpenCV on mobile devices unless force override is enabled
@@ -403,6 +437,7 @@
         return;
       }
       renderingEngine = 'opencv';
+      updateStyleMenu();
       
       // If we have an image loaded, immediately render it with OpenCV
       if(currentFiles.length && singleImage){
@@ -410,6 +445,7 @@
       }
     } else {
       renderingEngine = 'canvas';
+      updateStyleMenu();
       currentRenderedImage = null;
       if(currentFiles.length) drawPreview();
     }
@@ -505,6 +541,7 @@
       switchRenderingEngine('canvas');
     }
     updateSwitchUI();
+    updateStyleMenu();
   });
   
   // Listen to server checkbox and URL changes to update toggle availability
@@ -540,6 +577,7 @@
   // Initialize the switch state
   updateRenderingEngineToggle();
   updateSwitchUI();
+  updateStyleMenu();
   generateBtn.addEventListener('click', ()=>{
     console.log('Generate clicked. currentFiles:', currentFiles.length, 'singleImage:', !!singleImage);
     if(!currentFiles.length){ alert('Please select one or more images.'); return; }
@@ -1563,6 +1601,7 @@
   }
 
   function renderLineArt(ctx, w, h, edges, gray, intensity, stroke, rand) {
+    // Pure line art: clean lines only, no shading
     const thr = 15 + (11-intensity)*10 - stroke * 0.5;
     const overlay = ctx.createImageData(w,h);
     for(let i=0;i<w*h;i++){
@@ -1570,31 +1609,6 @@
       overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v; overlay.data[i*4+3]=255;
     }
     ctx.putImageData(overlay,0,0);
-    
-    // Add subtle line weight variation based on stroke
-    ctx.globalCompositeOperation = 'multiply';
-    ctx.strokeStyle = '#000000';
-    ctx.lineCap = 'round';
-    
-    const lineWeight = 0.3 + stroke * 0.08;
-    const detailStep = Math.max(8, 20 - stroke * 0.5);
-    
-    for(let y = 0; y < h; y += detailStep) {
-      for(let x = 0; x < w; x += detailStep) {
-        const idx = y * w + x;
-        if(idx < w*h && edges[idx] > thr * 0.8) {
-          ctx.lineWidth = lineWeight;
-          ctx.globalAlpha = 0.3;
-          ctx.beginPath();
-          ctx.moveTo(x, y);
-          ctx.lineTo(x + (rand() - 0.5) * 2, y + (rand() - 0.5) * 2);
-          ctx.stroke();
-        }
-      }
-    }
-    
-    ctx.globalAlpha = 1.0;
-    ctx.globalCompositeOperation = 'source-over';
   }
 
   function renderCrossContour(ctx, w, h, edges, gray, intensity, stroke) {
