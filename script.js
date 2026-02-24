@@ -268,9 +268,16 @@
       const origCanvas = document.getElementById('original');
       const ctx = origCanvas.getContext('2d');
       ctx.clearRect(0, 0, origCanvas.width, origCanvas.height);
+      origCanvas.style.display = 'none';
       const previewCanvas = document.getElementById('preview');
       const pctx = previewCanvas.getContext('2d');
       pctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+      previewCanvas.style.display = 'none';
+      // Show placeholder images again
+      const originalPlaceholder = document.getElementById('originalPlaceholder');
+      const renderedPlaceholder = document.getElementById('renderedPlaceholder');
+      if(originalPlaceholder) originalPlaceholder.style.display = 'block';
+      if(renderedPlaceholder) renderedPlaceholder.style.display = 'block';
       singleImage = null; // Clear image reference when all deleted
       disableControls();
     }
