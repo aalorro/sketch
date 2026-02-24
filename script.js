@@ -260,6 +260,7 @@
     zoomLevel = 1.0; // Reset zoom on image delete
     currentRenderedImage = null; // Clear stored rendered image
     updateFileInfo();
+    generateThumbnails(); // Always regenerate thumbnails to keep UI in sync
     updateImageNavDisplay();
     if(currentFiles.length > 0){
       loadImageFromFile(currentFiles[currentImageIndex]).then(img=>{ singleImage = img; drawPreview(); }).catch(err=>console.error('Failed to load image', err));
@@ -270,6 +271,7 @@
       const previewCanvas = document.getElementById('preview');
       const pctx = previewCanvas.getContext('2d');
       pctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+      singleImage = null; // Clear image reference when all deleted
       disableControls();
     }
   }
