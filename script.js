@@ -255,30 +255,34 @@
     }
     
     if(currentImageIndex >= currentFiles.length) currentImageIndex = Math.max(0, currentFiles.length - 1);
-    panOffsetX = 0; // Reset pan on image delete
+    panOffsetX = 0;
     panOffsetY = 0;
-    zoomLevel = 1.0; // Reset zoom on image delete
-    currentRenderedImage = null; // Clear stored rendered image
+    zoomLevel = 1.0;
+    currentRenderedImage = null;
     updateFileInfo();
-    generateThumbnails(); // Always regenerate thumbnails to keep UI in sync
-    updateImageNavDisplay();
+    
     if(currentFiles.length > 0){
+      updateImageNavDisplay(); // This will call generateThumbnails when files exist
       loadImageFromFile(currentFiles[currentImageIndex]).then(img=>{ singleImage = img; drawPreview(); }).catch(err=>console.error('Failed to load image', err));
     } else {
+      // Hide canvases and show placeholders
       const origCanvas = document.getElementById('original');
-      const ctx = origCanvas.getContext('2d');
-      ctx.clearRect(0, 0, origCanvas.width, origCanvas.height);
       origCanvas.style.display = 'none';
       const previewCanvas = document.getElementById('preview');
-      const pctx = previewCanvas.getContext('2d');
-      pctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
       previewCanvas.style.display = 'none';
-      // Show placeholder images again
       const originalPlaceholder = document.getElementById('originalPlaceholder');
       const renderedPlaceholder = document.getElementById('renderedPlaceholder');
       if(originalPlaceholder) originalPlaceholder.style.display = 'block';
       if(renderedPlaceholder) renderedPlaceholder.style.display = 'block';
-      singleImage = null; // Clear image reference when all deleted
+      
+      // Clear canvases
+      const ctx = origCanvas.getContext('2d');
+      ctx.clearRect(0, 0, origCanvas.width, origCanvas.height);
+      const pctx = previewCanvas.getContext('2d');
+      pctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+      
+      singleImage = null;
+      updateImageNavDisplay(); // This will hide the nav panel
       disableControls();
     }
   }
