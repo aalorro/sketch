@@ -1189,7 +1189,7 @@
       case 'contour': renderContour(ctx, w, h, edges, gray, intensity); break;
       case 'gesture': renderGesture(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       case 'lineart': renderLineArt(ctx, w, h, edges, gray, intensity, stroke, rand); break;
-      case 'crosscontour': renderCrossContour(ctx, w, h, edges, gray, intensity); break;
+      case 'crosscontour': renderCrossContour(ctx, w, h, edges, gray, intensity, stroke); break;
       case 'hatching': renderHatching(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       case 'crosshatching': renderCrossHatching(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       case 'scribble': renderScribble(ctx, w, h, edges, gray, intensity, stroke, rand); break;
@@ -1563,16 +1563,41 @@
   }
 
   function renderLineArt(ctx, w, h, edges, gray, intensity, stroke, rand) {
-    const thr = 15 + (11-intensity)*10;
+    const thr = 15 + (11-intensity)*10 - stroke * 0.5;
     const overlay = ctx.createImageData(w,h);
     for(let i=0;i<w*h;i++){
       const v = (edges[i] > thr) ? 0 : 255;
       overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v; overlay.data[i*4+3]=255;
     }
     ctx.putImageData(overlay,0,0);
+    
+    // Add subtle line weight variation based on stroke
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.strokeStyle = '#000000';
+    ctx.lineCap = 'round';
+    
+    const lineWeight = 0.3 + stroke * 0.08;
+    const detailStep = Math.max(8, 20 - stroke * 0.5);
+    
+    for(let y = 0; y < h; y += detailStep) {
+      for(let x = 0; x < w; x += detailStep) {
+        const idx = y * w + x;
+        if(idx < w*h && edges[idx] > thr * 0.8) {
+          ctx.lineWidth = lineWeight;
+          ctx.globalAlpha = 0.3;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + (rand() - 0.5) * 2, y + (rand() - 0.5) * 2);
+          ctx.stroke();
+        }
+      }
+    }
+    
+    ctx.globalAlpha = 1.0;
+    ctx.globalCompositeOperation = 'source-over';
   }
 
-  function renderCrossContour(ctx, w, h, edges, gray, intensity) {
+  function renderCrossContour(ctx, w, h, edges, gray, intensity, stroke) {
     const thr = 10 + (11-intensity)*12;
     const overlay = ctx.createImageData(w,h);
     for(let i=0;i<w*h;i++){
@@ -1584,10 +1609,10 @@
     ctx.globalCompositeOperation = 'overlay';
     ctx.strokeStyle = 'rgba(100,100,200,0.3)';
     ctx.lineCap = 'round';
-    const step = Math.max(8, 16 - intensity);
+    const step = Math.max(8, 16 - intensity - stroke * 0.5);
     for(let angle of [0, Math.PI/6]) {
       for(let t = -h; t<h; t+=step) {
-        ctx.lineWidth = 0.5 + intensity/5;
+        ctx.lineWidth = Math.max(0.5, 0.5 + intensity/5 + stroke * 0.15);
         ctx.beginPath();
         ctx.moveTo(0 + t*Math.cos(angle), 0 + t*Math.sin(angle));
         ctx.lineTo(w + t*Math.cos(angle), h + t*Math.sin(angle));
@@ -2163,7 +2188,7 @@
 
   function renderPhotorealism(ctx, w, h, edges, gray, intensity, stroke, rand){
     // Retro pen & ink: clean line drawing with tonal shading
-    const thr = 20 + (11 - intensity) * 8;  // Use intensity to control edge sensitivity
+    const thr = 20 + (11 - intensity) * 8 - stroke * 0.3;
     const overlay = ctx.createImageData(w, h);
     
     // Start with white background
@@ -2175,27 +2200,30 @@
     }
     ctx.putImageData(overlay, 0, 0);
     
-    // Draw all edge pixels as dark lines
+    // Draw all edge pixels as dark lines with variable stroke weight
     ctx.fillStyle = '#000000';
+    const strokeWidth = 0.8 + stroke * 0.08;
     for(let y=0; y<h; y++){
       for(let x=0; x<w; x++){
         const idx = y*w + x;
         if(edges[idx] > thr){
-          ctx.fillRect(x, y, 1, 1);
+          const size = (strokeWidth * (edges[idx] / 255));
+          ctx.fillRect(x - size/2, y - size/2, size, size);
         }
       }
     }
     
-    // Add soft tone shading underneath edges
+    // Add soft tone shading underneath edges with stroke influence
     ctx.globalCompositeOperation = 'multiply';
-    ctx.globalAlpha = 0.15;
+    ctx.globalAlpha = 0.15 + stroke * 0.01;
     ctx.fillStyle = '#333333';
     
-    for(let y=0; y<h; y+=2){
-      for(let x=0; x<w; x+=2){
+    const shadeStep = Math.max(1, 3 - (stroke * 0.1));
+    for(let y=0; y<h; y+=shadeStep){
+      for(let x=0; x<w; x+=shadeStep){
         const idx = y*w + x;
         if(idx < w*h && edges[idx] > thr * 0.8){
-          ctx.fillRect(x, y, 2, 2);
+          ctx.fillRect(x, y, shadeStep, shadeStep);
         }
       }
     }
@@ -2206,7 +2234,7 @@
 
   function renderOilPainting(ctx, w, h, edges, gray, intensity, stroke, rand){
     // Oil painting: bold expressive lines and tonal areas
-    const thr = 20 + (11-intensity)*10;
+    const thr = 20 + (11-intensity)*10 - stroke * 0.5;
     const overlay = ctx.createImageData(w, h);
     
     // Create simplified edge-based image
@@ -2219,16 +2247,17 @@
     }
     ctx.putImageData(overlay, 0, 0);
     
-    // Add soft tone blending for painterly effect
+    // Add soft tone blending for painterly effect with stroke influence
     ctx.globalCompositeOperation = 'multiply';
-    ctx.globalAlpha = 0.2;
+    ctx.globalAlpha = 0.2 + stroke * 0.02;
     ctx.fillStyle = '#1a1a1a';
     
-    for(let y=0; y<h; y+=3){
-      for(let x=0; x<w; x+=3){
+    const brushStep = Math.max(2, 4 - (stroke * 0.1));
+    for(let y=0; y<h; y+=brushStep){
+      for(let x=0; x<w; x+=brushStep){
         const idx = y*w + x;
         if(idx < w*h && edges[idx] > thr){
-          ctx.fillRect(x, y, 3, 3);
+          ctx.fillRect(x, y, brushStep, brushStep);
         }
       }
     }
@@ -2239,7 +2268,7 @@
 
   function renderWatercolor(ctx, w, h, edges, gray, intensity, stroke, rand){
     // Pen & wash: clean ink lines with soft tonal washes
-    const thr = 15 + (11 - intensity) * 5;  // Use intensity to control edge sensitivity
+    const thr = 15 + (11 - intensity) * 5 - stroke * 0.3;
     const overlay = ctx.createImageData(w, h);
     
     // White background
@@ -2251,30 +2280,33 @@
     }
     ctx.putImageData(overlay, 0, 0);
     
-    // Add soft wash background tones
+    // Add soft wash background tones with stroke influence
     ctx.globalCompositeOperation = 'multiply';
-    ctx.globalAlpha = 0.12;
+    ctx.globalAlpha = Math.max(0.08, 0.12 - stroke * 0.005);
     ctx.fillStyle = '#444444';
     
-    for(let y=0; y<h; y+=2){
-      for(let x=0; x<w; x+=2){
+    const washStep = Math.max(1, 3 - (stroke * 0.05));
+    for(let y=0; y<h; y+=washStep){
+      for(let x=0; x<w; x+=washStep){
         const idx = y*w + x;
         if(idx < w*h && edges[idx] > thr * 0.6){
-          ctx.fillRect(x, y, 2, 2);
+          ctx.fillRect(x, y, washStep, washStep);
         }
       }
     }
     
-    // Draw crisp pen & ink lines on top
+    // Draw crisp pen & ink lines on top with variable weight
     ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1.0;
     ctx.fillStyle = '#000000';
     
+    const penWeight = 0.5 + stroke * 0.08;
     for(let y=0; y<h; y++){
       for(let x=0; x<w; x++){
         const idx = y*w + x;
         if(idx < w*h && edges[idx] > thr){
-          ctx.fillRect(x, y, 1, 1);
+          const size = penWeight * (edges[idx] / 255);
+          ctx.fillRect(x - size/2, y - size/2, size, size);
         }
       }
     }
