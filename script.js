@@ -97,6 +97,23 @@
   let panStartY = 0; // Start Y position of pan
   let currentRenderedImage = null; // Store the rendered image (server or canvas) to preserve during zoom/pan
   let renderingEngine = 'canvas'; // 'canvas' or 'opencv' - controls which renderer is used
+  
+  // Mobile detection and optimization
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  if(isMobile){
+    // Disable server mode on mobile devices for better performance
+    const useServerCheckbox = document.getElementById('useServer');
+    const serverUrlInput = document.getElementById('serverUrl');
+    if(useServerCheckbox){
+      useServerCheckbox.checked = false;
+      useServerCheckbox.disabled = true;
+    }
+    if(serverUrlInput){
+      serverUrlInput.disabled = true;
+      serverUrlInput.style.opacity = '0.5';
+    }
+    console.log('Mobile device detected - Server mode disabled for performance');
+  }
   const undoStack = [];
   const redoStack = [];
   const MAX_HISTORY = 50;
