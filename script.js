@@ -249,29 +249,32 @@
   function deleteImage(index){
     currentFiles.splice(index, 1);
     
-    // Only clear file input if ALL images are deleted
-    if(currentFiles.length === 0 && fileEl) {
-      fileEl.value = '';
+    // Check if this was the last image
+    if(currentFiles.length === 0) {
+      if(fileEl) fileEl.value = '';
+      
+      // Show notification about using Reset
+      const notification = document.createElement('div');
+      const isMobileScreen = window.innerWidth <= 768;
+      const padding = isMobileScreen ? '20px 30px' : '30px 40px';
+      const fontSize = isMobileScreen ? '16px' : '18px';
+      const maxWidth = isMobileScreen ? '90vw' : '500px';
+      notification.style.cssText = `position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #3b82f6; color: white; padding: ${padding}; border-radius: 12px; font-size: ${fontSize}; z-index: 9999; box-shadow: 0 8px 32px rgba(0,0,0,0.3); text-align: center; max-width: ${maxWidth};`;
+      notification.textContent = 'Last image deleted. Click "Reset" button to start fresh.';
+      document.body.appendChild(notification);
+      setTimeout(() => notification.remove(), 5000);
+      return; // Exit early, don't process cleanup
     }
     
+    // Normal deletion flow (not the last image)
     if(currentImageIndex >= currentFiles.length) currentImageIndex = Math.max(0, currentFiles.length - 1);
-    panOffsetX = 0; // Reset pan on image delete
+    panOffsetX = 0;
     panOffsetY = 0;
-    zoomLevel = 1.0; // Reset zoom on image delete
-    currentRenderedImage = null; // Clear stored rendered image
+    zoomLevel = 1.0;
+    currentRenderedImage = null;
     updateFileInfo();
     updateImageNavDisplay();
-    if(currentFiles.length > 0){
-      loadImageFromFile(currentFiles[currentImageIndex]).then(img=>{ singleImage = img; drawPreview(); }).catch(err=>console.error('Failed to load image', err));
-    } else {
-      const origCanvas = document.getElementById('original');
-      const ctx = origCanvas.getContext('2d');
-      ctx.clearRect(0, 0, origCanvas.width, origCanvas.height);
-      const previewCanvas = document.getElementById('preview');
-      const pctx = previewCanvas.getContext('2d');
-      pctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-      disableControls();
-    }
+    loadImageFromFile(currentFiles[currentImageIndex]).then(img=>{ singleImage = img; drawPreview(); }).catch(err=>console.error('Failed to load image', err));
   }
 
   function selectImage(index){
