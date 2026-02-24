@@ -1601,6 +1601,7 @@
   }
 
   function renderLineArt(ctx, w, h, edges, gray, intensity, stroke, rand) {
+    // Pure line art: clean lines only, no shading
     const thr = 15 + (11-intensity)*10 - stroke * 0.5;
     const overlay = ctx.createImageData(w,h);
     for(let i=0;i<w*h;i++){
@@ -1608,31 +1609,6 @@
       overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v; overlay.data[i*4+3]=255;
     }
     ctx.putImageData(overlay,0,0);
-    
-    // Add subtle line weight variation based on stroke
-    ctx.globalCompositeOperation = 'multiply';
-    ctx.strokeStyle = '#000000';
-    ctx.lineCap = 'round';
-    
-    const lineWeight = 0.3 + stroke * 0.08;
-    const detailStep = Math.max(8, 20 - stroke * 0.5);
-    
-    for(let y = 0; y < h; y += detailStep) {
-      for(let x = 0; x < w; x += detailStep) {
-        const idx = y * w + x;
-        if(idx < w*h && edges[idx] > thr * 0.8) {
-          ctx.lineWidth = lineWeight;
-          ctx.globalAlpha = 0.3;
-          ctx.beginPath();
-          ctx.moveTo(x, y);
-          ctx.lineTo(x + (rand() - 0.5) * 2, y + (rand() - 0.5) * 2);
-          ctx.stroke();
-        }
-      }
-    }
-    
-    ctx.globalAlpha = 1.0;
-    ctx.globalCompositeOperation = 'source-over';
   }
 
   function renderCrossContour(ctx, w, h, edges, gray, intensity, stroke) {
