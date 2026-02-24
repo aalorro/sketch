@@ -294,15 +294,15 @@
     <section class="preview" style="display:flex; flex-direction:row; gap:16px; align-items:stretch; justify-content:space-between; min-height:600px;">
       <div style="flex:1; text-align:center; display:flex; flex-direction:column;">
         <div style="font-size:13px; color:#888; margin-bottom:8px; font-weight:600;">Original</div>
-        <div style="position:relative; display:flex; flex:1; width:100%; min-height:400px; overflow:hidden; border-radius:4px;">
-          <img id="originalPlaceholder" src="img/panel1.png" alt="Original" style="display:block; width:100%; height:100%; object-fit:cover; border:1px solid var(--border); border-radius:4px;">
+        <div style="position:relative; display:flex; flex:1; width:100%; min-height:400px; overflow:hidden; border-radius:4px; aspect-ratio:1;">
+          <img id="originalPlaceholder" src="img/panel1.png" alt="Original" style="display:block; width:100%; height:100%; object-fit:contain; border:1px solid var(--border); border-radius:4px;">
           <canvas id="original" width="512" height="512" style="background:#fff;border:1px solid var(--border);display:none;width:100%;height:100%;border-radius:4px;position:absolute;top:0;left:0;object-fit:contain;"></canvas>
         </div>
       </div>
       <div style="flex:1; text-align:center; display:flex; flex-direction:column;">
         <div style="font-size:13px; color:#888; margin-bottom:8px; font-weight:600;">Rendered <button type="button" class="info-btn" data-modal="modal-pan">?</button></div>
-        <div style="position:relative; display:flex; flex:1; width:100%; min-height:400px; overflow:hidden; border:1px solid var(--border); border-radius:4px;">
-          <img id="renderedPlaceholder" src="img/panel2.png" alt="Rendered" style="display:block; width:100%; height:100%; object-fit:cover;">
+        <div style="position:relative; display:flex; flex:1; width:100%; min-height:400px; overflow:hidden; border:1px solid var(--border); border-radius:4px; aspect-ratio:1;">
+          <img id="renderedPlaceholder" src="img/panel2.png" alt="Rendered" style="display:block; width:100%; height:100%; object-fit:contain;">
           <canvas id="preview" width="512" height="512" style="background:#fff;display:none;width:100%;height:100%;position:absolute;top:0;left:0;object-fit:contain;"></canvas>
           <div id="progressPercent" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:48px; font-weight:bold; color:#0fff00; opacity:0; transition:opacity 0.2s ease; text-shadow:0 0 20px #0fff00, 0 0 40px #0fff00; pointer-events:none; display:none;">0%</div>
         </div>
@@ -1016,19 +1016,20 @@
         flex-direction: column !important;
         min-height: auto !important;
         gap: 32px !important;
-        align-items: center !important;
+        margin-left: calc(-50vw + 50%) !important;
+        margin-right: calc(-50vw + 50%) !important;
+        padding-left: calc(50vw - 50%) !important;
+        padding-right: calc(50vw - 50%) !important;
       }
 
       .preview > div {
         flex: 0 1 auto !important;
-        width: 100% !important;
-        max-width: 100% !important;
       }
 
       .preview > div > div:first-of-type + div {
         min-height: 300px !important;
-        width: 100% !important;
-        max-width: calc(100vw - 32px) !important;
+        width: 100vw !important;
+        margin-left: calc(-50vw + 50%) !important;
       }
 
       main {
@@ -1057,12 +1058,6 @@
 
       .preview > div > div:first-of-type + div {
         min-height: 250px !important;
-        width: 100% !important;
-        max-width: calc(100vw - 32px) !important;
-      }
-
-      .preview > div {
-        width: 100% !important;
       }
     }
   </style>
