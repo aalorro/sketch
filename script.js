@@ -2187,11 +2187,11 @@
   }
 
   function renderPhotorealism(ctx, w, h, edges, gray, intensity, stroke, rand){
-    // Retro pen & ink: clean line drawing with tonal shading
+    // Retro pen & ink: crisp clean professional line drawing with precise hatching
     const thr = 20 + (11 - intensity) * 8 - stroke * 0.3;
     const overlay = ctx.createImageData(w, h);
     
-    // Start with white background
+    // Pure white background for crisp look
     for(let i=0; i<w*h*4; i+=4){
       overlay.data[i] = 255;
       overlay.data[i+1] = 255;
@@ -2200,31 +2200,29 @@
     }
     ctx.putImageData(overlay, 0, 0);
     
-    // Draw all edge pixels as dark lines with variable stroke weight
+    // Draw crisp black edge lines
     ctx.fillStyle = '#000000';
-    const strokeWidth = 0.8 + stroke * 0.08;
     for(let y=0; y<h; y++){
       for(let x=0; x<w; x++){
         const idx = y*w + x;
         if(edges[idx] > thr){
-          const size = (strokeWidth * (edges[idx] / 255));
-          ctx.fillRect(x - size/2, y - size/2, size, size);
+          ctx.fillRect(x, y, 1, 1);
         }
       }
     }
     
-    // Add soft tone shading underneath edges with stroke influence
+    // Add professional cross-hatch shading (perpendicular lines)
     ctx.globalCompositeOperation = 'multiply';
-    ctx.globalAlpha = 0.15 + stroke * 0.01;
-    ctx.fillStyle = '#333333';
+    ctx.strokeStyle = '#222222';
+    ctx.lineWidth = 0.5;
+    const hatchStep = Math.max(3, 8 - stroke * 0.3);
     
-    const shadeStep = Math.max(1, 3 - (stroke * 0.1));
-    for(let y=0; y<h; y+=shadeStep){
-      for(let x=0; x<w; x+=shadeStep){
-        const idx = y*w + x;
-        if(idx < w*h && edges[idx] > thr * 0.8){
-          ctx.fillRect(x, y, shadeStep, shadeStep);
-        }
+    for(let angle of [0, Math.PI/4]) {
+      for(let i=0; i<w+h; i+=hatchStep) {
+        ctx.beginPath();
+        ctx.moveTo(i*Math.cos(angle), i*Math.sin(angle));
+        ctx.lineTo((i-w)*Math.cos(angle) + h*Math.sin(angle), (i-w)*Math.sin(angle) + h*Math.cos(angle));
+        ctx.stroke();
       }
     }
     
@@ -2233,13 +2231,13 @@
   }
 
   function renderOilPainting(ctx, w, h, edges, gray, intensity, stroke, rand){
-    // Oil painting: bold expressive lines and tonal areas
+    // Oil painting: thick bold expressive strokes with blended tones
     const thr = 20 + (11-intensity)*10 - stroke * 0.5;
     const overlay = ctx.createImageData(w, h);
     
-    // Create simplified edge-based image
+    // Gray mid-tone base for oil effect
     for(let i=0; i<w*h; i++){
-      const v = (edges[i] > thr) ? 40 : 240;
+      const v = (edges[i] > thr) ? 80 : 200;
       overlay.data[i*4] = v;
       overlay.data[i*4+1] = v;
       overlay.data[i*4+2] = v;
@@ -2247,17 +2245,31 @@
     }
     ctx.putImageData(overlay, 0, 0);
     
-    // Add soft tone blending for painterly effect with stroke influence
-    ctx.globalCompositeOperation = 'multiply';
-    ctx.globalAlpha = 0.2 + stroke * 0.02;
-    ctx.fillStyle = '#1a1a1a';
+    // Add thick expressive brush strokes
+    ctx.globalCompositeOperation = 'color-dodge';
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = '#333333';
     
-    const brushStep = Math.max(2, 4 - (stroke * 0.1));
-    for(let y=0; y<h; y+=brushStep){
-      for(let x=0; x<w; x+=brushStep){
+    const brushSize = Math.max(4, 8 - stroke * 0.2);
+    for(let y=0; y<h; y+=brushSize*0.7){
+      for(let x=0; x<w; x+=brushSize*0.7){
         const idx = y*w + x;
         if(idx < w*h && edges[idx] > thr){
-          ctx.fillRect(x, y, brushStep, brushStep);
+          ctx.fillRect(x, y, brushSize, brushSize);
+        }
+      }
+    }
+    
+    // Add highlight strokes
+    ctx.globalCompositeOperation = 'lighten';
+    ctx.globalAlpha = 0.3;
+    ctx.fillStyle = '#cccccc';
+    
+    for(let y=0; y<h; y+=brushSize*1.2){
+      for(let x=0; x<w; x+=brushSize*1.2){
+        const idx = y*w + x;
+        if(idx < w*h && edges[idx] > thr * 0.7){
+          ctx.fillRect(x, y, brushSize/2, brushSize/2);
         }
       }
     }
@@ -2267,46 +2279,63 @@
   }
 
   function renderWatercolor(ctx, w, h, edges, gray, intensity, stroke, rand){
-    // Pen & wash: clean ink lines with soft tonal washes
+    // Watercolor: soft flowing washes with organic color bleeding and minimal ink lines
     const thr = 15 + (11 - intensity) * 5 - stroke * 0.3;
     const overlay = ctx.createImageData(w, h);
     
-    // White background
+    // Soft warm off-white background for watercolor feel
     for(let i=0; i<w*h*4; i+=4){
-      overlay.data[i] = 255;
-      overlay.data[i+1] = 255;
-      overlay.data[i+2] = 255;
+      overlay.data[i] = 252;      // Warm cream background
+      overlay.data[i+1] = 250;
+      overlay.data[i+2] = 245;
       overlay.data[i+3] = 255;
     }
     ctx.putImageData(overlay, 0, 0);
     
-    // Add soft wash background tones with stroke influence
+    // Add organic soft wash with varying opacity (watercolor pigment flow)
     ctx.globalCompositeOperation = 'multiply';
-    ctx.globalAlpha = Math.max(0.08, 0.12 - stroke * 0.005);
-    ctx.fillStyle = '#444444';
+    const washColors = ['#6b5b4d', '#8b7d6b', '#7a6b5b', '#9b8d7b'];
     
-    const washStep = Math.max(1, 3 - (stroke * 0.05));
+    const washStep = Math.max(2, 6 - stroke * 0.1);
     for(let y=0; y<h; y+=washStep){
       for(let x=0; x<w; x+=washStep){
         const idx = y*w + x;
-        if(idx < w*h && edges[idx] > thr * 0.6){
-          ctx.fillRect(x, y, washStep, washStep);
+        if(idx < w*h && edges[idx] > thr * 0.5){
+          // Organic variable opacity for watercolor effect
+          ctx.globalAlpha = 0.08 + (rand() * 0.12) + (stroke * 0.003);
+          ctx.fillStyle = washColors[Math.floor(rand() * washColors.length)];
+          ctx.fillRect(x, y, washStep + rand() * washStep, washStep + rand() * washStep);
         }
       }
     }
     
-    // Draw crisp pen & ink lines on top with variable weight
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.globalAlpha = 1.0;
-    ctx.fillStyle = '#000000';
+    // Add flowing gradient washes (simulate water flow)
+    ctx.globalCompositeOperation = 'screen';
+    ctx.globalAlpha = 0.05;
+    ctx.fillStyle = '#d4a574';  // Warm watercolor tone
     
-    const penWeight = 0.5 + stroke * 0.08;
-    for(let y=0; y<h; y++){
-      for(let x=0; x<w; x++){
+    for(let y=0; y<h; y+=washStep*2){
+      for(let x=0; x<w; x+=washStep*2){
         const idx = y*w + x;
-        if(idx < w*h && edges[idx] > thr){
-          const size = penWeight * (edges[idx] / 255);
-          ctx.fillRect(x - size/2, y - size/2, size, size);
+        if(edges[idx] > thr * 0.4){
+          const size = (8 - stroke * 0.1) + rand() * 8;
+          ctx.beginPath();
+          ctx.arc(x + rand() * 4, y + rand() * 4, size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+    
+    // Add minimal delicate ink lines on top
+    ctx.globalCompositeOperation = 'darken';
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = '#4a3c2a';
+    
+    for(let y=0; y<h; y+=2){
+      for(let x=0; x<w; x+=2){
+        const idx = y*w + x;
+        if(idx < w*h && edges[idx] > thr * 0.9){
+          ctx.fillRect(x, y, 0.8, 0.8);
         }
       }
     }
