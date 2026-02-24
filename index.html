@@ -291,16 +291,16 @@
     <section class="preview" style="display:flex; flex-direction:row; gap:16px; align-items:stretch; justify-content:space-between; min-height:600px;">
       <div style="flex:1; text-align:center; display:flex; flex-direction:column;">
         <div style="font-size:13px; color:#888; margin-bottom:8px; font-weight:600;">Original</div>
-        <div style="position:relative; display:flex; flex:1; width:100%; min-height:400px; overflow:hidden; border-radius:4px;">
+        <div style="position:relative; display:flex; flex:1; width:100%; min-height:400px; overflow:hidden; border-radius:4px; aspect-ratio:1;">
           <img id="originalPlaceholder" src="img/panel1.png" alt="Original" style="display:block; width:100%; height:100%; object-fit:contain; border:1px solid var(--border); border-radius:4px;">
-          <canvas id="original" width="512" height="512" style="background:#fff;border:1px solid var(--border);display:none;width:100%;height:100%;border-radius:4px;position:absolute;top:0;left:0;"></canvas>
+          <canvas id="original" width="512" height="512" style="background:#fff;border:1px solid var(--border);display:none;width:100%;height:100%;border-radius:4px;position:absolute;top:0;left:0;object-fit:contain;"></canvas>
         </div>
       </div>
       <div style="flex:1; text-align:center; display:flex; flex-direction:column;">
         <div style="font-size:13px; color:#888; margin-bottom:8px; font-weight:600;">Rendered <button type="button" class="info-btn" data-modal="modal-pan">?</button></div>
-        <div style="position:relative; display:flex; flex:1; width:100%; min-height:400px; overflow:hidden; border:1px solid var(--border); border-radius:4px;">
+        <div style="position:relative; display:flex; flex:1; width:100%; min-height:400px; overflow:hidden; border:1px solid var(--border); border-radius:4px; aspect-ratio:1;">
           <img id="renderedPlaceholder" src="img/panel2.png" alt="Rendered" style="display:block; width:100%; height:100%; object-fit:contain;">
-          <canvas id="preview" width="512" height="512" style="background:#fff;display:none;width:100%;height:100%;position:absolute;top:0;left:0;"></canvas>
+          <canvas id="preview" width="512" height="512" style="background:#fff;display:none;width:100%;height:100%;position:absolute;top:0;left:0;object-fit:contain;"></canvas>
           <div id="progressPercent" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:48px; font-weight:bold; color:#0fff00; opacity:0; transition:opacity 0.2s ease; text-shadow:0 0 20px #0fff00, 0 0 40px #0fff00; pointer-events:none; display:none;">0%</div>
         </div>
         <div style="margin-top:8px; width:100%; height:12px; background:#1a1a1a; border-radius:6px; overflow:hidden; visibility:hidden; opacity:0; transition:opacity 0.2s ease;" id="progressContainer">
@@ -341,7 +341,7 @@
 
   <footer>
     <small>&copy; 2026 ArtMondo. All rights reserved. Sketchify is an open-source project licensed under MIT.</small>
-    <small style="display:block;margin-top:8px">Sketchify version 1.2.1</small>
+    <small style="display:block;margin-top:8px">Sketchify version 1.2.2</small>
     <small style="display:block;margin-top:12px">
       <a href="https://discord.gg/nqY5xSx6" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none;border-bottom:1px dotted;transition:all 0.2s;cursor:pointer">Join our Discord community 💬</a>
       <span style="margin:0 8px;opacity:0.5">•</span>
@@ -546,62 +546,83 @@
       <h4>Getting Started</h4>
       <ol>
         <li><strong>Upload Images:</strong> Click "Load image" and select one or more image files (JPG, PNG, etc.)</li>
-        <li><strong>Preview Settings:</strong> The preview updates in real-time as you adjust controls</li>
-        <li><strong>Generate Sketches:</strong> Click the Generate button to process your images</li>
-        <li><strong>Download Results:</strong> Download as PNG, JPG, or ZIP</li>
+        <li><strong>Real-time Preview:</strong> Changes update instantly in the preview panel</li>
+        <li><strong>Adjust Settings:</strong> Fine-tune Intensity, Stroke, Smoothing, and other controls</li>
+        <li><strong>Download Results:</strong> Download as PNG or JPG</li>
       </ol>
+
+      <h4>Rendering Modes</h4>
+      <ul>
+        <li><strong>Browser Mode:</strong> Real-time canvas rendering. See changes instantly as you adjust sliders. Works offline but limited by your device's performance.</li>
+        <li><strong>Server Mode:</strong> Server-side rendering for all 25+ styles with advanced effects. Instantly re-renders when you change settings. Best for seeing the full effect of each style.</li>
+      </ul>
 
       <h4>Key Features</h4>
       <ul>
-        <li><strong>20+ Sketch Styles:</strong> Contour, Hatching, Charcoal, Comic, Ink Wash, and more</li>
+        <li><strong>25+ Sketch Styles:</strong> Contour, Hatching, Charcoal, Comic, Ink Wash, Stippling, and more</li>
         <li><strong>Medium Control:</strong> Choose Pencil, Ink, Marker, or Pen to affect stroke appearance</li>
         <li><strong>Brush Effects:</strong> Add texture with Line, Hatch, Cross-hatch, or Charcoal effects</li>
-        <li><strong>Real-time Preview:</strong> See changes instantly as you adjust intensity and stroke</li>
-        <li><strong>Batch Processing:</strong> Upload multiple images and process them all at once</li>
-        <li><strong>Multi-image Navigation:</strong> Use Prev/Next buttons to adjust settings per image before generating</li>
+        <li><strong>Real-time Preview:</strong> See changes instantly as you adjust controls</li>
+        <li><strong>Multi-image Support:</strong> Upload multiple images and navigate between them with Prev/Next buttons</li>
+        <li><strong>Zoom & Pan:</strong> Zoom into details and pan around the preview</li>
+        <li><strong>Batch Processing:</strong> Process all images at once and download as ZIP</li>
       </ul>
 
       <h4>Controls Explained</h4>
       <ul>
         <li><strong>Intensity (1-10):</strong> Controls edge detection strength and detail level</li>
         <li><strong>Stroke (1-10):</strong> Adjusts line width and pattern density</li>
+        <li><strong>Smoothing (0-10):</strong> Applies Gaussian blur to soften harsh lines</li>
+        <li><strong>Contrast (-50 to +50):</strong> Increases or decreases tonal range</li>
+        <li><strong>Saturation (-100 to +100):</strong> Adjusts color intensity (in Colorize mode)</li>
+        <li><strong>Hue Shift (0-359):</strong> Rotates the color wheel when Colorize is enabled</li>
         <li><strong>Colorize:</strong> Add color tints to your sketches</li>
+        <li><strong>Invert:</strong> Creates a photonegative effect (light becomes dark, dark becomes light)</li>
         <li><strong>Skip Hatching:</strong> Remove decorative patterns for clean lines</li>
-        <li><strong>Resolution:</strong> Choose from 512px up to 4K (4096px) for ultra-high detail. Higher = slower processing</li>
-        <li><strong>Output Name:</strong> Custom prefix for downloaded files</li>
+        <li><strong>Resolution:</strong> Choose from 512px up to 4K (4096px). Higher = more detail but slower processing. Server mode shows progress percentage.</li>
+        <li><strong>Aspect Ratio:</strong> Set output dimensions (1:1, 16:9, 3:4, etc.)</li>
+      </ul>
+
+      <h4>Quick Actions</h4>
+      <ul>
+        <li><strong>Reset Button:</strong> Clears all settings and returns to defaults instantly</li>
+        <li><strong>Zoom Controls:</strong> Use − / + / Reset buttons to zoom and pan in the preview</li>
+        <li><strong>Thumbnail Navigation:</strong> Click thumbnail to jump to that image, or use Prev/Next</li>
+        <li><strong>Delete Image:</strong> Remove an image from the batch by clicking the X on its thumbnail</li>
       </ul>
 
       <h4>Processing & Export</h4>
       <ul>
         <li><strong>PNG Download:</strong> Lossless format, best for line-based sketches</li>
         <li><strong>JPG Download:</strong> Compressed format, smaller file size</li>
-        <li><strong>ZIP Download:</strong> Bundle all processed images into one file (requires batch generation)</li>
-        <li><strong>Custom Filename:</strong> Leave blank for auto-generated timestamp-based names</li>
+        <li><strong>ZIP Download:</strong> Bundle all processed images into one file</li>
+        <li><strong>Custom Filename:</strong> Set a custom prefix for downloaded files</li>
+        <li><strong>Progress Indicator:</strong> See rendering progress as a percentage overlay (Server mode)</li>
       </ul>
 
       <h4>Tips & Tricks</h4>
       <ul>
         <li>Use high-quality source images for best results</li>
         <li>Experiment with different mediums and brush types on the same image</li>
-        <li>Enable GPU acceleration for faster processing on large images</li>
-        <li>Save your favorite settings as presets for quick reuse</li>
+        <li>In Browser mode, use Smoothing to reduce noise from edge detection</li>
+        <li>Try Invert for creating unique negative-style sketches</li>
+        <li>Zoom in to check fine details before downloading</li>
         <li>Use Undo/Redo (Ctrl+Z / Ctrl+Y) to experiment freely</li>
       </ul>
 
-      <h4>Privacy & Performance</h4>
-      <p>✅ <strong>100% Private:</strong> All processing happens in your browser — no uploads to servers</p>
-      <p>✅ <strong>Works Offline:</strong> No internet connection needed after loading the page</p>
-      <p>✅ <strong>Fast:</strong> Real-time processing on modern devices</p>
-      <p>ℹ️ Large batches (20+ images) may take several minutes depending on image size and your device</p>
+      <h4>Browser Mode vs Server Mode</h4>
+      <p><strong>Browser Mode:</strong> ✅ Works offline · ✅ Real-time · ⚠️ Limited styles · ⚠️ Depends on device power</p>
+      <p><strong>Server Mode:</strong> ✅ All 25+ styles · ✅ Advanced effects · ✅ Progress feedback · ⚠️ Requires internet</p>
 
       <h4>Keyboard Shortcuts</h4>
       <ul>
         <li><strong>Ctrl+Z:</strong> Undo</li>
         <li><strong>Ctrl+Y or Ctrl+Shift+Z:</strong> Redo</li>
+        <li><strong>Delete key:</strong> Remove selected thumbnail image</li>
       </ul>
 
       <h4>Need Help?</h4>
-      <p>💬 <a href="https://discord.gg/nqY5xSx6" target="_blank" rel="noopener noreferrer" style="color:#7c3aed;text-decoration:underline;font-weight:600">Join our Discord community</a> for support and to share your creations!</p>
+      <p>💬 Questions or feedback? Scroll down to the contact form at the bottom of this page!</p>
     </div>
   </div>
 
@@ -984,6 +1005,52 @@
     body.dark-mode .modal-content code {
       background: rgba(148, 163, 184, 0.1);
       color: #94a3b8;
+    }
+
+    /* Mobile optimization */
+    @media (max-width: 768px) {
+      .preview {
+        flex-direction: column !important;
+        min-height: auto !important;
+        gap: 32px !important;
+      }
+
+      .preview > div {
+        flex: 0 1 auto !important;
+      }
+
+      .preview > div > div:first-of-type + div {
+        aspect-ratio: auto !important;
+        min-height: 300px !important;
+      }
+
+      main {
+        padding: 16px !important;
+      }
+
+      .controls-section {
+        gap: 12px !important;
+        grid-template-columns: 1fr !important;
+      }
+
+      button {
+        font-size: 13px !important;
+        padding: 8px 10px !important;
+      }
+
+      #progressPercent {
+        font-size: 36px !important;
+      }
+    }
+
+    @media (max-width: 480px) {
+      #progressPercent {
+        font-size: 24px !important;
+      }
+
+      .preview > div > div:first-of-type + div {
+        min-height: 250px !important;
+      }
     }
   </style>
 
