@@ -249,42 +249,28 @@
   function deleteImage(index){
     currentFiles.splice(index, 1);
     
-    // Only clear file input if ALL images are deleted
-    if(currentFiles.length === 0 && fileEl) {
-      fileEl.value = '';
+    // Check if this was the last image
+    if(currentFiles.length === 0) {
+      if(fileEl) fileEl.value = '';
+      
+      // Show notification about using Reset
+      const notification = document.createElement('div');
+      notification.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #3b82f6; color: white; padding: 30px 40px; border-radius: 12px; font-size: 18px; z-index: 9999; box-shadow: 0 8px 32px rgba(0,0,0,0.3); text-align: center; max-width: 500px;';
+      notification.textContent = 'Last image deleted. Click "Reset" button to start fresh.';
+      document.body.appendChild(notification);
+      setTimeout(() => notification.remove(), 5000);
+      return; // Exit early, don't process cleanup
     }
     
+    // Normal deletion flow (not the last image)
     if(currentImageIndex >= currentFiles.length) currentImageIndex = Math.max(0, currentFiles.length - 1);
     panOffsetX = 0;
     panOffsetY = 0;
     zoomLevel = 1.0;
     currentRenderedImage = null;
     updateFileInfo();
-    
-    if(currentFiles.length > 0){
-      updateImageNavDisplay(); // This will call generateThumbnails when files exist
-      loadImageFromFile(currentFiles[currentImageIndex]).then(img=>{ singleImage = img; drawPreview(); }).catch(err=>console.error('Failed to load image', err));
-    } else {
-      // Hide canvases and show placeholders
-      const origCanvas = document.getElementById('original');
-      origCanvas.style.display = 'none';
-      const previewCanvas = document.getElementById('preview');
-      previewCanvas.style.display = 'none';
-      const originalPlaceholder = document.getElementById('originalPlaceholder');
-      const renderedPlaceholder = document.getElementById('renderedPlaceholder');
-      if(originalPlaceholder) originalPlaceholder.style.display = 'block';
-      if(renderedPlaceholder) renderedPlaceholder.style.display = 'block';
-      
-      // Clear canvases
-      const ctx = origCanvas.getContext('2d');
-      ctx.clearRect(0, 0, origCanvas.width, origCanvas.height);
-      const pctx = previewCanvas.getContext('2d');
-      pctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-      
-      singleImage = null;
-      updateImageNavDisplay(); // This will hide the nav panel
-      disableControls();
-    }
+    updateImageNavDisplay();
+    loadImageFromFile(currentFiles[currentImageIndex]).then(img=>{ singleImage = img; drawPreview(); }).catch(err=>console.error('Failed to load image', err));
   }
 
   function selectImage(index){
