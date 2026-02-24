@@ -100,20 +100,32 @@
   
   // Mobile detection and optimization
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  if(isMobile){
-    // Disable server mode on mobile devices for better performance
+  const disableMobileServer = () => {
     const useServerCheckbox = document.getElementById('useServer');
     const serverUrlInput = document.getElementById('serverUrl');
     if(useServerCheckbox){
       useServerCheckbox.checked = false;
       useServerCheckbox.disabled = true;
+      useServerCheckbox.style.cursor = 'not-allowed';
+      useServerCheckbox.style.opacity = '0.6';
+      useServerCheckbox.parentElement.style.opacity = '0.6';
+      useServerCheckbox.parentElement.style.cursor = 'not-allowed';
+      useServerCheckbox.parentElement.style.pointerEvents = 'none';
     }
     if(serverUrlInput){
       serverUrlInput.disabled = true;
       serverUrlInput.style.opacity = '0.5';
+      serverUrlInput.style.cursor = 'not-allowed';
+      serverUrlInput.style.backgroundColor = 'var(--border)';
     }
-    console.log('Mobile device detected - Server mode disabled for performance');
+  };
+  
+  if(isMobile){
+    // Disable server mode on mobile devices for better performance
+    disableMobileServer();
+    console.log('📱 Mobile device detected - Server mode disabled for performance. Using browser rendering only.');
   }
+  
   const undoStack = [];
   const redoStack = [];
   const MAX_HISTORY = 50;
@@ -305,8 +317,8 @@
     const renderingSwitch = document.getElementById('renderingEngineSwitch');
     const opencvLabel = document.getElementById('opencvLabel');
     
-    // Enable OpenCV only if server is checked AND URL is provided
-    const canUseOpenCV = useServer && serverUrl.length > 0;
+    // Enable OpenCV only if: server is checked AND URL is provided AND not on mobile
+    const canUseOpenCV = !isMobile && useServer && serverUrl.length > 0;
     renderingSwitch.style.opacity = canUseOpenCV ? '1' : '0.5';
     renderingSwitch.style.pointerEvents = canUseOpenCV ? 'auto' : 'none';
     opencvLabel.style.opacity = canUseOpenCV ? '1' : '0.6';
@@ -322,6 +334,13 @@
   
   function switchRenderingEngine(engine){
     if(engine === 'opencv'){
+      // Block OpenCV on mobile devices
+      if(isMobile){
+        alert('Server rendering is not available on mobile devices. Using browser rendering for better performance.');
+        renderingEngine = 'canvas';
+        updateSwitchUI();
+        return;
+      }
       const useServer = document.getElementById('useServer').checked;
       const serverUrl = document.getElementById('serverUrl').value.trim();
       if(!useServer || !serverUrl){
@@ -437,6 +456,16 @@
   document.getElementById('useServer').addEventListener('change', updateRenderingEngineToggle);
   document.getElementById('serverUrl').addEventListener('change', updateRenderingEngineToggle);
   document.getElementById('serverUrl').addEventListener('input', updateRenderingEngineToggle);
+  
+  // Prevent server checkbox from being checked on mobile
+  if(isMobile){
+    document.getElementById('useServer').addEventListener('change', (e) => {
+      if(e.target.checked){
+        e.target.checked = false;
+        alert('Server rendering is not available on mobile devices. Using browser rendering for better performance.');
+      }
+    });
+  }
   
   // Initialize the switch state
   updateRenderingEngineToggle();
