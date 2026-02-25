@@ -290,6 +290,176 @@ def render_mixed_media(gray, edges, intensity, stroke):
     return result
 
 
+def render_contour(gray, edges, intensity, stroke):
+    """Contour drawing: outlines only, focuses on shape accuracy"""
+    h, w = gray.shape
+    thr = 40 + (11 - intensity) * 18
+    result = np.where(edges > thr, 0, 255).astype(np.uint8)
+    return result
+
+
+def render_blind_contour(gray, edges, intensity, stroke):
+    """Blind contour: random, expressive strokes without adherence to edges"""
+    h, w = gray.shape
+    result = np.full((h, w), 255, dtype=np.uint8)
+    
+    stroke_count = int(15 + intensity * 2)
+    step_size = max(30, int(80 - stroke * 3))
+    
+    for _ in range(stroke_count):
+        # Random starting point
+        x = random.randint(0, w - 1)
+        y = random.randint(0, h - 1)
+        
+        # Draw continuous, random path
+        path_length = random.randint(5, 13)
+        points = [(x, y)]
+        
+        for _ in range(path_length):
+            x += random.randint(-step_size, step_size)
+            y += random.randint(-step_size, step_size)
+            x = max(0, min(w - 1, x))
+            y = max(0, min(h - 1, y))
+            points.append((x, y))
+        
+        # Draw the path
+        for i in range(len(points) - 1):
+            thickness = max(1, int(1 + random.random() * 1.2))
+            cv2.line(result, points[i], points[i + 1], 51, thickness)
+    
+    return result
+
+
+def render_gesture(gray, edges, intensity, stroke):
+    """Gesture sketch: expressive, quick lines with emphasis on edges"""
+    h, w = gray.shape
+    edge_threshold = 30 + (11 - intensity) * 6
+    
+    # Light base with edge emphasis
+    result = np.full((h, w), 250, dtype=np.uint8)
+    for i in range(h):
+        for j in range(w):
+            edge_val = edges[i, j]
+            gray_val = gray[i, j]
+            if edge_val > edge_threshold:
+                v = 230 - int((edge_val / 255.0) * 150)
+            elif gray_val > 150:
+                v = 245
+            else:
+                v = max(60, 250 - int((gray_val / 255.0) * 120))
+            result[i, j] = v
+    
+    # Add flowing gesture lines at edges
+    step = max(4, int(10 - stroke * 0.5))
+    for y in range(0, h, step):
+        for x in range(0, w, step):
+            if edges[y, x] > edge_threshold * 0.8:
+                # Draw short expressive marks
+                angle = (edges[y, x] / 255.0) * 6.28
+                length = int(8 + stroke * 2)
+                x2 = int(x + length * np.cos(angle))
+                y2 = int(y + length * np.sin(angle))
+                cv2.line(result, (x, y), (x2, y2), 26, int(0.5 + stroke * 0.15))
+    
+    return result
+
+
+def render_cartoon(gray, edges, intensity, stroke):
+    """Cartoon style: bold outlines with simplified color areas"""
+    h, w = gray.shape
+    threshold = int(25 + (11 - intensity) * 10 - stroke * 0.3)
+    
+    # Create simplified tonal areas
+    result = np.zeros((h, w), dtype=np.uint8)
+    for i in range(h):
+        for j in range(w):
+            e = edges[i, j]
+            g = gray[i, j]
+            if e > threshold:
+                v = 20  # Black outlines
+            elif g < 85:
+                v = 50  # Dark areas
+            elif g < 170:
+                v = 150  # Mid tones
+            else:
+                v = 240  # Light areas
+            result[i, j] = v
+    
+    # Add bold outlines
+    step = max(2, int(6 - stroke * 0.3))
+    for y in range(0, h, step):
+        for x in range(0, w, step):
+            if edges[y, x] > threshold:
+                radius = int(0.5 + stroke * 0.1)
+                if radius > 0:
+                    cv2.circle(result, (x, y), radius, 0, -1)
+    
+    return result
+
+
+def render_hatching(gray, edges, intensity, stroke):
+    """Hatching: parallel lines for shading"""
+    h, w = gray.shape
+    thr = 10 + (11 - intensity) * 12
+    result = 255 - np.minimum(255, np.maximum(0, edges - thr)).astype(np.uint8)
+    
+    # Vertical hatching lines
+    step = max(3, int(12 - stroke))
+    line_width = max(1, int(0.5 + stroke * 0.3))
+    
+    for x in range(0, w, step):
+        for y in range(0, h, step * 2):
+            if edges[y, x] > 25:
+                cv2.line(result, (x, y), (x, min(y + step, h - 1)), 17, line_width)
+    
+    return result
+
+
+def render_crosshatching(gray, edges, intensity, stroke):
+    """Cross-hatching: perpendicular lines for shading"""
+    h, w = gray.shape
+    thr = 10 + (11 - intensity) * 12
+    result = 255 - np.minimum(255, np.maximum(0, edges - thr)).astype(np.uint8)
+    
+    step = max(4, int(14 - stroke))
+    line_width = max(1, int(0.5 + stroke * 0.25))
+    
+    # Diagonal hatching in two directions
+    for angle_idx, angle in enumerate([0, 45]):
+        radian = np.radians(angle)
+        for i in range(-h - w, h + w, step):
+            x1 = int(i * np.cos(radian))
+            y1 = int(i * np.sin(radian))
+            x2 = int((i - w) * np.cos(radian) + h * np.sin(radian))
+            y2 = int((i - w) * np.sin(radian) + h * np.cos(radian))
+            
+            # Clip to image bounds
+            if -10 < x1 < w + 10 and -10 < y1 < h + 10:
+                cv2.line(result, (max(0, x1), max(0, y1)), (min(w - 1, x2), min(h - 1, y2)), 17, line_width)
+    
+    return result
+
+
+def render_tonal_shading(gray, edges, intensity, stroke):
+    """Tonal shading: smooth, blended tonal rendering"""
+    h, w = gray.shape
+    edge_weight = (intensity / 11.0) * 0.7
+    gray_weight = 1.0 - (intensity / 11.0) * 0.5
+    
+    result = np.zeros((h, w), dtype=np.uint8)
+    for i in range(h):
+        for j in range(w):
+            e = edges[i, j]
+            g = gray[i, j]
+            blended = edge_weight * e + gray_weight * g * 0.5
+            v = 255 - min(255, int(blended))
+            result[i, j] = v
+    
+    # Smooth with gaussian blur for tonal effect
+    result = cv2.GaussianBlur(result, (5, 5), 1.5)
+    return result
+
+
 def stylize_opencv(img_bgr, artStyle='pencil', style='line', brush='line', 
                    stroke=1, skipHatching=False, seed=0, intensity=6,
                    smoothing=0, colorize=False, invert=False, 
@@ -343,6 +513,20 @@ def stylize_opencv(img_bgr, artStyle='pencil', style='line', brush='line',
         result = render_glitch(gray, edges, intensity, stroke)
     elif style == 'mixedmedia':
         result = render_mixed_media(gray, edges, intensity, stroke)
+    elif style == 'contour':
+        result = render_contour(gray, edges, intensity, stroke)
+    elif style == 'blindcontour':
+        result = render_blind_contour(gray, edges, intensity, stroke)
+    elif style == 'gesture':
+        result = render_gesture(gray, edges, intensity, stroke)
+    elif style == 'cartoon':
+        result = render_cartoon(gray, edges, intensity, stroke)
+    elif style == 'hatching':
+        result = render_hatching(gray, edges, intensity, stroke)
+    elif style == 'crosshatching':
+        result = render_crosshatching(gray, edges, intensity, stroke)
+    elif style == 'tonalpencil':
+        result = render_tonal_shading(gray, edges, intensity, stroke)
     else:
         # Default: tonal rendering
         result = 255 - np.minimum(255, edges).astype(np.uint8)

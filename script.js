@@ -388,10 +388,10 @@
   }
   
   // Styles available in both canvas and server
-  const serverStyles = ['stippling', 'charcoal', 'drybrush', 'inkwash', 'comic', 'fashion', 'urban', 'architectural', 'academic', 'etching', 'minimalist', 'glitch', 'mixedmedia'];
+  const serverStyles = ['stippling', 'charcoal', 'drybrush', 'inkwash', 'comic', 'fashion', 'urban', 'architectural', 'academic', 'etching', 'minimalist', 'glitch', 'mixedmedia', 'contour', 'blindcontour', 'gesture', 'cartoon', 'hatching', 'crosshatching', 'tonalpencil'];
   
   // Canvas-only styles (not available in server)
-  const canvasOnlyStyles = ['contour', 'gesture', 'lineart', 'crosscontour', 'hatching', 'crosshatching', 'scribble', 'tonalpencil', 'photorealism', 'graphiteportrait', 'oilpainting', 'watercolor'];
+  const canvasOnlyStyles = ['lineart', 'crosscontour', 'scribble', 'photorealism', 'graphiteportrait', 'oilpainting', 'watercolor'];
   
   // Update style menu based on rendering engine
   function updateStyleMenu(){
@@ -1225,6 +1225,7 @@
     // Route to style-specific rendering
     switch(style) {
       case 'contour': renderContour(ctx, w, h, edges, gray, intensity); break;
+      case 'blindcontour': renderBlindContour(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       case 'gesture': renderGesture(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       case 'lineart': renderLineArt(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       case 'crosscontour': renderCrossContour(ctx, w, h, edges, gray, intensity, stroke); break;
@@ -1243,6 +1244,7 @@
       case 'academic': renderAcademic(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       case 'etching': renderEtching(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       case 'minimalist': renderMinimalist(ctx, w, h, edges, gray, intensity); break;
+      case 'cartoon': renderCartoon(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       case 'glitch': renderGlitch(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       case 'mixedmedia': renderMixedMedia(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       case 'photorealism': renderPhotorealism(ctx, w, h, edges, gray, intensity, stroke, rand); break;
@@ -1537,6 +1539,47 @@
       overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v; overlay.data[i*4+3]=255;
     }
     ctx.putImageData(overlay,0,0);
+  }
+
+  function renderBlindContour(ctx, w, h, edges, gray, intensity, stroke, rand) {
+    // Blind contour: random, expressive strokes without adherence to edges - simulates drawing without looking
+    const overlay = ctx.createImageData(w,h);
+    for(let i=0;i<w*h;i++){
+      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=255; overlay.data[i*4+3]=255;
+    }
+    ctx.putImageData(overlay,0,0);
+    
+    // Draw random, continuous, expressive strokes all over the canvas
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.strokeStyle = '#333333';
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    
+    const strokeCount = 15 + Math.floor(intensity * 2);
+    const stepSize = Math.max(30, 80 - stroke * 3);
+    
+    for(let stroke_idx = 0; stroke_idx < strokeCount; stroke_idx++) {
+      ctx.lineWidth = 0.8 + (rand() * 1.2);
+      ctx.beginPath();
+      
+      // Random starting point
+      let x = rand() * w;
+      let y = rand() * h;
+      ctx.moveTo(x, y);
+      
+      // Draw continuous, random path
+      const pathLength = 5 + Math.floor(rand() * 8);
+      for(let i = 0; i < pathLength; i++) {
+        x += (rand() - 0.5) * stepSize;
+        y += (rand() - 0.5) * stepSize;
+        x = Math.max(0, Math.min(w, x));
+        y = Math.max(0, Math.min(h, y));
+        ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    
+    ctx.globalCompositeOperation = 'source-over';
   }
 
   function renderGesture(ctx, w, h, edges, gray, intensity, stroke, rand) {
@@ -2124,6 +2167,55 @@
         }
       }
     }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  function renderCartoon(ctx, w, h, edges, gray, intensity, stroke, rand) {
+    // Cartoon style: bold outlines with simplified color areas
+    const threshold = 25 + (11 - intensity) * 10 - stroke * 0.3;
+    const overlay = ctx.createImageData(w,h);
+    
+    // Create mid-tone base for cartoon look
+    for(let i=0; i<w*h; i++){
+      const e = edges[i];
+      const g = gray[i];
+      // Simplify to distinct tonal areas
+      let v;
+      if(e > threshold) {
+        v = 20;  // Black outlines
+      } else if(g < 85) {
+        v = 50;  // Dark areas
+      } else if(g < 170) {
+        v = 150;  // Mid tones
+      } else {
+        v = 240;  // Light areas
+      }
+      overlay.data[i*4] = v;
+      overlay.data[i*4+1] = v;
+      overlay.data[i*4+2] = v;
+      overlay.data[i*4+3] = 255;
+    }
+    ctx.putImageData(overlay,0,0);
+    
+    // Add bold outlines on top
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 1 + stroke * 0.15;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    
+    const outlineStep = Math.max(2, 6 - stroke * 0.3);
+    for(let y=0; y<h; y+=outlineStep){
+      for(let x=0; x<w; x+=outlineStep){
+        const idx = y*w + x;
+        if(idx < w*h && edges[idx] > threshold){
+          ctx.beginPath();
+          ctx.arc(x, y, 0.5 + stroke * 0.1, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+    }
+    
     ctx.globalCompositeOperation = 'source-over';
   }
 
