@@ -1,8 +1,8 @@
 # Sketchify — Image to Sketch (Static Web App)
 
-**By ArtMondo**
+**By ArtMondo** | **Version 1.2.4**
 
-This repository contains a sophisticated, client-side web app that creates stunning sketch art from your photos in seconds — choose from 20+ artistic styles, preview changes in real-time, and batch-process multiple images. Fast, private, and completely free, with all processing happening directly in your browser.
+This repository contains a sophisticated, client-side web app that creates stunning sketch art from your photos in seconds — choose from 26+ artistic styles, preview changes in real-time, and batch-process multiple images. Fast, private, and completely free, with all processing happening directly in your browser.
 
 ## Features
 
@@ -18,8 +18,7 @@ How to use
 
 Notes & features overview
 - **Modern UI design:** Elegant purple-cyan gradient header, intuitive controls with smooth interactions, and professional visual hierarchy for a premium user experience.
-- **Core rendering:** 20+ unique sketch styles (contour, gesture, hatching, stippling, charcoal, ink wash, comic, etching, etc.) wsudo apt-get install certbot python3-certbot-nginx
-sudo certbot certonly --standalone -d yourdomain.coms for distinct visual results.
+- **Core rendering:** 26+ unique sketch styles (contour, blind contour, gesture, hatching, cross-hatching, stippling, tonal shading, charcoal, ink wash, comic, cartoon, etching, etc.) for distinct visual results.
 - **Medium control:** Pencil (light + grain), Ink (dark + crisp), Marker (soft edges), Pen (professional crisp) — affects stroke appearance on all styles.
 - **Brush effects:** Line, Hatch, Cross-hatch, Charcoal, Ink Wash — adds textures or patterns on top of the chosen style.
 - **GPU acceleration:** Optional WebGL-based Sobel edge detection for faster real-time preview on large images.
@@ -30,13 +29,14 @@ sudo certbot certonly --standalone -d yourdomain.coms for distinct visual result
 
 Implemented features
 
-**Sketch styles (20+):**
-- Clean line styles: Contour drawing, Gesture sketching, Line art, Cross-contour
+**Sketch styles (26+):**
+- Clean line styles: Contour drawing, Blind contour, Gesture sketching, Line art, Cross-contour
 - Shading-driven: Hatching, Cross-hatching, Scribble, Stippling, Tonal pencil
 - Expressive/painterly: Charcoal, Dry brush, Ink wash
-- Stylized/design: Comic/manga, Fashion sketch, Urban sketch, Architectural
+- Stylized/design: Comic/manga, Cartoon style, Fashion sketch, Urban sketch, Architectural
 - Classic fine-art: Academic figure, Etching/engraving
 - Modern/experimental: Minimalist one-line, Glitch/distorted, Mixed-media
+- Retro/Vintage: Retro pen & ink, Graphite portrait, Oil painting, Watercolor
 
 **Medium & Brush controls:**
 - Medium (Art Style): Pencil, Ink, Marker, Pen — each applies distinct tone/texture
@@ -48,7 +48,7 @@ Implemented features
 **Image processing & rendering:**
 - Real-time preview as you adjust settings
 - Sobel edge detection (CPU-based, with optional WebGL GPU acceleration)
-- 20+ unique style-specific rendering algorithms
+- 26+ unique style-specific rendering algorithms
 - Resolution options: 512px, 1024px, 2048px
 - Aspect ratio options: 1:1, 3:4, 4:3, 16:9, 9:16
 
@@ -170,7 +170,7 @@ File: `server.py` — Port: 5000
 ### Advanced Server (OpenCV) ⭐ **Recommended**
 File: `server_advanced.py` — Port: 5001
 - Professional-quality OpenCV + NumPy rendering
-- 13+ stylization algorithms
+- 18+ stylization algorithms
 - Full parameter support (Medium, Intensity, Stroke, etc.)
 - Includes CORS headers for browser compatibility
 - **Use this for local development**
