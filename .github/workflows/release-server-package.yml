@@ -1,0 +1,67 @@
+name: Package and Release Server
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:  # Allow manual trigger from GitHub Actions tab
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Create server-package ZIP
+        run: |
+          cd ${{ github.workspace }}
+          zip -r server-package.zip server-package/ -x "*.pyc" "__pycache__/*"
+          ls -lh server-package.zip
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: server-package.zip
+          body: |
+            # Sketchify Server Package
+            
+            **Version:** ${{ steps.get_version.outputs.VERSION }}
+            
+            The server-package is a self-contained Flask backend for Sketchify with 18+ rendering styles.
+            
+            ## Contents
+            - `server.py` - Flask API server (port 5001)
+            - `requirements.txt` - Python dependencies
+            - `run.bat` / `run.sh` - Quick start scripts
+            - `README.md` - Setup and usage instructions
+            
+            ## Quick Start
+            1. Extract the ZIP file
+            2. Install Python 3.8+
+            3. Create virtual environment: `python -m venv venv`
+            4. Activate: `venv\Scripts\activate` (Windows) or `source venv/bin/activate` (macOS/Linux)
+            5. Install dependencies: `pip install -r requirements.txt`
+            6. Run server: `python server.py`
+            7. Server will start on `http://localhost:5001`
+            
+            ## Rendering Styles (18+)
+            - Stippling, Charcoal, Dry Brush, Ink Wash
+            - Comic, Cartoon, Fashion, Urban, Architectural
+            - Academic, Etching, Minimalist, Glitch, Mixed Media
+            - Contour, Blind Contour, Gesture, Hatching, Cross-hatching, Tonal Shading
+            
+            ## Documentation
+            For full setup instructions and troubleshooting, see the included README.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
