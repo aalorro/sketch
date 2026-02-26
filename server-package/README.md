@@ -4,7 +4,7 @@ This is a minimal server package for running the Sketchify style-transfer backen
 
 ## What's Included
 
-- `server.py` - Flask server with 13 rendering styles
+- `server.py` - Flask server with 18+ rendering styles
 - `requirements.txt` - Python dependencies
 - `run.bat` - Windows startup script (optional)
 - `run.sh` - macOS/Linux startup script (optional)
@@ -95,12 +95,13 @@ When running locally with the setup above:
 
 ## Features Available
 
-This server implements 13 rendering styles:
+This server implements 18+ rendering styles:
 - Stippling
 - Charcoal
 - Dry Brush
 - Ink Wash
 - Comic/Manga
+- Cartoon
 - Fashion
 - Urban Sketching
 - Architectural
@@ -109,6 +110,12 @@ This server implements 13 rendering styles:
 - Minimalist
 - Glitch
 - Mixed Media
+- Contour Drawing
+- Blind Contour
+- Gesture Sketch
+- Hatching
+- Cross-hatching
+- Tonal Shading
 
 Plus all parameters: Medium (Pencil→Pastel), Intensity, Stroke, Smoothing, Colorize, Invert, Contrast, Saturation, Hue Shift
 
