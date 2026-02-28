@@ -70,7 +70,8 @@ Implemented features
 - Side-by-side preview: View original and rendered images simultaneously
 - **Before/After comparison slider:** Click Compare on the rendered panel to overlay a draggable divider that reveals the original photo beneath the sketch — mouse and touch friendly
 - **Clipboard paste:** Press Ctrl+V anywhere on the page to load an image directly from the clipboard
-- **Style Grid:** "Style Grid" button opens a modal with all 27 styles rendered as live thumbnails from the current image — click any to instantly apply
+- **Webcam capture:** Click "📷 Capture from Webcam" to open a live camera feed — capture a frame, retake if needed, then load it directly into Sketchify
+- **Style Grid:** "Style Grid" button opens a modal with styles rendered as live thumbnails from the current image — click any to instantly apply. In browser mode all 27 styles are shown (canvas-rendered); in server mode only the 20 server-supported styles are shown (server-rendered)
 - Responsive layout: Works on desktop and adjusts for smaller screens
 
 **Advanced options:**

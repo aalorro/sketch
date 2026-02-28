@@ -8,10 +8,12 @@ All notable changes to Sketchify are documented in this file.
 - **Style Grid:** New "Style Grid" button below the Style selector opens a modal showing all 27 styles as live 150×150px thumbnails rendered from the loaded image. Click any thumbnail to apply that style and close the modal.
 - **SVG Export:** New "Download SVG" button vectorizes the current sketch using imagetracerjs (lazy-loaded from CDN on first use) and downloads a true-path `.svg` file. Works with both browser and server-rendered sketches.
 - **Animate (WebM):** New "Animate (WebM)" button records a pixel-dissolve reveal animation of the sketch and downloads it as a `.webm` file via MediaRecorder. Duration configurable: 2, 3, or 5 seconds. Requires Chrome, Firefox, or Edge.
+- **Webcam Capture:** New "📷 Capture from Webcam" button opens a camera modal with a live video feed. Click Capture to freeze the frame, Retake to go back to live video, or Use Photo to load the snapshot into Sketchify — identical workflow to clipboard paste. Camera stream is stopped automatically on modal close.
 
 ### Fixed
 - **Compare overlay aspect ratio misalignment:** When a non-1:1 aspect ratio was selected, the left (original) half of the compare panel did not align with the sketch. The `compareCanvas` was missing `object-fit:contain`, causing it to stretch to fill the 1:1 container while the preview canvas letterboxed. Both canvases now scale identically.
 - **Style Grid ignoring server rendering mode:** Clicking a thumbnail in the Style Grid always triggered canvas rendering even when server (OpenCV) mode was active. The click handler now checks `renderingEngine` and calls `renderCurrentImageWithOpenCV()` in server mode, matching the behaviour of all other controls.
+- **Style Grid thumbnails always rendered via canvas in server mode:** In server mode the grid now POSTs a 512px square crop of the loaded image to the server for each style and displays the true server-rendered result as the thumbnail. The 7 canvas-only styles (Line Art, Cross-Contour, Scribble, Retro Pen, Graphite, Oil Painting, Watercolor) are hidden from the grid in server mode since the server does not support them. Falls back to the raw image if an individual server request fails.
 
 ### Technical Details
 - `ALL_STYLES` array (27 entries) added as a module-level constant in `script.js` for use by the Style Grid
@@ -19,6 +21,7 @@ All notable changes to Sketchify are documented in this file.
 - `loadImageTracer()` lazy-loads `imagetracerjs@1.2.6` from jsDelivr CDN; subsequent calls resolve immediately from the cached global
 - Animation uses `HTMLCanvasElement.captureStream(30)` + `MediaRecorder` with VP9 codec (falls back to plain `video/webm`); pixel-dissolve uses Fisher-Yates shuffle over 8×8px blocks revealed in per-frame batches at 30fps
 - Fixed: `#modal-grid` must be placed before `<script src="script.js">` in the HTML so `getElementById` resolves correctly at IIFE startup
+- Webcam: `navigator.mediaDevices.getUserMedia({video:true})` feeds a `<video>` element; Capture draws a frame to an off-screen `<canvas>`; Use Photo calls `canvas.toBlob()` and follows the identical clipboard-paste loading path (`currentFiles`, `loadImageFromFile`, `drawPreview`, `updateImageNavDisplay`); stream tracks stopped on ✕, outside click, and Escape key
 
 ---
 

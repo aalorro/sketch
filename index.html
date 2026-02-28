@@ -102,6 +102,7 @@
       </div>
       <label>Load image <button type="button" class="info-btn" data-modal="modal-load">?</button><input id="file" type="file" accept="image/*" multiple></label>
       <div style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:4px;">or paste an image with Ctrl+V</div>
+      <button id="webcamBtn" type="button" style="width:100%;padding:8px;background:#7c3aed;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;margin-bottom:4px;">📷 Capture from Webcam</button>
       <div id="fileInfo" style="display:none;margin-bottom:8px;padding:8px;border-radius:6px;font-size:12px;color:#333">
         <div id="fileCount"></div>
         <div id="fileWarning" style="display:none;margin-top:6px;padding:6px;background:#fff3cd;border:1px solid #ffc107;border-radius:4px;color:#856404">
@@ -602,6 +603,7 @@
         <li><strong>Zoom & Pan:</strong> Zoom into details and pan around the preview</li>
         <li><strong>Before/After Compare:</strong> Click "Compare" on the rendered panel to overlay a draggable divider revealing the original photo beneath the sketch — drag left/right to compare</li>
         <li><strong>Texture Overlay:</strong> Apply paper grain, canvas weave, rough paper, or film grain textures over any sketch using the Texture selector and Texture opacity slider</li>
+        <li><strong>Webcam Capture:</strong> Click "📷 Capture from Webcam" to open a live camera feed — capture a frame, retake if needed, then click Use Photo to load it into Sketchify</li>
         <li><strong>Batch Processing:</strong> Process all images at once and download as ZIP</li>
       </ul>
 
@@ -636,7 +638,7 @@
         <li><strong>JPG Download:</strong> Compressed format, smaller file size</li>
         <li><strong>SVG Download:</strong> True vector paths — scalable to any size. Requires an internet connection on first use to load the vectorization library.</li>
         <li><strong>ZIP Download:</strong> Bundle all processed images into one file</li>
-        <li><strong>Animate (WebM):</strong> Export a scan-line reveal animation as a .webm video. Select duration (2s / 3s / 5s) then click Animate. Chrome, Firefox, or Edge required.</li>
+        <li><strong>Animate (WebM):</strong> Export a pixel-dissolve reveal animation as a .webm video. Select duration (2s / 3s / 5s) then click Animate. Chrome, Firefox, or Edge required.</li>
         <li><strong>Custom Filename:</strong> Set a custom prefix for downloaded files</li>
         <li><strong>Progress Indicator:</strong> See rendering progress as a percentage overlay (Server mode)</li>
       </ul>
@@ -651,6 +653,7 @@
         <li>Zoom in to check fine details before downloading</li>
         <li>Use Undo/Redo (Ctrl+Z / Ctrl+Y) to experiment freely</li>
         <li>SVG export works best on high-contrast sketches (Contour, Line Art, Etching)</li>
+        <li>Use Webcam Capture to sketch yourself or objects in real time — no file needed</li>
       </ul>
 
       <h4>Browser Mode vs Server Mode</h4>
@@ -661,6 +664,7 @@
       <ul>
         <li><strong>Ctrl+Z:</strong> Undo</li>
         <li><strong>Ctrl+Y or Ctrl+Shift+Z:</strong> Redo</li>
+        <li><strong>Ctrl+V:</strong> Paste image from clipboard</li>
         <li><strong>Delete key:</strong> Remove selected thumbnail image</li>
       </ul>
 
@@ -882,7 +886,8 @@
       <ul>
         <li><strong>Style Grid:</strong> New button below the Style selector opens a modal showing all 27 styles as live thumbnails rendered from your image — click any to apply</li>
         <li><strong>SVG Export:</strong> New "Download SVG" button vectorizes the sketch into true scalable paths using imagetracerjs (loaded from CDN on first use)</li>
-        <li><strong>Animate (WebM):</strong> New "Animate (WebM)" button exports a scan-line reveal animation as a .webm video with selectable duration (2s / 3s / 5s)</li>
+        <li><strong>Animate (WebM):</strong> New "Animate (WebM)" button exports a pixel-dissolve reveal animation as a .webm video with selectable duration (2s / 3s / 5s)</li>
+        <li><strong>Webcam Capture:</strong> New "📷 Capture from Webcam" button opens a live camera modal — capture a frame, retake if needed, then load it directly into Sketchify</li>
       </ul>
 
       <h4>Version 1.2.0 (February 21, 2026)</h4>
@@ -1107,6 +1112,23 @@
       }
     }
   </style>
+
+  <!-- Webcam Capture Modal -->
+  <div id="modal-webcam" class="modal" style="display:none">
+    <div class="modal-content" style="max-width:600px;width:92vw;">
+      <button class="modal-close" type="button">&times;</button>
+      <h3 style="margin-top:0">Webcam Capture</h3>
+      <div style="position:relative;background:#000;border-radius:8px;overflow:hidden;aspect-ratio:4/3;margin-bottom:12px;">
+        <video id="webcamVideo" autoplay playsinline style="width:100%;height:100%;display:block;object-fit:cover;"></video>
+        <canvas id="webcamCanvas" style="display:none;width:100%;height:100%;object-fit:contain;"></canvas>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+        <button id="webcamCapture" type="button" style="background:#06b6d4;color:#fff;border:none;border-radius:6px;padding:10px 24px;font-weight:600;cursor:pointer;font-size:14px;">Capture</button>
+        <button id="webcamRetake" type="button" style="display:none;background:#6b7280;color:#fff;border:none;border-radius:6px;padding:10px 24px;font-weight:600;cursor:pointer;font-size:14px;">Retake</button>
+        <button id="webcamUse" type="button" style="display:none;background:#10b981;color:#fff;border:none;border-radius:6px;padding:10px 24px;font-weight:600;cursor:pointer;font-size:14px;">Use Photo</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Style Grid Modal -->
   <div id="modal-grid" class="modal" style="display:none">

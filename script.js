@@ -101,6 +101,7 @@
   let comparePos = 0.5;   // 0–1 position of comparison divider
   let isDraggingCompare = false; // Dragging comparison handle
   const textureCache = {}; // Cache generated texture canvases by type+size
+  let gridGeneration = 0;  // Incremented each time Style Grid opens; old async loops self-abort
 
   const ALL_STYLES = [
     {value:'contour',label:'Contour'},
@@ -886,7 +887,7 @@
     }
   });
 
-  // Animate (WebM scan-line reveal via MediaRecorder)
+  // Animate (WebM pixel-dissolve reveal via MediaRecorder)
   document.getElementById('animateBtn').addEventListener('click', async () => {
     if (!hasCanvasContent()) {
       showErrorMessage('No image loaded. Please load an image and click Generate first.');
@@ -899,65 +900,79 @@
     const btn = document.getElementById('animateBtn');
     btn.disabled = true;
     btn.textContent = 'Recording…';
-    const w = preview.width, h = preview.height;
-    const duration = parseInt(document.getElementById('animDuration').value, 10);
-    const sketchImg = new Image();
-    await new Promise(r => { sketchImg.onload = r; sketchImg.src = preview.toDataURL('image/png'); });
-    const pCtx = preview.getContext('2d');
-    const px = pCtx.getImageData(0, 0, 1, 1).data;
-    const bgColor = `rgb(${px[0]},${px[1]},${px[2]})`;
-    const animCanvas = document.createElement('canvas');
-    animCanvas.width = w; animCanvas.height = h;
-    const animCtx = animCanvas.getContext('2d');
-    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-      ? 'video/webm;codecs=vp9' : 'video/webm';
-    const stream = animCanvas.captureStream(30);
-    const recorder = new MediaRecorder(stream, {mimeType});
-    const chunks = [];
-    recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-    recorder.onstop = () => {
-      const blob = new Blob(chunks, {type: 'video/webm'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      const name = document.getElementById('outputName').value.trim() || getDefaultFilename();
-      a.href = url; a.download = name + '-animation.webm';
-      document.body.appendChild(a); a.click(); a.remove();
-      URL.revokeObjectURL(url);
+    let recorder;
+    let recordingSuccessful = false;
+    try {
+      const w = preview.width, h = preview.height;
+      const duration = parseInt(document.getElementById('animDuration').value, 10);
+      const sketchImg = new Image();
+      await new Promise(r => { sketchImg.onload = r; sketchImg.src = preview.toDataURL('image/png'); });
+      const pCtx = preview.getContext('2d');
+      const px = pCtx.getImageData(0, 0, 1, 1).data;
+      const bgColor = `rgb(${px[0]},${px[1]},${px[2]})`;
+      const animCanvas = document.createElement('canvas');
+      animCanvas.width = w; animCanvas.height = h;
+      const animCtx = animCanvas.getContext('2d');
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+        ? 'video/webm;codecs=vp9' : 'video/webm';
+      const stream = animCanvas.captureStream(30);
+      recorder = new MediaRecorder(stream, {mimeType});
+      const chunks = [];
+      recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      recorder.onstop = () => {
+        if (recordingSuccessful) {
+          const blob = new Blob(chunks, {type: 'video/webm'});
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          const name = document.getElementById('outputName').value.trim() || getDefaultFilename();
+          a.href = url; a.download = name + '-animation.webm';
+          document.body.appendChild(a); a.click(); a.remove();
+          URL.revokeObjectURL(url);
+        }
+        btn.disabled = false;
+        btn.textContent = 'Animate (WebM)';
+      };
+      // Draw background before starting recorder so first captured frame is not blank
+      animCtx.fillStyle = bgColor;
+      animCtx.fillRect(0, 0, w, h);
+      recorder.start();
+      const fps = 30;
+      const frameCount = Math.round(duration / 1000 * fps);
+      const frameDelay = Math.round(1000 / fps);
+      // Pixel-dissolve reveal: shuffle 8px blocks and reveal in random order
+      const blockSize = 8;
+      const cols = Math.ceil(w / blockSize);
+      const rows = Math.ceil(h / blockSize);
+      const totalBlocks = cols * rows;
+      const order = Array.from({length: totalBlocks}, (_, i) => i);
+      for (let i = order.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [order[i], order[j]] = [order[j], order[i]];
+      }
+      const blocksPerFrame = Math.ceil(totalBlocks / frameCount);
+      let revealed = 0;
+      for (let frame = 0; frame < frameCount; frame++) {
+        const end = Math.min(revealed + blocksPerFrame, totalBlocks);
+        for (let k = revealed; k < end; k++) {
+          const bx = (order[k] % cols) * blockSize;
+          const by = Math.floor(order[k] / cols) * blockSize;
+          const bw = Math.min(blockSize, w - bx);
+          const bh = Math.min(blockSize, h - by);
+          animCtx.drawImage(sketchImg, bx, by, bw, bh, bx, by, bw, bh);
+        }
+        revealed = end;
+        await new Promise(r => setTimeout(r, frameDelay));
+      }
+      recordingSuccessful = true;
+      await new Promise(r => setTimeout(r, 400));
+      recorder.stop();
+    } catch(err) {
+      showErrorMessage('Animation export failed.');
+      console.error(err);
+      try { if (recorder && recorder.state !== 'inactive') recorder.stop(); } catch(_) {}
       btn.disabled = false;
       btn.textContent = 'Animate (WebM)';
-    };
-    recorder.start();
-    const fps = 30;
-    const frameCount = Math.round(duration / 1000 * fps);
-    const frameDelay = Math.round(1000 / fps);
-    // Pixel-dissolve reveal: shuffle 8px blocks and reveal in random order
-    const blockSize = 8;
-    const cols = Math.ceil(w / blockSize);
-    const rows = Math.ceil(h / blockSize);
-    const totalBlocks = cols * rows;
-    const order = Array.from({length: totalBlocks}, (_, i) => i);
-    for (let i = order.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [order[i], order[j]] = [order[j], order[i]];
     }
-    const blocksPerFrame = Math.ceil(totalBlocks / frameCount);
-    animCtx.fillStyle = bgColor;
-    animCtx.fillRect(0, 0, w, h);
-    let revealed = 0;
-    for (let frame = 0; frame < frameCount; frame++) {
-      const end = Math.min(revealed + blocksPerFrame, totalBlocks);
-      for (let k = revealed; k < end; k++) {
-        const bx = (order[k] % cols) * blockSize;
-        const by = Math.floor(order[k] / cols) * blockSize;
-        const bw = Math.min(blockSize, w - bx);
-        const bh = Math.min(blockSize, h - by);
-        animCtx.drawImage(sketchImg, bx, by, bw, bh, bx, by, bw, bh);
-      }
-      revealed = end;
-      await new Promise(r => setTimeout(r, frameDelay));
-    }
-    await new Promise(r => setTimeout(r, 400));
-    recorder.stop();
   });
 
   // Style Grid button
@@ -967,6 +982,117 @@
   document.getElementById('modal-grid').addEventListener('click', e => {
     if (e.target === e.currentTarget) e.currentTarget.style.display = 'none';
   });
+
+  // ── Webcam Capture ──────────────────────────────────────────────────────────
+  let webcamStream = null;
+
+  function stopWebcam() {
+    if (webcamStream) {
+      webcamStream.getTracks().forEach(t => t.stop());
+      webcamStream = null;
+    }
+    const video = document.getElementById('webcamVideo');
+    video.srcObject = null;
+  }
+
+  async function openWebcam() {
+    const modal   = document.getElementById('modal-webcam');
+    const video   = document.getElementById('webcamVideo');
+    const canvas  = document.getElementById('webcamCanvas');
+    const btnCap  = document.getElementById('webcamCapture');
+    const btnRet  = document.getElementById('webcamRetake');
+    const btnUse  = document.getElementById('webcamUse');
+
+    // Reset to live-video state
+    video.style.display  = 'block';
+    canvas.style.display = 'none';
+    btnCap.style.display = 'inline-block';
+    btnRet.style.display = 'none';
+    btnUse.style.display = 'none';
+
+    modal.style.display = 'flex';
+
+    try {
+      webcamStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      video.srcObject = webcamStream;
+    } catch (err) {
+      modal.style.display = 'none';
+      showErrorMessage('Webcam access denied or not available. Please allow camera access in your browser.');
+      console.error('Webcam error:', err);
+    }
+  }
+
+  document.getElementById('webcamBtn').addEventListener('click', openWebcam);
+
+  // Close webcam modal — stop stream, reset UI
+  document.getElementById('modal-webcam').addEventListener('click', e => {
+    if (e.target === e.currentTarget) {
+      stopWebcam();
+      e.currentTarget.style.display = 'none';
+    }
+  });
+
+  // The existing querySelectorAll('.modal-close') handler fires for the ✕ button,
+  // but we also need to stop the stream when that button is clicked.
+  document.querySelector('#modal-webcam .modal-close').addEventListener('click', () => {
+    stopWebcam();
+  });
+
+  // Capture: freeze frame onto canvas
+  document.getElementById('webcamCapture').addEventListener('click', () => {
+    const video  = document.getElementById('webcamVideo');
+    const canvas = document.getElementById('webcamCanvas');
+    canvas.width  = video.videoWidth  || 640;
+    canvas.height = video.videoHeight || 480;
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    video.style.display  = 'none';
+    canvas.style.display = 'block';
+    document.getElementById('webcamCapture').style.display = 'none';
+    document.getElementById('webcamRetake').style.display  = 'inline-block';
+    document.getElementById('webcamUse').style.display     = 'inline-block';
+  });
+
+  // Retake: go back to live feed
+  document.getElementById('webcamRetake').addEventListener('click', () => {
+    const video  = document.getElementById('webcamVideo');
+    const canvas = document.getElementById('webcamCanvas');
+    video.style.display  = 'block';
+    canvas.style.display = 'none';
+    document.getElementById('webcamCapture').style.display = 'inline-block';
+    document.getElementById('webcamRetake').style.display  = 'none';
+    document.getElementById('webcamUse').style.display     = 'none';
+  });
+
+  // Use Photo: convert canvas snapshot → File → load exactly like clipboard paste
+  document.getElementById('webcamUse').addEventListener('click', () => {
+    const canvas = document.getElementById('webcamCanvas');
+    canvas.toBlob(blob => {
+      if (!blob) { showErrorMessage('Failed to capture image from webcam.'); return; }
+      const file = new File([blob], 'webcam.png', { type: 'image/png' });
+      stopWebcam();
+      document.getElementById('modal-webcam').style.display = 'none';
+      currentFiles = [file];
+      currentImageIndex = 0;
+      panOffsetX = 0; panOffsetY = 0;
+      zoomLevel = 1.0;
+      currentRenderedImage = null;
+      updateZoomDisplay();
+      enableControls();
+      loadImageFromFile(file).then(img => {
+        singleImage = img;
+        drawPreview();
+        updateImageNavDisplay();
+      }).catch(err => console.error('Webcam load failed:', err));
+      updateFileInfo();
+    }, 'image/png');
+  });
+
+  // Stop stream if user closes modal via Escape key
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && document.getElementById('modal-webcam').style.display !== 'none') {
+      stopWebcam();
+    }
+  }, { capture: false });
 
   // Reset button
   document.getElementById('resetAll').addEventListener('click', () => {
@@ -1514,7 +1640,7 @@
 
     // Route to style-specific rendering
     switch(style) {
-      case 'contour': renderContour(ctx, w, h, edges, gray, intensity); break;
+      case 'contour': renderContour(ctx, w, h, edges, gray, intensity, stroke); break;
       case 'blindcontour': renderBlindContour(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       case 'gesture': renderGesture(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       case 'lineart': renderLineArt(ctx, w, h, edges, gray, intensity, stroke, rand); break;
@@ -1533,7 +1659,7 @@
       case 'architectural': renderArchitectural(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       case 'academic': renderAcademic(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       case 'etching': renderEtching(ctx, w, h, edges, gray, intensity, stroke, rand); break;
-      case 'minimalist': renderMinimalist(ctx, w, h, edges, gray, intensity); break;
+      case 'minimalist': renderMinimalist(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       case 'cartoon': renderCartoon(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       case 'glitch': renderGlitch(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       case 'mixedmedia': renderMixedMedia(ctx, w, h, edges, gray, intensity, stroke, rand); break;
@@ -1823,54 +1949,137 @@
     }
   }
 
-  function renderContour(ctx, w, h, edges, gray, intensity) {
-    const thr = 40 + (11-intensity)*18;
-    const overlay = ctx.createImageData(w,h);
-    for(let i=0;i<w*h;i++){
-      const v = (edges[i] > thr) ? 0 : 255;
-      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v; overlay.data[i*4+3]=255;
+  function renderContour(ctx, w, h, edges, gray, intensity, stroke) {
+    // Anti-aliased contour: smoothstep transition at the edge boundary so lines
+    // have soft, natural edges rather than harsh aliased pixels.
+    // stroke slider widens/narrows lines by shifting the threshold.
+    const thr      = Math.max(12, 40 + (11 - intensity) * 13 - stroke * 2.5);
+    const softness = 6 + stroke * 2;   // width of the anti-alias transition band
+
+    const overlay = ctx.createImageData(w, h);
+    const d = overlay.data;
+    for (let i = 0; i < w * h; i++) {
+      const e = edges[i];
+      let v;
+      if (e <= thr) {
+        v = 255;                        // background
+      } else if (e >= thr + softness) {
+        v = 10;                         // line interior — near-black (warm graphite)
+      } else {
+        const t = (e - thr) / softness;
+        v = Math.round(255 - 245 * t * t * (3 - 2 * t)); // smoothstep ease
+      }
+      d[i*4] = d[i*4+1] = d[i*4+2] = v;
+      d[i*4+3] = 255;
     }
-    ctx.putImageData(overlay,0,0);
+    ctx.putImageData(overlay, 0, 0);
   }
 
   function renderBlindContour(ctx, w, h, edges, gray, intensity, stroke, rand) {
-    // Blind contour: random, expressive strokes without adherence to edges - simulates drawing without looking
-    const overlay = ctx.createImageData(w,h);
-    for(let i=0;i<w*h;i++){
-      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=255; overlay.data[i*4+3]=255;
+    // Blind contour: 2-4 long continuous strokes that loosely follow image edges
+    // with random drift — simulating drawing while watching the subject, not the paper.
+
+    // White background
+    const bg = ctx.createImageData(w, h);
+    for (let i = 0; i < w * h; i++) {
+      bg.data[i*4] = bg.data[i*4+1] = bg.data[i*4+2] = 255; bg.data[i*4+3] = 255;
     }
-    ctx.putImageData(overlay,0,0);
-    
-    // Draw random, continuous, expressive strokes all over the canvas
+    ctx.putImageData(bg, 0, 0);
+
     ctx.globalCompositeOperation = 'multiply';
-    ctx.strokeStyle = '#333333';
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    
-    const strokeCount = 15 + Math.floor(intensity * 2);
-    const stepSize = Math.max(30, 80 - stroke * 3);
-    
-    for(let stroke_idx = 0; stroke_idx < strokeCount; stroke_idx++) {
-      ctx.lineWidth = 0.8 + (rand() * 1.2);
+
+    // Scale step size with image resolution so behaviour is consistent at all sizes
+    const stepLen = Math.max(1.5, (w + h) / 600);
+
+    // Number of separate pen lifts: 2 at low intensity (looser), 4 at high (more passes)
+    const numStrokes = 2 + Math.round(intensity * 0.2);  // 2–4
+
+    // Total walk length grows with intensity (more coverage = more detail)
+    const totalSteps = Math.floor((w + h) * (4 + intensity * 0.5));
+    const stepsPerStroke = Math.floor(totalSteps / numStrokes);
+
+    // Line weight from stroke slider; slight per-stroke variation for organic feel
+    const baseWidth = 0.55 + stroke * 0.18;
+
+    // Drift = random angular wobble. Higher drift at low intensity (hand "wanders" more).
+    // Ranges from ±20° at intensity 10 to ±60° at intensity 1.
+    const driftRange = (0.18 + (10 - intensity) * 0.035) * Math.PI;
+
+    // Edge sensitivity: how strongly the walker steers toward edges.
+    const edgeSensitivity = 8 + intensity * 2.5;
+
+    function edgeAt(x, y) {
+      const xi = x | 0, yi = y | 0;
+      if (xi < 0 || xi >= w || yi < 0 || yi >= h) return 0;
+      return edges[yi * w + xi];
+    }
+
+    // Find a starting point near a strong edge (sample 50 random candidates)
+    function findStart() {
+      let bx = rand() * w, by = rand() * h, be = 0;
+      for (let a = 0; a < 50; a++) {
+        const x = rand() * w, y = rand() * h;
+        const e = edgeAt(x, y);
+        if (e > be) { be = e; bx = x; by = y; }
+      }
+      return [bx, by];
+    }
+
+    for (let s = 0; s < numStrokes; s++) {
+      const [sx, sy] = findStart();
+      let x = sx, y = sy;
+      let angle = rand() * Math.PI * 2;   // random initial direction
+
+      const pts = [[x, y]];
+
+      for (let step = 0; step < stepsPerStroke; step++) {
+        // Fan lookahead: evaluate 12 directions within ±40° of current heading.
+        // Score = edge strength at lookahead point + bonus for staying on course.
+        const fanCount = 12;
+        const fanSpread = Math.PI * 0.44;  // ±40°
+        const lookahead = stepLen * 4;
+        let bestScore = -1, bestAngle = angle;
+
+        for (let f = 0; f < fanCount; f++) {
+          const testAngle = angle - fanSpread / 2 + (f / (fanCount - 1)) * fanSpread;
+          const lx = x + Math.cos(testAngle) * lookahead;
+          const ly = y + Math.sin(testAngle) * lookahead;
+          // Momentum bonus: prefer directions close to current heading
+          const deviation = Math.abs(testAngle - angle);
+          const score = edgeAt(lx, ly) + (1 - deviation / Math.PI) * edgeSensitivity;
+          if (score > bestScore) { bestScore = score; bestAngle = testAngle; }
+        }
+
+        // Add random drift on top of the best edge-following direction
+        angle = bestAngle + (rand() - 0.5) * driftRange;
+
+        x += Math.cos(angle) * stepLen;
+        y += Math.sin(angle) * stepLen;
+
+        // Soft boundary: reflect off canvas edges so the stroke stays visible
+        if (x < 0)   { x = -x;           angle = Math.PI - angle; }
+        if (x > w-1) { x = 2*(w-1) - x;  angle = Math.PI - angle; }
+        if (y < 0)   { y = -y;            angle = -angle; }
+        if (y > h-1) { y = 2*(h-1) - y;  angle = -angle; }
+
+        pts.push([x, y]);
+      }
+
+      // Render as a smooth quadratic-bezier path (midpoint method)
       ctx.beginPath();
-      
-      // Random starting point
-      let x = rand() * w;
-      let y = rand() * h;
-      ctx.moveTo(x, y);
-      
-      // Draw continuous, random path
-      const pathLength = 5 + Math.floor(rand() * 8);
-      for(let i = 0; i < pathLength; i++) {
-        x += (rand() - 0.5) * stepSize;
-        y += (rand() - 0.5) * stepSize;
-        x = Math.max(0, Math.min(w, x));
-        y = Math.max(0, Math.min(h, y));
-        ctx.lineTo(x, y);
+      ctx.lineWidth = baseWidth + rand() * 0.25;
+      ctx.strokeStyle = 'rgba(18, 12, 8, 0.88)';
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length - 1; i++) {
+        const mx = (pts[i][0] + pts[i+1][0]) / 2;
+        const my = (pts[i][1] + pts[i+1][1]) / 2;
+        ctx.quadraticCurveTo(pts[i][0], pts[i][1], mx, my);
       }
       ctx.stroke();
     }
-    
+
     ctx.globalCompositeOperation = 'source-over';
   }
 
@@ -1936,65 +2145,195 @@
   }
 
   function renderLineArt(ctx, w, h, edges, gray, intensity, stroke, rand) {
-    // Pure line art: clean lines only, no shading
-    const thr = 15 + (11-intensity)*10 - stroke * 0.5;
-    const overlay = ctx.createImageData(w,h);
-    for(let i=0;i<w*h;i++){
-      const v = (edges[i] > thr) ? 0 : 255;
-      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v; overlay.data[i*4+3]=255;
+    // Crisp line art: binary edges dilated to a controlled thickness.
+    // Distinct from Contour — hard edges (no anti-alias) give a flat,
+    // technical-pen / manga feel. stroke slider controls true line width.
+    const thr       = Math.max(10, 35 + (11 - intensity) * 12 - stroke * 1.5);
+    const dilRadius = Math.max(0, Math.round(stroke * 0.3 - 0.2)); // 0–3 px
+
+    // Binary threshold
+    const mask = new Uint8Array(w * h);
+    for (let i = 0; i < w * h; i++) mask[i] = edges[i] > thr ? 1 : 0;
+
+    // 2-pass separable morphological dilation for uniform line thickness
+    if (dilRadius > 0) {
+      const src = mask.slice();
+      // Horizontal pass
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          if (!src[y * w + x]) continue;
+          for (let dx = -dilRadius; dx <= dilRadius; dx++) {
+            const nx = x + dx;
+            if (nx >= 0 && nx < w) mask[y * w + nx] = 1;
+          }
+        }
+      }
+      const hd = mask.slice();
+      // Vertical pass
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          if (!hd[y * w + x]) continue;
+          for (let dy = -dilRadius; dy <= dilRadius; dy++) {
+            const ny = y + dy;
+            if (ny >= 0 && ny < h) mask[ny * w + x] = 1;
+          }
+        }
+      }
     }
-    ctx.putImageData(overlay,0,0);
+
+    // Render: pure black on white for maximum crispness
+    const overlay = ctx.createImageData(w, h);
+    const d = overlay.data;
+    for (let i = 0; i < w * h; i++) {
+      const v = mask[i] ? 0 : 255;
+      d[i*4] = d[i*4+1] = d[i*4+2] = v;
+      d[i*4+3] = 255;
+    }
+    ctx.putImageData(overlay, 0, 0);
   }
 
   function renderCrossContour(ctx, w, h, edges, gray, intensity, stroke) {
-    const thr = 10 + (11-intensity)*12;
-    const overlay = ctx.createImageData(w,h);
-    for(let i=0;i<w*h;i++){
-      const v = 255 - Math.min(255, Math.max(0, edges[i] - thr));
-      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v; overlay.data[i*4+3]=255;
+    // Cross-contour: evenly-spaced horizontal + vertical scan lines WARPED
+    // by image brightness — like latitude/longitude lines on a curved surface.
+    // Bright areas bow lines outward; dark areas pull them inward.
+    // This is fundamentally different from Contour, which traces edge boundaries.
+    // Here the lines CROSS boundaries and reveal 3D topography by how they bend.
+
+    // White background
+    const bg = ctx.createImageData(w, h);
+    for (let i = 0; i < w * h; i++) {
+      bg.data[i*4] = bg.data[i*4+1] = bg.data[i*4+2] = 255; bg.data[i*4+3] = 255;
     }
-    ctx.putImageData(overlay,0,0);
-    // Add contour lines at different angles
-    ctx.globalCompositeOperation = 'overlay';
-    ctx.strokeStyle = 'rgba(100,100,200,0.3)';
-    ctx.lineCap = 'round';
-    const step = Math.max(8, 16 - intensity - stroke * 0.5);
-    for(let angle of [0, Math.PI/6]) {
-      for(let t = -h; t<h; t+=step) {
-        ctx.lineWidth = Math.max(0.5, 0.5 + intensity/5 + stroke * 0.15);
-        ctx.beginPath();
-        ctx.moveTo(0 + t*Math.cos(angle), 0 + t*Math.sin(angle));
-        ctx.lineTo(w + t*Math.cos(angle), h + t*Math.sin(angle));
-        ctx.stroke();
+    ctx.putImageData(bg, 0, 0);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+    // Thin outline for form definition
+    const edgeThr = 35 + (11 - intensity) * 13;
+    const ol = ctx.createImageData(w, h);
+    for (let i = 0; i < w * h; i++) {
+      const v = edges[i] > edgeThr ? 12 : 255;
+      ol.data[i*4] = ol.data[i*4+1] = ol.data[i*4+2] = v; ol.data[i*4+3] = 255;
+    }
+    ctx.putImageData(ol, 0, 0);
+
+    ctx.globalCompositeOperation = 'multiply';
+
+    // Line spacing scales with image size so density is consistent across resolutions
+    const lineSpacing = Math.max(4, Math.round((w + h) / 80 + 2 - stroke * 1.5));
+    // Warp amplitude: how far a line deflects at max brightness difference
+    const warpAmp = lineSpacing * (0.3 + intensity * 0.065);
+    const lw = 0.4 + stroke * 0.1;
+
+    // 3×3 smoothed gray to reduce noise jitter in the warp curves
+    function sg(x, y) {
+      const xi = Math.max(1, Math.min(w - 2, x | 0));
+      const yi = Math.max(1, Math.min(h - 2, y | 0));
+      return (gray[(yi-1)*w + xi-1] + gray[(yi-1)*w + xi] + gray[(yi-1)*w + xi+1] +
+              gray[ yi   *w + xi-1] + gray[ yi   *w + xi] + gray[ yi   *w + xi+1] +
+              gray[(yi+1)*w + xi-1] + gray[(yi+1)*w + xi] + gray[(yi+1)*w + xi+1]) / 9;
+    }
+
+    function drawPath(pts) {
+      if (pts.length < 3) return;
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length - 1; i++) {
+        const mx = (pts[i][0] + pts[i+1][0]) / 2;
+        const my = (pts[i][1] + pts[i+1][1]) / 2;
+        ctx.quadraticCurveTo(pts[i][0], pts[i][1], mx, my);
       }
+      ctx.lineTo(pts[pts.length-1][0], pts[pts.length-1][1]);
+      ctx.stroke();
     }
+
+    // --- Horizontal lines warped vertically ---
+    // bright pixel → line bows upward; dark pixel → line dips downward
+    ctx.strokeStyle = 'rgba(12, 12, 18, 0.65)';
+    ctx.lineWidth = lw;
+    for (let y0 = lineSpacing / 2; y0 < h; y0 += lineSpacing) {
+      const pts = [];
+      for (let x = 0; x < w; x++) {
+        const g = sg(x, y0);
+        pts.push([x, y0 - warpAmp * (g - 128) / 128]);
+      }
+      drawPath(pts);
+    }
+
+    // --- Vertical lines warped horizontally ---
+    // bright pixel → line bows rightward; dark pixel → bows leftward
+    // Slightly lighter so the two sets read as a unified mesh
+    ctx.strokeStyle = 'rgba(12, 12, 18, 0.45)';
+    ctx.lineWidth = lw * 0.85;
+    for (let x0 = lineSpacing / 2; x0 < w; x0 += lineSpacing) {
+      const pts = [];
+      for (let y = 0; y < h; y++) {
+        const g = sg(x0, y);
+        pts.push([x0 + warpAmp * (g - 128) / 128, y]);
+      }
+      drawPath(pts);
+    }
+
     ctx.globalCompositeOperation = 'source-over';
   }
 
   function renderHatching(ctx, w, h, edges, gray, intensity, stroke, rand) {
-    const thr = 10 + (11-intensity)*12;
-    const overlay = ctx.createImageData(w,h);
-    for(let i=0;i<w*h;i++){
-      const v = 255 - Math.min(255, Math.max(0, edges[i] - thr));
-      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v; overlay.data[i*4+3]=255;
-    }
-    ctx.putImageData(overlay,0,0);
-    // Vertical hatching lines
+    // Tone-driven parallel hatching at 30°. Lines run continuously through
+    // dark areas and break where pixels are too light — encoding tone through
+    // line continuity rather than disconnected edge-only tick marks.
+
+    const bg = ctx.createImageData(w, h);
+    for (let i = 0; i < w * h; i++) { bg.data[i*4] = bg.data[i*4+1] = bg.data[i*4+2] = 255; bg.data[i*4+3] = 255; }
+    ctx.putImageData(bg, 0, 0);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+    // Thin outline for form definition
+    const edgeThr = 35 + (11 - intensity) * 13;
+    const ol = ctx.createImageData(w, h);
+    for (let i = 0; i < w * h; i++) { const v = edges[i] > edgeThr ? 12 : 255; ol.data[i*4] = ol.data[i*4+1] = ol.data[i*4+2] = v; ol.data[i*4+3] = 255; }
+    ctx.putImageData(ol, 0, 0);
+
     ctx.globalCompositeOperation = 'multiply';
-    ctx.strokeStyle = '#111';
-    ctx.lineCap = 'round';
-    const step = Math.max(3, 12-stroke);
-    ctx.lineWidth = 0.5 + stroke*0.3;
-    for(let x=0; x<w; x+=step) {
-      for(let y=0; y<h; y+=step*2) {
-        const i = y*w+x;
-        if(edges[i]/255 < 0.1) continue;
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x, y+step);
-        ctx.stroke();
-      }
+    ctx.strokeStyle = 'rgba(14, 11, 7, 0.82)';
+    const spacing = Math.max(3, Math.round(16 - stroke * 1.3));
+    ctx.lineWidth = 0.45 + stroke * 0.1;
+
+    const angle = Math.PI / 6; // 30° — classic pencil hatching angle
+    const cos = Math.cos(angle), sin = Math.sin(angle);
+
+    // Higher intensity → higher threshold → more of the image gets hatched
+    const toneThr = 60 + intensity * 14; // 74 (intensity=1) to 200 (intensity=10)
+    const hyst = 6; // hysteresis band prevents choppy breaks in transition zones
+
+    // Compute d-range so parallel lines cover the entire canvas
+    let dMin = Infinity, dMax = -Infinity;
+    for (const [cx, cy] of [[0,0],[w,0],[0,h],[w,h]]) {
+      const d = -cx * sin + cy * cos;
+      dMin = Math.min(dMin, d); dMax = Math.max(dMax, d);
     }
+    dMin -= spacing; dMax += spacing;
+    const maxT = Math.ceil(Math.sqrt(w * w + h * h));
+
+    for (let d = dMin; d <= dMax; d += spacing) {
+      // Walk along this parallel line using incremental addition (no per-step multiply)
+      let lx = -d * sin - maxT * cos;
+      let ly =  d * cos - maxT * sin;
+      ctx.beginPath();
+      let drawing = false;
+      for (let t = 0; t <= 2 * maxT; t++, lx += cos, ly += sin) {
+        const xi = lx | 0, yi = ly | 0;
+        if (xi < 0 || xi >= w || yi < 0 || yi >= h) { drawing = false; continue; }
+        const g = gray[yi * w + xi];
+        if (g < toneThr - hyst) {
+          if (!drawing) { ctx.moveTo(lx, ly); drawing = true; } else ctx.lineTo(lx, ly);
+        } else if (g < toneThr + hyst) {
+          if (drawing) ctx.lineTo(lx, ly); // extend through transition, don't start fresh
+        } else {
+          drawing = false;
+        }
+      }
+      ctx.stroke(); // one draw call per line
+    }
+
     ctx.globalCompositeOperation = 'source-over';
   }
 
@@ -2061,28 +2400,33 @@
   }
 
   function renderStippling(ctx, w, h, edges, gray, intensity, stroke, rand) {
-    const edgeThreshold = 0.05 - (intensity / 11) * 0.04;  // Use intensity to control dot density
-    const overlay = ctx.createImageData(w,h);
-    for(let i=0; i<w*h; i++) {
-      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=255;
-      overlay.data[i*4+3]=255;
-    }
-    ctx.putImageData(overlay,0,0);
-    // Dots for stippling - larger, more visible
-    ctx.fillStyle = '#000';
-    const step = Math.max(2, 6 - stroke * 0.5);  // Denser stippling
-    for(let y=0; y<h; y+=step) {
-      for(let x=0; x<w; x+=step) {
-        const i = y*w+x;
-        const val = edges[i]/255;
-        if(val > edgeThreshold) {  // Use intensity-based threshold
-          const r = Math.max(1.5, val*(1.0 + stroke*0.5));  // Larger dots
-          ctx.beginPath();
-          ctx.arc(x, y, r, 0, Math.PI*2);
-          ctx.fill();
-        }
+    // White background
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, w, h);
+
+    const step = Math.max(3, Math.round(14 - stroke * 1.1)); // grid spacing
+    const dotThr = 90 + intensity * 11;  // gray threshold (101–200); below → draw dot
+    const baseR  = 0.4 + stroke * 0.18; // base dot radius
+
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+
+    for (let y = 0; y < h; y += step) {
+      for (let x = 0; x < w; x += step) {
+        const g = gray[y * w + x];
+        if (g >= dotThr) continue; // light area → skip
+
+        const darkness = 1 - g / dotThr; // 0..1; darker pixel → larger dot
+        const r = baseR * (0.5 + darkness);
+
+        const jx = x + (rand() - 0.5) * step * 0.8;
+        const jy = y + (rand() - 0.5) * step * 0.8;
+
+        ctx.moveTo(jx + r, jy);
+        ctx.arc(jx, jy, r, 0, Math.PI * 2);
       }
     }
+    ctx.fill();
   }
 
   function renderTonalPencil(ctx, w, h, edges, gray, intensity, stroke, rand) {
@@ -2102,57 +2446,56 @@
   }
 
   function renderCharcoal(ctx, w, h, edges, gray, intensity, stroke, rand) {
-    // Start with light paper base
-    ctx.fillStyle = '#f5f5f5';
-    ctx.fillRect(0, 0, w, h);
-    
+    // ── 1. S-curve tonal map + edge deepening in one ImageData pass ──────────
+    const edgeThr = Math.max(10, 80 - intensity * 6); // 74 (i=1) → 14 (i=10)
+    const edgeBite = 0.8 + intensity * 0.07;          // how hard edges cut in
     const overlay = ctx.createImageData(w, h);
     const d = overlay.data;
-    
-    // Build charcoal with bold darks and soft transitions
-    // Use natural tonal range from image content
-    for(let i=0; i<w*h; i++) {
-      const grayVal = gray[i];
-      // Extract shadows: darker image areas become darker charcoal
-      // Light areas stay near paper color
-      const shadowAmount = (255 - grayVal) / 255;  // 0=light image, 1=dark image
-      const tonalValue = 245 - (shadowAmount * 200);  // 245 (light) to 45 (dark)
-      
-      d[i*4] = Math.round(tonalValue);
-      d[i*4+1] = Math.round(tonalValue);
-      d[i*4+2] = Math.round(tonalValue);
-      d[i*4+3] = 255;
+
+    for (let i = 0; i < w * h; i++) {
+      const t = gray[i] / 255;
+      // S-curve: pushes shadows darker, highlights brighter
+      const s = t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t);
+      let v = Math.round(22 + s * 220); // 22 (black) … 242 (near-white)
+
+      // Deepen strong edges (simulate charcoal pressing harder at contours)
+      const e = edges[i];
+      if (e > edgeThr) {
+        v = Math.max(0, v - Math.round((e - edgeThr) * edgeBite));
+      }
+
+      d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = v;
+      d[i * 4 + 3] = 255;
     }
     ctx.putImageData(overlay, 0, 0);
-    
-    // Intensity controls edge threshold (high intensity = more aggressive edges)
-    const edgeThreshold = 50 - (intensity / 11) * 40;  // 50 at low intensity, 10 at high
-    const definitionAlpha = 0.2 + (intensity / 11) * 0.6;  // 0.2 to 0.8
-    
-    // Add dramatic edge definition with soft blending
+
+    // ── 2. Directional stroke marks at ~15° (side-loaded charcoal stick) ─────
+    // tan(15°) ≈ 0.268; use linear slope for performance
+    const slope    = 0.27;
+    const markStep = Math.max(4, Math.round(18 - stroke * 1.4));
+    const markLen  = Math.round(markStep * (1.5 + stroke * 0.2));
+    const mAlpha   = (0.07 + intensity * 0.018).toFixed(3);
+
     ctx.globalCompositeOperation = 'multiply';
-    ctx.globalAlpha = definitionAlpha;
-    
-    // Soft brush strokes along strong edges - add fixed margin to prevent edge smudges
-    const margin = 8;
-    const edgeStep = Math.max(3, 6 - stroke * 0.2);
-    for(let y=margin; y<h-margin; y+=edgeStep) {
-      for(let x=margin; x<w-margin; x+=edgeStep) {
-        const idx = y*w + x;
-        if(idx < w*h && edges[idx] > edgeThreshold) {
-          // Vary stroke width based on edge strength and intensity
-          const edgeStrength = Math.min(1, edges[idx] / 150);
-          const sizeScale = 0.5 + (intensity / 11) * 0.8;
-          const size = 1 + edgeStrength * 2.5 * sizeScale;
-          ctx.fillStyle = `rgba(0, 0, 0, ${0.25 + edgeStrength * 0.5})`;
-          ctx.beginPath();
-          ctx.arc(x, y, size, 0, Math.PI * 2);
-          ctx.fill();
-        }
+    ctx.strokeStyle = `rgba(30,20,10,${mAlpha})`;
+    ctx.lineWidth   = Math.max(2, stroke * 0.7);
+    ctx.lineCap     = 'round';
+    ctx.beginPath();
+
+    for (let y0 = 0; y0 < h; y0 += markStep) {
+      for (let x0 = 0; x0 < w; x0 += markStep) {
+        if (gray[Math.min(w * h - 1, y0 * w + x0)] > 200) continue; // skip near-white
+
+        const jx  = x0 + (rand() - 0.5) * markStep * 0.6;
+        const jy  = y0 + (rand() - 0.5) * markStep * 0.6;
+        const len = markLen * (0.5 + rand() * 0.8);
+        const dx  = slope * len;
+
+        ctx.moveTo(jx - dx / 2, jy - len / 2);
+        ctx.lineTo(jx + dx / 2, jy + len / 2);
       }
     }
-    
-    ctx.globalAlpha = 1.0;
+    ctx.stroke();
     ctx.globalCompositeOperation = 'source-over';
   }
 
@@ -2264,29 +2607,63 @@
   }
 
   function renderFashion(ctx, w, h, edges, gray, intensity, stroke, rand) {
-    const thr = 20 + (11-intensity)*12;
-    const overlay = ctx.createImageData(w,h);
-    for(let i=0; i<w*h; i++) {
-      const v = (edges[i]>thr) ? 0 : 255;
-      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v;
-      overlay.data[i*4+3]=255;
+    // ── 1. Warm paper + light tonal shadow wash + thin contour lines ──────────
+    const overlay  = ctx.createImageData(w, h);
+    const d        = overlay.data;
+    const lineThr  = Math.max(12, 60 - intensity * 4 - stroke * 1.2);
+    const softness = 8 + stroke * 1.5;
+    const shadowThr = 100 + intensity * 8; // gray below → shadow
+
+    for (let i = 0; i < w * h; i++) {
+      const e = edges[i];
+      const g = gray[i];
+
+      // Ivory paper base
+      let r = 252, gv = 250, b = 245;
+
+      // Very light tonal shadow wash (tonally mapped, not edge-driven)
+      if (g < shadowThr) {
+        const depth = Math.pow((shadowThr - g) / shadowThr, 1.5);
+        const wash  = depth * (20 + intensity * 2);
+        r  = Math.max(0, r  - Math.round(wash));
+        gv = Math.max(0, gv - Math.round(wash));
+        b  = Math.max(0, b  - Math.round(wash * 1.15)); // very slightly cooler shadows
+      }
+
+      // Thin elegant contour lines (smoothstep anti-aliased)
+      if (e > lineThr) {
+        const t     = e >= lineThr + softness ? 1 : (e - lineThr) / softness;
+        const blend = t * t * (3 - 2 * t);
+        r  = Math.round(r  - r  * blend * 0.97);
+        gv = Math.round(gv - gv * blend * 0.97);
+        b  = Math.round(b  - b  * blend * 0.97);
+      }
+      d[i*4] = r; d[i*4+1] = gv; d[i*4+2] = b; d[i*4+3] = 255;
     }
-    ctx.putImageData(overlay,0,0);
-    // Add flowing, elongated strokes
+    ctx.putImageData(overlay, 0, 0);
+
+    // ── 2. Long vertical marks (drape / elongation) in shadow areas only ─────
+    const markStep = Math.max(6, Math.round(24 - stroke * 1.5));
+    const markLen  = Math.round((h / 8) * (0.8 + stroke * 0.1));
+    const mAlpha   = (0.03 + intensity * 0.008).toFixed(3);
+
     ctx.globalCompositeOperation = 'multiply';
-    ctx.strokeStyle = '#333';
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    const step = Math.max(4, 12-stroke);
-    for(let y=0; y<h; y+=step*2) {
-      for(let x=0; x<w; x+=step*2) {
-        ctx.lineWidth = 0.5 + stroke*0.4;
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.quadraticCurveTo(x + step, y + step/2, x + step*1.5, y - step);
-        ctx.stroke();
+    ctx.strokeStyle = `rgba(40,30,20,${mAlpha})`;
+    ctx.lineWidth   = Math.max(0.4, stroke * 0.3);
+    ctx.lineCap     = 'round';
+    ctx.beginPath();
+
+    for (let x = 0; x < w; x += markStep) {
+      for (let y = 0; y < h; y += markStep) {
+        if (gray[Math.min(w * h - 1, y * w + x)] > 160) continue; // shadows only
+        const jx  = x + (rand() - 0.5) * markStep * 0.5;
+        const jy  = y + (rand() - 0.5) * markStep * 0.5;
+        const len = markLen * (0.3 + rand() * 0.9);
+        ctx.moveTo(jx, jy);
+        ctx.lineTo(jx + (rand() - 0.5) * markStep * 0.2, jy + len);
       }
     }
+    ctx.stroke();
     ctx.globalCompositeOperation = 'source-over';
   }
 
@@ -2384,15 +2761,39 @@
     ctx.globalCompositeOperation = 'source-over';
   }
 
-  function renderMinimalist(ctx, w, h, edges, gray, intensity) {
-    const thr = 60 + (11-intensity)*20;
-    const overlay = ctx.createImageData(w,h);
-    for(let i=0; i<w*h; i++) {
-      const v = (edges[i]>thr) ? 0 : 255;
-      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v;
-      overlay.data[i*4+3]=255;
+  function renderMinimalist(ctx, w, h, edges, gray, intensity, stroke, rand) {
+    // Very high threshold — only dominant contours survive, lots of white space
+    const thr      = Math.max(20, 160 - intensity * 14); // 146 (i=1) → 20 (i=10)
+    const softness = 8 + stroke * 1.5;                   // anti-alias band
+    const lineV    = Math.max(0, 38 - stroke * 3);       // line darkness (grey→black)
+
+    const overlay = ctx.createImageData(w, h);
+    const d = overlay.data;
+
+    // White background
+    for (let i = 0; i < w * h; i++) {
+      d[i*4] = d[i*4+1] = d[i*4+2] = 255;
+      d[i*4+3] = 255;
     }
-    ctx.putImageData(overlay,0,0);
+
+    // Smoothstep anti-aliased thin lines
+    for (let y = 1; y < h - 1; y++) {
+      for (let x = 1; x < w - 1; x++) {
+        const i = y * w + x;
+        const e = edges[i];
+        if (e <= thr) continue;
+
+        let v;
+        if (e >= thr + softness) {
+          v = lineV;
+        } else {
+          const t = (e - thr) / softness;
+          v = Math.round(255 - (255 - lineV) * t * t * (3 - 2 * t));
+        }
+        d[i*4] = d[i*4+1] = d[i*4+2] = Math.max(0, v);
+      }
+    }
+    ctx.putImageData(overlay, 0, 0);
   }
 
   function renderGlitch(ctx, w, h, edges, gray, intensity, stroke, rand) {
@@ -2676,67 +3077,73 @@
     ctx.globalCompositeOperation = 'source-over';
   }
 
-  function renderWatercolor(ctx, w, h, edges, gray, intensity, stroke, rand){
-    // Watercolor: soft flowing washes with organic color bleeding and minimal ink lines
-    const thr = 15 + (11 - intensity) * 5 - stroke * 0.3;
-    const overlay = ctx.createImageData(w, h);
-    
-    // Soft warm off-white background for watercolor feel
-    for(let i=0; i<w*h*4; i+=4){
-      overlay.data[i] = 252;      // Warm cream background
-      overlay.data[i+1] = 250;
-      overlay.data[i+2] = 245;
-      overlay.data[i+3] = 255;
+  function renderWatercolor(ctx, w, h, edges, gray, intensity, stroke, rand) {
+    // ── 1. Full-image tonal wash + ink lines in one ImageData pass ────────────
+    const overlay   = ctx.createImageData(w, h);
+    const d         = overlay.data;
+    const inkThr    = Math.max(15, 85 - intensity * 6); // ink line threshold (79→25)
+    const inkSoft   = 30;
+    const washDepth = 0.18 + intensity * 0.025; // max shadow darkness (0.21→0.43)
+
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = y * w + x;
+
+        // 3×3 average gray — simulates pigment diffusion / soft washes
+        let gSum = 0, cnt = 0;
+        const y0 = Math.max(0, y - 1), y1 = Math.min(h - 1, y + 1);
+        const x0 = Math.max(0, x - 1), x1 = Math.min(w - 1, x + 1);
+        for (let ny = y0; ny <= y1; ny++) {
+          for (let nx = x0; nx <= x1; nx++) { gSum += gray[ny * w + nx]; cnt++; }
+        }
+        const sg = gSum / cnt;
+
+        // Quadratic gamma wash: very light in highlights, soft-grey in shadows
+        const darkness = 1 - sg / 255;
+        const wash     = darkness * darkness * washDepth;
+
+        // Warm cream paper + tonal wash
+        let r  = Math.round(252 - wash * 195);
+        let gv = Math.round(248 - wash * 210);
+        let b  = Math.round(240 - wash * 225);
+
+        // Ink lines at strong edges only (sparse, warm dark)
+        const e = edges[i];
+        if (e > inkThr) {
+          const t   = Math.min(1, (e - inkThr) / inkSoft);
+          const ink = t * t * (3 - 2 * t);
+          r  = Math.round(r  + (30 - r)  * ink);
+          gv = Math.round(gv + (25 - gv) * ink);
+          b  = Math.round(b  + (20 - b)  * ink);
+        }
+        d[i*4]   = Math.max(0, Math.min(255, r));
+        d[i*4+1] = Math.max(0, Math.min(255, gv));
+        d[i*4+2] = Math.max(0, Math.min(255, b));
+        d[i*4+3] = 255;
+      }
     }
     ctx.putImageData(overlay, 0, 0);
-    
-    // Add organic soft wash with varying opacity (watercolor pigment flow)
+
+    // ── 2. Wet-edge bloom: darker ring where washes transition (medium edges) ──
+    // Simulates paint drying darker at wash boundaries
+    const wetLo = inkThr * 0.35, wetHi = inkThr * 0.80;
     ctx.globalCompositeOperation = 'multiply';
-    const washColors = ['#6b5b4d', '#8b7d6b', '#7a6b5b', '#9b8d7b'];
-    
-    const washStep = Math.max(2, 6 - stroke * 0.1);
-    for(let y=0; y<h; y+=washStep){
-      for(let x=0; x<w; x+=washStep){
-        const idx = y*w + x;
-        if(idx < w*h && edges[idx] > thr * 0.5){
-          // Organic variable opacity for watercolor effect
-          ctx.globalAlpha = 0.08 + (rand() * 0.12) + (stroke * 0.003);
-          ctx.fillStyle = washColors[Math.floor(rand() * washColors.length)];
-          ctx.fillRect(x, y, washStep + rand() * washStep, washStep + rand() * washStep);
+    ctx.strokeStyle = `rgba(105,80,50,${(0.05 + intensity * 0.007).toFixed(3)})`;
+    ctx.lineWidth   = Math.max(0.5, stroke * 0.25);
+    ctx.lineCap     = 'round';
+    ctx.beginPath();
+
+    for (let y = 2; y < h - 2; y += 2) {
+      for (let x = 2; x < w - 2; x += 2) {
+        const e = edges[y * w + x];
+        if (e > wetLo && e < wetHi) {
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + (rand() - 0.5), y + (rand() - 0.5));
         }
       }
     }
-    
-    // Add flowing gradient washes (simulate water flow)
-    ctx.globalCompositeOperation = 'screen';
-    ctx.globalAlpha = 0.05;
-    ctx.fillStyle = '#d4a574';  // Warm watercolor tone
-    
-    for(let y=0; y<h; y+=washStep*2){
-      for(let x=0; x<w; x+=washStep*2){
-        const idx = y*w + x;
-        if(edges[idx] > thr * 0.4){
-          const size = (8 - stroke * 0.1) + rand() * 8;
-          ctx.beginPath();
-          ctx.arc(x + rand() * 4, y + rand() * 4, size, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-    }
-    
-    // Add minimal delicate ink lines on top
-    ctx.globalCompositeOperation = 'darken';
-    ctx.globalAlpha = 0.4;
-    ctx.fillStyle = '#4a3c2a';
-    
-    for(let y=0; y<h; y+=2){
-      for(let x=0; x<w; x+=2){
-        const idx = y*w + x;
-        if(idx < w*h && edges[idx] > thr * 0.9){
-          ctx.fillRect(x, y, 0.8, 0.8);
-        }
-      }
-    }
+    ctx.stroke();
+    ctx.globalCompositeOperation = 'source-over';
   }
 
   function renderGraphitePortrait(ctx, w, h, edges, gray, intensity, stroke, rand){
@@ -2926,6 +3333,7 @@
 
   // Open Style Grid modal — renders thumbnails via server or canvas depending on active engine
   async function openStyleGrid() {
+    const gen = ++gridGeneration; // any older loop will see gen !== gridGeneration and abort
     const modal = document.getElementById('modal-grid');
     const container = document.getElementById('gridContainer');
     const status = document.getElementById('gridStatus');
@@ -2959,6 +3367,7 @@
     }
 
     for (let i = 0; i < styles.length; i++) {
+      if (gridGeneration !== gen) break; // aborted by a newer openStyleGrid call
       const s = styles[i];
       status.textContent = `Rendering ${i + 1} / ${styles.length}…`;
 
@@ -2983,6 +3392,15 @@
       const thumbCtx = thumb.getContext('2d');
 
       if (isServer) {
+        // Show loading placeholder while server fetch is in-flight
+        thumbCtx.fillStyle = '#e5e7eb';
+        thumbCtx.fillRect(0, 0, THUMB, THUMB);
+        thumbCtx.fillStyle = '#9ca3af';
+        thumbCtx.font = '11px sans-serif';
+        thumbCtx.textAlign = 'center';
+        thumbCtx.textBaseline = 'middle';
+        thumbCtx.fillText('rendering…', THUMB / 2, THUMB / 2);
+
         // Server rendering: POST thumbnail image with this style to the server
         try {
           const serverUrl = document.getElementById('serverUrl').value.trim();
@@ -3010,6 +3428,7 @@
           thumbCtx.drawImage(img, 0, 0, THUMB, THUMB);
         } catch(err) {
           // Fallback: draw raw image on failure
+          thumbCtx.clearRect(0, 0, THUMB, THUMB);
           const fit = fitCropRect(singleImage.width, singleImage.height, THUMB, THUMB);
           thumbCtx.drawImage(singleImage, fit.sx, fit.sy, fit.sw, fit.sh, 0, 0, THUMB, THUMB);
           console.warn('Grid server render failed for', s.value, err);
@@ -3037,10 +3456,12 @@
       await new Promise(r => setTimeout(r, 0)); // yield to browser between renders
     }
 
-    // Restore
-    document.getElementById('style').value = origStyle;
-    zoomLevel = origZoom;
-    status.textContent = 'Click a style to apply it and close.';
+    // Only restore state if this is still the active generation (not aborted)
+    if (gridGeneration === gen) {
+      document.getElementById('style').value = origStyle;
+      zoomLevel = origZoom;
+      status.textContent = 'Click a style to apply it and close.';
+    }
   }
 
   // initial blank canvas
