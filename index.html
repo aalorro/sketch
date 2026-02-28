@@ -593,7 +593,8 @@
 
       <h4>Key Features</h4>
       <ul>
-        <li><strong>25+ Sketch Styles:</strong> Contour, Hatching, Charcoal, Comic, Ink Wash, Stippling, and more</li>
+        <li><strong>27+ Sketch Styles:</strong> Contour, Hatching, Charcoal, Comic, Ink Wash, Stippling, and more</li>
+        <li><strong>Style Grid:</strong> Click "Style Grid" below the Style selector to preview all 27 styles as live thumbnails — click any to apply instantly</li>
         <li><strong>Medium Control:</strong> Choose Pencil, Ink, Marker, or Pen to affect stroke appearance</li>
         <li><strong>Brush Effects:</strong> Add texture with Line, Hatch, Cross-hatch, or Charcoal effects</li>
         <li><strong>Real-time Preview:</strong> See changes instantly as you adjust controls</li>
@@ -629,7 +630,9 @@
       <ul>
         <li><strong>PNG Download:</strong> Lossless format, best for line-based sketches</li>
         <li><strong>JPG Download:</strong> Compressed format, smaller file size</li>
+        <li><strong>SVG Download:</strong> True vector paths — scalable to any size. Requires an internet connection on first use to load the vectorization library.</li>
         <li><strong>ZIP Download:</strong> Bundle all processed images into one file</li>
+        <li><strong>Animate (WebM):</strong> Export a scan-line reveal animation as a .webm video. Select duration (2s / 3s / 5s) then click Animate. Chrome, Firefox, or Edge required.</li>
         <li><strong>Custom Filename:</strong> Set a custom prefix for downloaded files</li>
         <li><strong>Progress Indicator:</strong> See rendering progress as a percentage overlay (Server mode)</li>
       </ul>
@@ -637,11 +640,13 @@
       <h4>Tips & Tricks</h4>
       <ul>
         <li>Use high-quality source images for best results</li>
+        <li>Use Style Grid to quickly audition all styles before committing to one</li>
         <li>Experiment with different mediums and brush types on the same image</li>
         <li>In Browser mode, use Smoothing to reduce noise from edge detection</li>
         <li>Try Invert for creating unique negative-style sketches</li>
         <li>Zoom in to check fine details before downloading</li>
         <li>Use Undo/Redo (Ctrl+Z / Ctrl+Y) to experiment freely</li>
+        <li>SVG export works best on high-contrast sketches (Contour, Line Art, Etching)</li>
       </ul>
 
       <h4>Browser Mode vs Server Mode</h4>
@@ -868,7 +873,14 @@
     <div class="modal-content" style="max-height:80vh;overflow-y:auto;max-width:700px">
       <button class="modal-close" type="button">&times;</button>
       <h3>📝 Changelog</h3>
-      
+
+      <h4>Version 1.2.5 (February 28, 2026)</h4>
+      <ul>
+        <li><strong>Style Grid:</strong> New button below the Style selector opens a modal showing all 27 styles as live thumbnails rendered from your image — click any to apply</li>
+        <li><strong>SVG Export:</strong> New "Download SVG" button vectorizes the sketch into true scalable paths using imagetracerjs (loaded from CDN on first use)</li>
+        <li><strong>Animate (WebM):</strong> New "Animate (WebM)" button exports a scan-line reveal animation as a .webm video with selectable duration (2s / 3s / 5s)</li>
+      </ul>
+
       <h4>Version 1.2.0 (February 21, 2026)</h4>
       <ul>
         <li><strong>Invert Shading Checkbox:</strong> New control to invert colors (black ↔ white) for artistic effects</li>
