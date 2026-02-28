@@ -1659,7 +1659,7 @@
       case 'architectural': renderArchitectural(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       case 'academic': renderAcademic(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       case 'etching': renderEtching(ctx, w, h, edges, gray, intensity, stroke, rand); break;
-      case 'minimalist': renderMinimalist(ctx, w, h, edges, gray, intensity); break;
+      case 'minimalist': renderMinimalist(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       case 'cartoon': renderCartoon(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       case 'glitch': renderGlitch(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       case 'mixedmedia': renderMixedMedia(ctx, w, h, edges, gray, intensity, stroke, rand); break;
@@ -2607,29 +2607,63 @@
   }
 
   function renderFashion(ctx, w, h, edges, gray, intensity, stroke, rand) {
-    const thr = 20 + (11-intensity)*12;
-    const overlay = ctx.createImageData(w,h);
-    for(let i=0; i<w*h; i++) {
-      const v = (edges[i]>thr) ? 0 : 255;
-      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v;
-      overlay.data[i*4+3]=255;
+    // ── 1. Warm paper + light tonal shadow wash + thin contour lines ──────────
+    const overlay  = ctx.createImageData(w, h);
+    const d        = overlay.data;
+    const lineThr  = Math.max(12, 60 - intensity * 4 - stroke * 1.2);
+    const softness = 8 + stroke * 1.5;
+    const shadowThr = 100 + intensity * 8; // gray below → shadow
+
+    for (let i = 0; i < w * h; i++) {
+      const e = edges[i];
+      const g = gray[i];
+
+      // Ivory paper base
+      let r = 252, gv = 250, b = 245;
+
+      // Very light tonal shadow wash (tonally mapped, not edge-driven)
+      if (g < shadowThr) {
+        const depth = Math.pow((shadowThr - g) / shadowThr, 1.5);
+        const wash  = depth * (20 + intensity * 2);
+        r  = Math.max(0, r  - Math.round(wash));
+        gv = Math.max(0, gv - Math.round(wash));
+        b  = Math.max(0, b  - Math.round(wash * 1.15)); // very slightly cooler shadows
+      }
+
+      // Thin elegant contour lines (smoothstep anti-aliased)
+      if (e > lineThr) {
+        const t     = e >= lineThr + softness ? 1 : (e - lineThr) / softness;
+        const blend = t * t * (3 - 2 * t);
+        r  = Math.round(r  - r  * blend * 0.97);
+        gv = Math.round(gv - gv * blend * 0.97);
+        b  = Math.round(b  - b  * blend * 0.97);
+      }
+      d[i*4] = r; d[i*4+1] = gv; d[i*4+2] = b; d[i*4+3] = 255;
     }
-    ctx.putImageData(overlay,0,0);
-    // Add flowing, elongated strokes
+    ctx.putImageData(overlay, 0, 0);
+
+    // ── 2. Long vertical marks (drape / elongation) in shadow areas only ─────
+    const markStep = Math.max(6, Math.round(24 - stroke * 1.5));
+    const markLen  = Math.round((h / 8) * (0.8 + stroke * 0.1));
+    const mAlpha   = (0.03 + intensity * 0.008).toFixed(3);
+
     ctx.globalCompositeOperation = 'multiply';
-    ctx.strokeStyle = '#333';
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    const step = Math.max(4, 12-stroke);
-    for(let y=0; y<h; y+=step*2) {
-      for(let x=0; x<w; x+=step*2) {
-        ctx.lineWidth = 0.5 + stroke*0.4;
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.quadraticCurveTo(x + step, y + step/2, x + step*1.5, y - step);
-        ctx.stroke();
+    ctx.strokeStyle = `rgba(40,30,20,${mAlpha})`;
+    ctx.lineWidth   = Math.max(0.4, stroke * 0.3);
+    ctx.lineCap     = 'round';
+    ctx.beginPath();
+
+    for (let x = 0; x < w; x += markStep) {
+      for (let y = 0; y < h; y += markStep) {
+        if (gray[Math.min(w * h - 1, y * w + x)] > 160) continue; // shadows only
+        const jx  = x + (rand() - 0.5) * markStep * 0.5;
+        const jy  = y + (rand() - 0.5) * markStep * 0.5;
+        const len = markLen * (0.3 + rand() * 0.9);
+        ctx.moveTo(jx, jy);
+        ctx.lineTo(jx + (rand() - 0.5) * markStep * 0.2, jy + len);
       }
     }
+    ctx.stroke();
     ctx.globalCompositeOperation = 'source-over';
   }
 
@@ -2727,15 +2761,39 @@
     ctx.globalCompositeOperation = 'source-over';
   }
 
-  function renderMinimalist(ctx, w, h, edges, gray, intensity) {
-    const thr = 60 + (11-intensity)*20;
-    const overlay = ctx.createImageData(w,h);
-    for(let i=0; i<w*h; i++) {
-      const v = (edges[i]>thr) ? 0 : 255;
-      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v;
-      overlay.data[i*4+3]=255;
+  function renderMinimalist(ctx, w, h, edges, gray, intensity, stroke, rand) {
+    // Very high threshold — only dominant contours survive, lots of white space
+    const thr      = Math.max(20, 160 - intensity * 14); // 146 (i=1) → 20 (i=10)
+    const softness = 8 + stroke * 1.5;                   // anti-alias band
+    const lineV    = Math.max(0, 38 - stroke * 3);       // line darkness (grey→black)
+
+    const overlay = ctx.createImageData(w, h);
+    const d = overlay.data;
+
+    // White background
+    for (let i = 0; i < w * h; i++) {
+      d[i*4] = d[i*4+1] = d[i*4+2] = 255;
+      d[i*4+3] = 255;
     }
-    ctx.putImageData(overlay,0,0);
+
+    // Smoothstep anti-aliased thin lines
+    for (let y = 1; y < h - 1; y++) {
+      for (let x = 1; x < w - 1; x++) {
+        const i = y * w + x;
+        const e = edges[i];
+        if (e <= thr) continue;
+
+        let v;
+        if (e >= thr + softness) {
+          v = lineV;
+        } else {
+          const t = (e - thr) / softness;
+          v = Math.round(255 - (255 - lineV) * t * t * (3 - 2 * t));
+        }
+        d[i*4] = d[i*4+1] = d[i*4+2] = Math.max(0, v);
+      }
+    }
+    ctx.putImageData(overlay, 0, 0);
   }
 
   function renderGlitch(ctx, w, h, edges, gray, intensity, stroke, rand) {
@@ -3019,67 +3077,73 @@
     ctx.globalCompositeOperation = 'source-over';
   }
 
-  function renderWatercolor(ctx, w, h, edges, gray, intensity, stroke, rand){
-    // Watercolor: soft flowing washes with organic color bleeding and minimal ink lines
-    const thr = 15 + (11 - intensity) * 5 - stroke * 0.3;
-    const overlay = ctx.createImageData(w, h);
-    
-    // Soft warm off-white background for watercolor feel
-    for(let i=0; i<w*h*4; i+=4){
-      overlay.data[i] = 252;      // Warm cream background
-      overlay.data[i+1] = 250;
-      overlay.data[i+2] = 245;
-      overlay.data[i+3] = 255;
+  function renderWatercolor(ctx, w, h, edges, gray, intensity, stroke, rand) {
+    // ── 1. Full-image tonal wash + ink lines in one ImageData pass ────────────
+    const overlay   = ctx.createImageData(w, h);
+    const d         = overlay.data;
+    const inkThr    = Math.max(15, 85 - intensity * 6); // ink line threshold (79→25)
+    const inkSoft   = 30;
+    const washDepth = 0.18 + intensity * 0.025; // max shadow darkness (0.21→0.43)
+
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = y * w + x;
+
+        // 3×3 average gray — simulates pigment diffusion / soft washes
+        let gSum = 0, cnt = 0;
+        const y0 = Math.max(0, y - 1), y1 = Math.min(h - 1, y + 1);
+        const x0 = Math.max(0, x - 1), x1 = Math.min(w - 1, x + 1);
+        for (let ny = y0; ny <= y1; ny++) {
+          for (let nx = x0; nx <= x1; nx++) { gSum += gray[ny * w + nx]; cnt++; }
+        }
+        const sg = gSum / cnt;
+
+        // Quadratic gamma wash: very light in highlights, soft-grey in shadows
+        const darkness = 1 - sg / 255;
+        const wash     = darkness * darkness * washDepth;
+
+        // Warm cream paper + tonal wash
+        let r  = Math.round(252 - wash * 195);
+        let gv = Math.round(248 - wash * 210);
+        let b  = Math.round(240 - wash * 225);
+
+        // Ink lines at strong edges only (sparse, warm dark)
+        const e = edges[i];
+        if (e > inkThr) {
+          const t   = Math.min(1, (e - inkThr) / inkSoft);
+          const ink = t * t * (3 - 2 * t);
+          r  = Math.round(r  + (30 - r)  * ink);
+          gv = Math.round(gv + (25 - gv) * ink);
+          b  = Math.round(b  + (20 - b)  * ink);
+        }
+        d[i*4]   = Math.max(0, Math.min(255, r));
+        d[i*4+1] = Math.max(0, Math.min(255, gv));
+        d[i*4+2] = Math.max(0, Math.min(255, b));
+        d[i*4+3] = 255;
+      }
     }
     ctx.putImageData(overlay, 0, 0);
-    
-    // Add organic soft wash with varying opacity (watercolor pigment flow)
+
+    // ── 2. Wet-edge bloom: darker ring where washes transition (medium edges) ──
+    // Simulates paint drying darker at wash boundaries
+    const wetLo = inkThr * 0.35, wetHi = inkThr * 0.80;
     ctx.globalCompositeOperation = 'multiply';
-    const washColors = ['#6b5b4d', '#8b7d6b', '#7a6b5b', '#9b8d7b'];
-    
-    const washStep = Math.max(2, 6 - stroke * 0.1);
-    for(let y=0; y<h; y+=washStep){
-      for(let x=0; x<w; x+=washStep){
-        const idx = y*w + x;
-        if(idx < w*h && edges[idx] > thr * 0.5){
-          // Organic variable opacity for watercolor effect
-          ctx.globalAlpha = 0.08 + (rand() * 0.12) + (stroke * 0.003);
-          ctx.fillStyle = washColors[Math.floor(rand() * washColors.length)];
-          ctx.fillRect(x, y, washStep + rand() * washStep, washStep + rand() * washStep);
+    ctx.strokeStyle = `rgba(105,80,50,${(0.05 + intensity * 0.007).toFixed(3)})`;
+    ctx.lineWidth   = Math.max(0.5, stroke * 0.25);
+    ctx.lineCap     = 'round';
+    ctx.beginPath();
+
+    for (let y = 2; y < h - 2; y += 2) {
+      for (let x = 2; x < w - 2; x += 2) {
+        const e = edges[y * w + x];
+        if (e > wetLo && e < wetHi) {
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + (rand() - 0.5), y + (rand() - 0.5));
         }
       }
     }
-    
-    // Add flowing gradient washes (simulate water flow)
-    ctx.globalCompositeOperation = 'screen';
-    ctx.globalAlpha = 0.05;
-    ctx.fillStyle = '#d4a574';  // Warm watercolor tone
-    
-    for(let y=0; y<h; y+=washStep*2){
-      for(let x=0; x<w; x+=washStep*2){
-        const idx = y*w + x;
-        if(edges[idx] > thr * 0.4){
-          const size = (8 - stroke * 0.1) + rand() * 8;
-          ctx.beginPath();
-          ctx.arc(x + rand() * 4, y + rand() * 4, size, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-    }
-    
-    // Add minimal delicate ink lines on top
-    ctx.globalCompositeOperation = 'darken';
-    ctx.globalAlpha = 0.4;
-    ctx.fillStyle = '#4a3c2a';
-    
-    for(let y=0; y<h; y+=2){
-      for(let x=0; x<w; x+=2){
-        const idx = y*w + x;
-        if(idx < w*h && edges[idx] > thr * 0.9){
-          ctx.fillRect(x, y, 0.8, 0.8);
-        }
-      }
-    }
+    ctx.stroke();
+    ctx.globalCompositeOperation = 'source-over';
   }
 
   function renderGraphitePortrait(ctx, w, h, edges, gray, intensity, stroke, rand){
