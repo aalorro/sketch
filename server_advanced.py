@@ -343,11 +343,15 @@ def render_etching(gray, edges, intensity, stroke):
 
 
 def render_minimalist(gray, edges, intensity, stroke):
-    """Minimalist: hard threshold only — pure white background + sparse near-black lines, no gradient shading"""
+    """Minimalist: Canny thin 1-pixel edges on white — no shading, like blind contour.
+    cv2.Canny applies NMS internally so only edge peaks survive, never fat tonal blobs."""
     h, w = gray.shape
-    thr   = max(30, 160 - intensity * 14)   # 146 (i=1) → 30 (i=10)
-    line_v = max(0, 18 - stroke)             # near-black lines
-    return np.where(edges > thr, np.uint8(line_v), np.uint8(255))
+    # Map intensity to Canny thresholds (high intensity → lower thr → more lines)
+    canny_hi = max(30, 160 - intensity * 13)   # 147 (i=1) → 30 (i=10)
+    canny_lo = max(8,  canny_hi // 3)
+    line_v   = max(0, 18 - stroke)
+    thin = cv2.Canny(gray, canny_lo, canny_hi)  # binary 0/255, 1-pixel-wide
+    return np.where(thin > 0, np.uint8(line_v), np.uint8(255))
 
 
 def render_glitch(gray, edges, intensity, stroke):
