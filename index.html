@@ -101,7 +101,7 @@
         <button id="resetAll" type="button" title="Reset all controls">Reset</button>
       </div>
       <label>Load image <button type="button" class="info-btn" data-modal="modal-load">?</button><input id="file" type="file" accept="image/*" multiple></label>
-      <div style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:4px;">or paste an image with Ctrl+V</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:4px;">or paste an image with Ctrl+V · or <button id="webcamBtn" type="button" style="background:none;border:none;padding:0;color:#7c3aed;font-size:11px;cursor:pointer;text-decoration:underline;font-weight:600;">capture from webcam</button></div>
       <div id="fileInfo" style="display:none;margin-bottom:8px;padding:8px;border-radius:6px;font-size:12px;color:#333">
         <div id="fileCount"></div>
         <div id="fileWarning" style="display:none;margin-top:6px;padding:6px;background:#fff3cd;border:1px solid #ffc107;border-radius:4px;color:#856404">
@@ -1107,6 +1107,23 @@
       }
     }
   </style>
+
+  <!-- Webcam Capture Modal -->
+  <div id="modal-webcam" class="modal" style="display:none">
+    <div class="modal-content" style="max-width:600px;width:92vw;">
+      <button class="modal-close" type="button">&times;</button>
+      <h3 style="margin-top:0">Webcam Capture</h3>
+      <div style="position:relative;background:#000;border-radius:8px;overflow:hidden;aspect-ratio:4/3;margin-bottom:12px;">
+        <video id="webcamVideo" autoplay playsinline style="width:100%;height:100%;display:block;object-fit:cover;"></video>
+        <canvas id="webcamCanvas" style="display:none;width:100%;height:100%;object-fit:contain;"></canvas>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+        <button id="webcamCapture" type="button" style="background:#06b6d4;color:#fff;border:none;border-radius:6px;padding:10px 24px;font-weight:600;cursor:pointer;font-size:14px;">Capture</button>
+        <button id="webcamRetake" type="button" style="display:none;background:#6b7280;color:#fff;border:none;border-radius:6px;padding:10px 24px;font-weight:600;cursor:pointer;font-size:14px;">Retake</button>
+        <button id="webcamUse" type="button" style="display:none;background:#10b981;color:#fff;border:none;border-radius:6px;padding:10px 24px;font-weight:600;cursor:pointer;font-size:14px;">Use Photo</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Style Grid Modal -->
   <div id="modal-grid" class="modal" style="display:none">

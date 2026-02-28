@@ -983,6 +983,117 @@
     if (e.target === e.currentTarget) e.currentTarget.style.display = 'none';
   });
 
+  // ── Webcam Capture ──────────────────────────────────────────────────────────
+  let webcamStream = null;
+
+  function stopWebcam() {
+    if (webcamStream) {
+      webcamStream.getTracks().forEach(t => t.stop());
+      webcamStream = null;
+    }
+    const video = document.getElementById('webcamVideo');
+    video.srcObject = null;
+  }
+
+  async function openWebcam() {
+    const modal   = document.getElementById('modal-webcam');
+    const video   = document.getElementById('webcamVideo');
+    const canvas  = document.getElementById('webcamCanvas');
+    const btnCap  = document.getElementById('webcamCapture');
+    const btnRet  = document.getElementById('webcamRetake');
+    const btnUse  = document.getElementById('webcamUse');
+
+    // Reset to live-video state
+    video.style.display  = 'block';
+    canvas.style.display = 'none';
+    btnCap.style.display = 'inline-block';
+    btnRet.style.display = 'none';
+    btnUse.style.display = 'none';
+
+    modal.style.display = 'flex';
+
+    try {
+      webcamStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      video.srcObject = webcamStream;
+    } catch (err) {
+      modal.style.display = 'none';
+      showErrorMessage('Webcam access denied or not available. Please allow camera access in your browser.');
+      console.error('Webcam error:', err);
+    }
+  }
+
+  document.getElementById('webcamBtn').addEventListener('click', openWebcam);
+
+  // Close webcam modal — stop stream, reset UI
+  document.getElementById('modal-webcam').addEventListener('click', e => {
+    if (e.target === e.currentTarget) {
+      stopWebcam();
+      e.currentTarget.style.display = 'none';
+    }
+  });
+
+  // The existing querySelectorAll('.modal-close') handler fires for the ✕ button,
+  // but we also need to stop the stream when that button is clicked.
+  document.querySelector('#modal-webcam .modal-close').addEventListener('click', () => {
+    stopWebcam();
+  });
+
+  // Capture: freeze frame onto canvas
+  document.getElementById('webcamCapture').addEventListener('click', () => {
+    const video  = document.getElementById('webcamVideo');
+    const canvas = document.getElementById('webcamCanvas');
+    canvas.width  = video.videoWidth  || 640;
+    canvas.height = video.videoHeight || 480;
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    video.style.display  = 'none';
+    canvas.style.display = 'block';
+    document.getElementById('webcamCapture').style.display = 'none';
+    document.getElementById('webcamRetake').style.display  = 'inline-block';
+    document.getElementById('webcamUse').style.display     = 'inline-block';
+  });
+
+  // Retake: go back to live feed
+  document.getElementById('webcamRetake').addEventListener('click', () => {
+    const video  = document.getElementById('webcamVideo');
+    const canvas = document.getElementById('webcamCanvas');
+    video.style.display  = 'block';
+    canvas.style.display = 'none';
+    document.getElementById('webcamCapture').style.display = 'inline-block';
+    document.getElementById('webcamRetake').style.display  = 'none';
+    document.getElementById('webcamUse').style.display     = 'none';
+  });
+
+  // Use Photo: convert canvas snapshot → File → load exactly like clipboard paste
+  document.getElementById('webcamUse').addEventListener('click', () => {
+    const canvas = document.getElementById('webcamCanvas');
+    canvas.toBlob(blob => {
+      if (!blob) { showErrorMessage('Failed to capture image from webcam.'); return; }
+      const file = new File([blob], 'webcam.png', { type: 'image/png' });
+      stopWebcam();
+      document.getElementById('modal-webcam').style.display = 'none';
+      currentFiles = [file];
+      currentImageIndex = 0;
+      panOffsetX = 0; panOffsetY = 0;
+      zoomLevel = 1.0;
+      currentRenderedImage = null;
+      updateZoomDisplay();
+      enableControls();
+      loadImageFromFile(file).then(img => {
+        singleImage = img;
+        drawPreview();
+        updateImageNavDisplay();
+      }).catch(err => console.error('Webcam load failed:', err));
+      updateFileInfo();
+    }, 'image/png');
+  });
+
+  // Stop stream if user closes modal via Escape key
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && document.getElementById('modal-webcam').style.display !== 'none') {
+      stopWebcam();
+    }
+  }, { capture: false });
+
   // Reset button
   document.getElementById('resetAll').addEventListener('click', () => {
     console.log('Reset button clicked');
