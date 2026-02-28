@@ -59,7 +59,7 @@ Implemented features
 - Image navigation: Use Prev/Next buttons to browse and adjust settings per image before batch processing
 - Output formats: PNG, JPG, or **SVG** (true vector paths via imagetracerjs)
 - ZIP download: Bundle all processed images into a single ZIP file
-- **Animate (WebM):** Export a scan-line reveal animation of the sketch as a `.webm` file; duration selectable (2s / 3s / 5s); requires Chrome, Firefox, or Edge
+- **Animate (WebM):** Export a pixel-dissolve reveal animation of the sketch as a `.webm` file; duration selectable (2s / 3s / 5s); requires Chrome, Firefox, or Edge
 - Custom filename: Specify prefix for exported files, or leave blank for default `sketchify_YYYYMMdd_HHmmss` format
 - Progress indicator with real-time status updates
 

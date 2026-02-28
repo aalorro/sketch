@@ -7,13 +7,16 @@ All notable changes to Sketchify are documented in this file.
 ### Added
 - **Style Grid:** New "Style Grid" button below the Style selector opens a modal showing all 27 styles as live 150×150px thumbnails rendered from the loaded image. Click any thumbnail to apply that style and close the modal.
 - **SVG Export:** New "Download SVG" button vectorizes the current sketch using imagetracerjs (lazy-loaded from CDN on first use) and downloads a true-path `.svg` file. Works with both browser and server-rendered sketches.
-- **Animate (WebM):** New "Animate (WebM)" button records a scan-line reveal animation of the sketch (top-to-bottom) and downloads it as a `.webm` file via MediaRecorder. Duration configurable: 2, 3, or 5 seconds. Requires Chrome, Firefox, or Edge.
+- **Animate (WebM):** New "Animate (WebM)" button records a pixel-dissolve reveal animation of the sketch and downloads it as a `.webm` file via MediaRecorder. Duration configurable: 2, 3, or 5 seconds. Requires Chrome, Firefox, or Edge.
+
+### Fixed
+- **Compare overlay aspect ratio misalignment:** When a non-1:1 aspect ratio was selected, the left (original) half of the compare panel did not align with the sketch. The `compareCanvas` was missing `object-fit:contain`, causing it to stretch to fill the 1:1 container while the preview canvas letterboxed. Both canvases now scale identically.
 
 ### Technical Details
 - `ALL_STYLES` array (27 entries) added as a module-level constant in `script.js` for use by the Style Grid
 - `openStyleGrid()` async function renders thumbnails sequentially, yielding to the browser between each render to keep the UI responsive
 - `loadImageTracer()` lazy-loads `imagetracerjs@1.2.6` from jsDelivr CDN; subsequent calls resolve immediately from the cached global
-- Animation uses `HTMLCanvasElement.captureStream(30)` + `MediaRecorder` with VP9 codec (falls back to plain `video/webm`)
+- Animation uses `HTMLCanvasElement.captureStream(30)` + `MediaRecorder` with VP9 codec (falls back to plain `video/webm`); pixel-dissolve uses Fisher-Yates shuffle over 8×8px blocks revealed in per-frame batches at 30fps
 - Fixed: `#modal-grid` must be placed before `<script src="script.js">` in the HTML so `getElementById` resolves correctly at IIFE startup
 
 ---
