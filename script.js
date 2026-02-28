@@ -1640,7 +1640,7 @@
 
     // Route to style-specific rendering
     switch(style) {
-      case 'contour': renderContour(ctx, w, h, edges, gray, intensity); break;
+      case 'contour': renderContour(ctx, w, h, edges, gray, intensity, stroke); break;
       case 'blindcontour': renderBlindContour(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       case 'gesture': renderGesture(ctx, w, h, edges, gray, intensity, stroke, rand); break;
       case 'lineart': renderLineArt(ctx, w, h, edges, gray, intensity, stroke, rand); break;
@@ -1949,14 +1949,30 @@
     }
   }
 
-  function renderContour(ctx, w, h, edges, gray, intensity) {
-    const thr = 40 + (11-intensity)*18;
-    const overlay = ctx.createImageData(w,h);
-    for(let i=0;i<w*h;i++){
-      const v = (edges[i] > thr) ? 0 : 255;
-      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v; overlay.data[i*4+3]=255;
+  function renderContour(ctx, w, h, edges, gray, intensity, stroke) {
+    // Anti-aliased contour: smoothstep transition at the edge boundary so lines
+    // have soft, natural edges rather than harsh aliased pixels.
+    // stroke slider widens/narrows lines by shifting the threshold.
+    const thr      = Math.max(12, 40 + (11 - intensity) * 13 - stroke * 2.5);
+    const softness = 6 + stroke * 2;   // width of the anti-alias transition band
+
+    const overlay = ctx.createImageData(w, h);
+    const d = overlay.data;
+    for (let i = 0; i < w * h; i++) {
+      const e = edges[i];
+      let v;
+      if (e <= thr) {
+        v = 255;                        // background
+      } else if (e >= thr + softness) {
+        v = 10;                         // line interior — near-black (warm graphite)
+      } else {
+        const t = (e - thr) / softness;
+        v = Math.round(255 - 245 * t * t * (3 - 2 * t)); // smoothstep ease
+      }
+      d[i*4] = d[i*4+1] = d[i*4+2] = v;
+      d[i*4+3] = 255;
     }
-    ctx.putImageData(overlay,0,0);
+    ctx.putImageData(overlay, 0, 0);
   }
 
   function renderBlindContour(ctx, w, h, edges, gray, intensity, stroke, rand) {
@@ -2129,35 +2145,139 @@
   }
 
   function renderLineArt(ctx, w, h, edges, gray, intensity, stroke, rand) {
-    // Pure line art: clean lines only, no shading
-    const thr = 15 + (11-intensity)*10 - stroke * 0.5;
-    const overlay = ctx.createImageData(w,h);
-    for(let i=0;i<w*h;i++){
-      const v = (edges[i] > thr) ? 0 : 255;
-      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v; overlay.data[i*4+3]=255;
+    // Crisp line art: binary edges dilated to a controlled thickness.
+    // Distinct from Contour — hard edges (no anti-alias) give a flat,
+    // technical-pen / manga feel. stroke slider controls true line width.
+    const thr       = Math.max(10, 35 + (11 - intensity) * 12 - stroke * 1.5);
+    const dilRadius = Math.max(0, Math.round(stroke * 0.3 - 0.2)); // 0–3 px
+
+    // Binary threshold
+    const mask = new Uint8Array(w * h);
+    for (let i = 0; i < w * h; i++) mask[i] = edges[i] > thr ? 1 : 0;
+
+    // 2-pass separable morphological dilation for uniform line thickness
+    if (dilRadius > 0) {
+      const src = mask.slice();
+      // Horizontal pass
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          if (!src[y * w + x]) continue;
+          for (let dx = -dilRadius; dx <= dilRadius; dx++) {
+            const nx = x + dx;
+            if (nx >= 0 && nx < w) mask[y * w + nx] = 1;
+          }
+        }
+      }
+      const hd = mask.slice();
+      // Vertical pass
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          if (!hd[y * w + x]) continue;
+          for (let dy = -dilRadius; dy <= dilRadius; dy++) {
+            const ny = y + dy;
+            if (ny >= 0 && ny < h) mask[ny * w + x] = 1;
+          }
+        }
+      }
     }
-    ctx.putImageData(overlay,0,0);
+
+    // Render: pure black on white for maximum crispness
+    const overlay = ctx.createImageData(w, h);
+    const d = overlay.data;
+    for (let i = 0; i < w * h; i++) {
+      const v = mask[i] ? 0 : 255;
+      d[i*4] = d[i*4+1] = d[i*4+2] = v;
+      d[i*4+3] = 255;
+    }
+    ctx.putImageData(overlay, 0, 0);
   }
 
   function renderCrossContour(ctx, w, h, edges, gray, intensity, stroke) {
-    const thr = 10 + (11-intensity)*12;
-    const overlay = ctx.createImageData(w,h);
-    for(let i=0;i<w*h;i++){
-      const v = 255 - Math.min(255, Math.max(0, edges[i] - thr));
-      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v; overlay.data[i*4+3]=255;
+    // Cross-contour: outline edges + iso-intensity flow lines that walk
+    // perpendicular to the image's brightness gradient, wrapping around
+    // the 3D form the way a sculptor's lines follow surface curvature.
+
+    // White background
+    const bg = ctx.createImageData(w, h);
+    for (let i = 0; i < w * h; i++) {
+      bg.data[i*4] = bg.data[i*4+1] = bg.data[i*4+2] = 255; bg.data[i*4+3] = 255;
     }
-    ctx.putImageData(overlay,0,0);
-    // Add contour lines at different angles
-    ctx.globalCompositeOperation = 'overlay';
-    ctx.strokeStyle = 'rgba(100,100,200,0.3)';
-    ctx.lineCap = 'round';
-    const step = Math.max(8, 16 - intensity - stroke * 0.5);
-    for(let angle of [0, Math.PI/6]) {
-      for(let t = -h; t<h; t+=step) {
-        ctx.lineWidth = Math.max(0.5, 0.5 + intensity/5 + stroke * 0.15);
+    ctx.putImageData(bg, 0, 0);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+    const edgeThr = 30 + (11 - intensity) * 14;
+
+    // --- Outline pass ---
+    const outlineData = ctx.createImageData(w, h);
+    for (let i = 0; i < w * h; i++) {
+      const v = edges[i] > edgeThr ? 10 : 255;
+      outlineData.data[i*4] = outlineData.data[i*4+1] = outlineData.data[i*4+2] = v;
+      outlineData.data[i*4+3] = 255;
+    }
+    ctx.putImageData(outlineData, 0, 0);
+
+    // --- Flow line pass ---
+    // Lines start from a regular grid and walk perpendicular to ∇gray,
+    // i.e. along iso-brightness contours = the 3D wrapping direction.
+    ctx.globalCompositeOperation = 'multiply';
+
+    // Spacing scales with image size so visual density is consistent
+    const lineSpacing = Math.max(4, Math.round((w + h) / 80) - Math.floor(stroke * 0.5));
+    const stepLen     = Math.max(1.0, (w + h) / 900);
+    const maxSteps    = Math.floor((w + h) / 5);
+
+    function grayAt(xi, yi) {
+      if (xi < 0 || xi >= w || yi < 0 || yi >= h) return 128;
+      return gray[yi * w + xi];
+    }
+    function edgeAt(xi, yi) {
+      if (xi < 0 || xi >= w || yi < 0 || yi >= h) return 0;
+      return edges[yi * w + xi];
+    }
+
+    for (let gy0 = lineSpacing / 2; gy0 < h; gy0 += lineSpacing) {
+      for (let gx0 = lineSpacing / 2; gx0 < w; gx0 += lineSpacing) {
+        const g0 = grayAt(gx0 | 0, gy0 | 0);
+        if (g0 > 228) continue; // skip near-white highlights
+
+        // Darker areas get denser, more opaque lines — shadow = concavity
+        const alpha = 0.10 + (1 - g0 / 255) * 0.38;
+        ctx.strokeStyle = `rgba(15,15,28,${alpha.toFixed(2)})`;
+        ctx.lineWidth   = 0.3 + stroke * 0.1;
+
+        const pts = [];
+        let x = gx0, y = gy0;
+
+        for (let step = 0; step < maxSteps; step++) {
+          pts.push([x, y]);
+
+          const xi = Math.max(1, Math.min(w - 2, x | 0));
+          const yi = Math.max(1, Math.min(h - 2, y | 0));
+          const dgx = (grayAt(xi + 1, yi) - grayAt(xi - 1, yi)) * 0.5;
+          const dgy = (grayAt(xi, yi + 1) - grayAt(xi, yi - 1)) * 0.5;
+          const gLen = Math.sqrt(dgx * dgx + dgy * dgy);
+
+          if (gLen < 0.5) break; // flat area — no curvature to follow
+
+          // Perpendicular to gradient = along the iso-brightness contour
+          const nx = x + (-dgy / gLen) * stepLen;
+          const ny = y + ( dgx / gLen) * stepLen;
+
+          if (nx < 0 || nx >= w || ny < 0 || ny >= h) break;
+          if (edgeAt(nx | 0, ny | 0) > edgeThr * 0.9) break; // stop at outlines
+
+          x = nx; y = ny;
+        }
+
+        if (pts.length < 3) continue;
+
         ctx.beginPath();
-        ctx.moveTo(0 + t*Math.cos(angle), 0 + t*Math.sin(angle));
-        ctx.lineTo(w + t*Math.cos(angle), h + t*Math.sin(angle));
+        ctx.moveTo(pts[0][0], pts[0][1]);
+        for (let i = 1; i < pts.length - 1; i++) {
+          const mx = (pts[i][0] + pts[i + 1][0]) / 2;
+          const my = (pts[i][1] + pts[i + 1][1]) / 2;
+          ctx.quadraticCurveTo(pts[i][0], pts[i][1], mx, my);
+        }
         ctx.stroke();
       }
     }
