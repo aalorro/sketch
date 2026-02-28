@@ -2277,29 +2277,63 @@
   }
 
   function renderHatching(ctx, w, h, edges, gray, intensity, stroke, rand) {
-    const thr = 10 + (11-intensity)*12;
-    const overlay = ctx.createImageData(w,h);
-    for(let i=0;i<w*h;i++){
-      const v = 255 - Math.min(255, Math.max(0, edges[i] - thr));
-      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v; overlay.data[i*4+3]=255;
-    }
-    ctx.putImageData(overlay,0,0);
-    // Vertical hatching lines
+    // Tone-driven parallel hatching at 30°. Lines run continuously through
+    // dark areas and break where pixels are too light — encoding tone through
+    // line continuity rather than disconnected edge-only tick marks.
+
+    const bg = ctx.createImageData(w, h);
+    for (let i = 0; i < w * h; i++) { bg.data[i*4] = bg.data[i*4+1] = bg.data[i*4+2] = 255; bg.data[i*4+3] = 255; }
+    ctx.putImageData(bg, 0, 0);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+    // Thin outline for form definition
+    const edgeThr = 35 + (11 - intensity) * 13;
+    const ol = ctx.createImageData(w, h);
+    for (let i = 0; i < w * h; i++) { const v = edges[i] > edgeThr ? 12 : 255; ol.data[i*4] = ol.data[i*4+1] = ol.data[i*4+2] = v; ol.data[i*4+3] = 255; }
+    ctx.putImageData(ol, 0, 0);
+
     ctx.globalCompositeOperation = 'multiply';
-    ctx.strokeStyle = '#111';
-    ctx.lineCap = 'round';
-    const step = Math.max(3, 12-stroke);
-    ctx.lineWidth = 0.5 + stroke*0.3;
-    for(let x=0; x<w; x+=step) {
-      for(let y=0; y<h; y+=step*2) {
-        const i = y*w+x;
-        if(edges[i]/255 < 0.1) continue;
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x, y+step);
-        ctx.stroke();
-      }
+    ctx.strokeStyle = 'rgba(14, 11, 7, 0.82)';
+    const spacing = Math.max(3, Math.round(16 - stroke * 1.3));
+    ctx.lineWidth = 0.45 + stroke * 0.1;
+
+    const angle = Math.PI / 6; // 30° — classic pencil hatching angle
+    const cos = Math.cos(angle), sin = Math.sin(angle);
+
+    // Higher intensity → higher threshold → more of the image gets hatched
+    const toneThr = 60 + intensity * 14; // 74 (intensity=1) to 200 (intensity=10)
+    const hyst = 6; // hysteresis band prevents choppy breaks in transition zones
+
+    // Compute d-range so parallel lines cover the entire canvas
+    let dMin = Infinity, dMax = -Infinity;
+    for (const [cx, cy] of [[0,0],[w,0],[0,h],[w,h]]) {
+      const d = -cx * sin + cy * cos;
+      dMin = Math.min(dMin, d); dMax = Math.max(dMax, d);
     }
+    dMin -= spacing; dMax += spacing;
+    const maxT = Math.ceil(Math.sqrt(w * w + h * h));
+
+    for (let d = dMin; d <= dMax; d += spacing) {
+      // Walk along this parallel line using incremental addition (no per-step multiply)
+      let lx = -d * sin - maxT * cos;
+      let ly =  d * cos - maxT * sin;
+      ctx.beginPath();
+      let drawing = false;
+      for (let t = 0; t <= 2 * maxT; t++, lx += cos, ly += sin) {
+        const xi = lx | 0, yi = ly | 0;
+        if (xi < 0 || xi >= w || yi < 0 || yi >= h) { drawing = false; continue; }
+        const g = gray[yi * w + xi];
+        if (g < toneThr - hyst) {
+          if (!drawing) { ctx.moveTo(lx, ly); drawing = true; } else ctx.lineTo(lx, ly);
+        } else if (g < toneThr + hyst) {
+          if (drawing) ctx.lineTo(lx, ly); // extend through transition, don't start fresh
+        } else {
+          drawing = false;
+        }
+      }
+      ctx.stroke(); // one draw call per line
+    }
+
     ctx.globalCompositeOperation = 'source-over';
   }
 
@@ -2366,28 +2400,33 @@
   }
 
   function renderStippling(ctx, w, h, edges, gray, intensity, stroke, rand) {
-    const edgeThreshold = 0.05 - (intensity / 11) * 0.04;  // Use intensity to control dot density
-    const overlay = ctx.createImageData(w,h);
-    for(let i=0; i<w*h; i++) {
-      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=255;
-      overlay.data[i*4+3]=255;
-    }
-    ctx.putImageData(overlay,0,0);
-    // Dots for stippling - larger, more visible
-    ctx.fillStyle = '#000';
-    const step = Math.max(2, 6 - stroke * 0.5);  // Denser stippling
-    for(let y=0; y<h; y+=step) {
-      for(let x=0; x<w; x+=step) {
-        const i = y*w+x;
-        const val = edges[i]/255;
-        if(val > edgeThreshold) {  // Use intensity-based threshold
-          const r = Math.max(1.5, val*(1.0 + stroke*0.5));  // Larger dots
-          ctx.beginPath();
-          ctx.arc(x, y, r, 0, Math.PI*2);
-          ctx.fill();
-        }
+    // White background
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, w, h);
+
+    const step = Math.max(3, Math.round(14 - stroke * 1.1)); // grid spacing
+    const dotThr = 90 + intensity * 11;  // gray threshold (101–200); below → draw dot
+    const baseR  = 0.4 + stroke * 0.18; // base dot radius
+
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+
+    for (let y = 0; y < h; y += step) {
+      for (let x = 0; x < w; x += step) {
+        const g = gray[y * w + x];
+        if (g >= dotThr) continue; // light area → skip
+
+        const darkness = 1 - g / dotThr; // 0..1; darker pixel → larger dot
+        const r = baseR * (0.5 + darkness);
+
+        const jx = x + (rand() - 0.5) * step * 0.8;
+        const jy = y + (rand() - 0.5) * step * 0.8;
+
+        ctx.moveTo(jx + r, jy);
+        ctx.arc(jx, jy, r, 0, Math.PI * 2);
       }
     }
+    ctx.fill();
   }
 
   function renderTonalPencil(ctx, w, h, edges, gray, intensity, stroke, rand) {
@@ -2407,57 +2446,56 @@
   }
 
   function renderCharcoal(ctx, w, h, edges, gray, intensity, stroke, rand) {
-    // Start with light paper base
-    ctx.fillStyle = '#f5f5f5';
-    ctx.fillRect(0, 0, w, h);
-    
+    // ── 1. S-curve tonal map + edge deepening in one ImageData pass ──────────
+    const edgeThr = Math.max(10, 80 - intensity * 6); // 74 (i=1) → 14 (i=10)
+    const edgeBite = 0.8 + intensity * 0.07;          // how hard edges cut in
     const overlay = ctx.createImageData(w, h);
     const d = overlay.data;
-    
-    // Build charcoal with bold darks and soft transitions
-    // Use natural tonal range from image content
-    for(let i=0; i<w*h; i++) {
-      const grayVal = gray[i];
-      // Extract shadows: darker image areas become darker charcoal
-      // Light areas stay near paper color
-      const shadowAmount = (255 - grayVal) / 255;  // 0=light image, 1=dark image
-      const tonalValue = 245 - (shadowAmount * 200);  // 245 (light) to 45 (dark)
-      
-      d[i*4] = Math.round(tonalValue);
-      d[i*4+1] = Math.round(tonalValue);
-      d[i*4+2] = Math.round(tonalValue);
-      d[i*4+3] = 255;
+
+    for (let i = 0; i < w * h; i++) {
+      const t = gray[i] / 255;
+      // S-curve: pushes shadows darker, highlights brighter
+      const s = t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t);
+      let v = Math.round(22 + s * 220); // 22 (black) … 242 (near-white)
+
+      // Deepen strong edges (simulate charcoal pressing harder at contours)
+      const e = edges[i];
+      if (e > edgeThr) {
+        v = Math.max(0, v - Math.round((e - edgeThr) * edgeBite));
+      }
+
+      d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = v;
+      d[i * 4 + 3] = 255;
     }
     ctx.putImageData(overlay, 0, 0);
-    
-    // Intensity controls edge threshold (high intensity = more aggressive edges)
-    const edgeThreshold = 50 - (intensity / 11) * 40;  // 50 at low intensity, 10 at high
-    const definitionAlpha = 0.2 + (intensity / 11) * 0.6;  // 0.2 to 0.8
-    
-    // Add dramatic edge definition with soft blending
+
+    // ── 2. Directional stroke marks at ~15° (side-loaded charcoal stick) ─────
+    // tan(15°) ≈ 0.268; use linear slope for performance
+    const slope    = 0.27;
+    const markStep = Math.max(4, Math.round(18 - stroke * 1.4));
+    const markLen  = Math.round(markStep * (1.5 + stroke * 0.2));
+    const mAlpha   = (0.07 + intensity * 0.018).toFixed(3);
+
     ctx.globalCompositeOperation = 'multiply';
-    ctx.globalAlpha = definitionAlpha;
-    
-    // Soft brush strokes along strong edges - add fixed margin to prevent edge smudges
-    const margin = 8;
-    const edgeStep = Math.max(3, 6 - stroke * 0.2);
-    for(let y=margin; y<h-margin; y+=edgeStep) {
-      for(let x=margin; x<w-margin; x+=edgeStep) {
-        const idx = y*w + x;
-        if(idx < w*h && edges[idx] > edgeThreshold) {
-          // Vary stroke width based on edge strength and intensity
-          const edgeStrength = Math.min(1, edges[idx] / 150);
-          const sizeScale = 0.5 + (intensity / 11) * 0.8;
-          const size = 1 + edgeStrength * 2.5 * sizeScale;
-          ctx.fillStyle = `rgba(0, 0, 0, ${0.25 + edgeStrength * 0.5})`;
-          ctx.beginPath();
-          ctx.arc(x, y, size, 0, Math.PI * 2);
-          ctx.fill();
-        }
+    ctx.strokeStyle = `rgba(30,20,10,${mAlpha})`;
+    ctx.lineWidth   = Math.max(2, stroke * 0.7);
+    ctx.lineCap     = 'round';
+    ctx.beginPath();
+
+    for (let y0 = 0; y0 < h; y0 += markStep) {
+      for (let x0 = 0; x0 < w; x0 += markStep) {
+        if (gray[Math.min(w * h - 1, y0 * w + x0)] > 200) continue; // skip near-white
+
+        const jx  = x0 + (rand() - 0.5) * markStep * 0.6;
+        const jy  = y0 + (rand() - 0.5) * markStep * 0.6;
+        const len = markLen * (0.5 + rand() * 0.8);
+        const dx  = slope * len;
+
+        ctx.moveTo(jx - dx / 2, jy - len / 2);
+        ctx.lineTo(jx + dx / 2, jy + len / 2);
       }
     }
-    
-    ctx.globalAlpha = 1.0;
+    ctx.stroke();
     ctx.globalCompositeOperation = 'source-over';
   }
 
