@@ -57,8 +57,9 @@ Implemented features
 - File count indicator: Shows how many images are selected and warns if processing 20+ (may take several minutes)
 - Completion notification: Green notification alert slides in when batch processing finishes, ready to download results
 - Image navigation: Use Prev/Next buttons to browse and adjust settings per image before batch processing
-- Output formats: PNG or JPG
+- Output formats: PNG, JPG, or **SVG** (true vector paths via imagetracerjs)
 - ZIP download: Bundle all processed images into a single ZIP file
+- **Animate (WebM):** Export a pixel-dissolve reveal animation of the sketch as a `.webm` file; duration selectable (2s / 3s / 5s); requires Chrome, Firefox, or Edge
 - Custom filename: Specify prefix for exported files, or leave blank for default `sketchify_YYYYMMdd_HHmmss` format
 - Progress indicator with real-time status updates
 
@@ -69,6 +70,7 @@ Implemented features
 - Side-by-side preview: View original and rendered images simultaneously
 - **Before/After comparison slider:** Click Compare on the rendered panel to overlay a draggable divider that reveals the original photo beneath the sketch — mouse and touch friendly
 - **Clipboard paste:** Press Ctrl+V anywhere on the page to load an image directly from the clipboard
+- **Style Grid:** "Style Grid" button opens a modal with all 27 styles rendered as live thumbnails from the current image — click any to instantly apply
 - Responsive layout: Works on desktop and adjusts for smaller screens
 
 **Advanced options:**

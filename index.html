@@ -171,6 +171,7 @@
           </optgroup>
         </select>
       </label>
+      <button id="styleGridBtn" type="button" style="width:100%;padding:8px;background:#06b6d4;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;margin-top:-4px;margin-bottom:8px;">Style Grid</button>
 
       <label>Brush
         <select id="brush">
@@ -278,8 +279,17 @@
       <div class="buttons">
         <button id="downloadPng">Download PNG</button>
         <button id="downloadJpg">Download JPG</button>
+        <button id="downloadSvg">Download SVG</button>
         <button id="downloadZip">Download ZIP</button>
+        <button id="animateBtn">Animate (WebM)</button>
       </div>
+      <label style="font-size:13px;margin-top:4px;">Anim. duration
+        <select id="animDuration" style="width:100%;margin-top:4px;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:14px;">
+          <option value="2000">2 seconds</option>
+          <option value="3000" selected>3 seconds</option>
+          <option value="5000">5 seconds</option>
+        </select>
+      </label>
 
       <div class="progress-wrap" hidden>
         <div class="progress-bar" id="progressBar"><div id="progressFill"></div></div>
@@ -318,7 +328,7 @@
         <div id="previewContainer" style="position:relative; display:flex; flex:1; width:100%; min-height:400px; overflow:hidden; border:1px solid var(--border); border-radius:4px; aspect-ratio:1;">
           <img id="renderedPlaceholder" src="img/panel2.png" alt="Rendered" style="display:block; width:100%; height:100%; object-fit:contain;">
           <canvas id="preview" width="512" height="512" style="background:#fff;display:none;width:100%;height:100%;position:absolute;top:0;left:0;object-fit:contain;"></canvas>
-          <canvas id="compareCanvas" width="512" height="512" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:5;border-radius:4px;"></canvas>
+          <canvas id="compareCanvas" width="512" height="512" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;pointer-events:none;z-index:5;border-radius:4px;"></canvas>
           <div id="compareHandle" style="display:none;position:absolute;top:0;left:50%;height:100%;width:4px;background:rgba(255,255,255,0.9);cursor:ew-resize;z-index:6;transform:translateX(-50%);box-shadow:0 0 6px rgba(0,0,0,0.5);">
             <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.4);font-size:14px;user-select:none;">⇔</div>
           </div>
@@ -583,12 +593,15 @@
 
       <h4>Key Features</h4>
       <ul>
-        <li><strong>25+ Sketch Styles:</strong> Contour, Hatching, Charcoal, Comic, Ink Wash, Stippling, and more</li>
+        <li><strong>27+ Sketch Styles:</strong> Contour, Hatching, Charcoal, Comic, Ink Wash, Stippling, and more</li>
+        <li><strong>Style Grid:</strong> Click "Style Grid" below the Style selector to preview all 27 styles as live thumbnails — click any to apply instantly</li>
         <li><strong>Medium Control:</strong> Choose Pencil, Ink, Marker, or Pen to affect stroke appearance</li>
         <li><strong>Brush Effects:</strong> Add texture with Line, Hatch, Cross-hatch, or Charcoal effects</li>
         <li><strong>Real-time Preview:</strong> See changes instantly as you adjust controls</li>
         <li><strong>Multi-image Support:</strong> Upload multiple images and navigate between them with Prev/Next buttons</li>
         <li><strong>Zoom & Pan:</strong> Zoom into details and pan around the preview</li>
+        <li><strong>Before/After Compare:</strong> Click "Compare" on the rendered panel to overlay a draggable divider revealing the original photo beneath the sketch — drag left/right to compare</li>
+        <li><strong>Texture Overlay:</strong> Apply paper grain, canvas weave, rough paper, or film grain textures over any sketch using the Texture selector and Texture opacity slider</li>
         <li><strong>Batch Processing:</strong> Process all images at once and download as ZIP</li>
       </ul>
 
@@ -603,6 +616,8 @@
         <li><strong>Colorize:</strong> Add color tints to your sketches</li>
         <li><strong>Invert:</strong> Creates a photonegative effect (light becomes dark, dark becomes light)</li>
         <li><strong>Skip Hatching:</strong> Remove decorative patterns for clean lines</li>
+        <li><strong>Texture:</strong> Choose a procedural texture type (paper grain, canvas weave, rough paper, film grain) applied over the sketch using multiply blending</li>
+        <li><strong>Texture opacity:</strong> Controls how strongly the texture is blended (0 = off, 10 = full strength)</li>
         <li><strong>Resolution:</strong> Choose from 512px up to 4K (4096px). Higher = more detail but slower processing. Server mode shows progress percentage.</li>
         <li><strong>Aspect Ratio:</strong> Set output dimensions (1:1, 16:9, 3:4, etc.)</li>
       </ul>
@@ -619,7 +634,9 @@
       <ul>
         <li><strong>PNG Download:</strong> Lossless format, best for line-based sketches</li>
         <li><strong>JPG Download:</strong> Compressed format, smaller file size</li>
+        <li><strong>SVG Download:</strong> True vector paths — scalable to any size. Requires an internet connection on first use to load the vectorization library.</li>
         <li><strong>ZIP Download:</strong> Bundle all processed images into one file</li>
+        <li><strong>Animate (WebM):</strong> Export a scan-line reveal animation as a .webm video. Select duration (2s / 3s / 5s) then click Animate. Chrome, Firefox, or Edge required.</li>
         <li><strong>Custom Filename:</strong> Set a custom prefix for downloaded files</li>
         <li><strong>Progress Indicator:</strong> See rendering progress as a percentage overlay (Server mode)</li>
       </ul>
@@ -627,11 +644,13 @@
       <h4>Tips & Tricks</h4>
       <ul>
         <li>Use high-quality source images for best results</li>
+        <li>Use Style Grid to quickly audition all styles before committing to one</li>
         <li>Experiment with different mediums and brush types on the same image</li>
         <li>In Browser mode, use Smoothing to reduce noise from edge detection</li>
         <li>Try Invert for creating unique negative-style sketches</li>
         <li>Zoom in to check fine details before downloading</li>
         <li>Use Undo/Redo (Ctrl+Z / Ctrl+Y) to experiment freely</li>
+        <li>SVG export works best on high-contrast sketches (Contour, Line Art, Etching)</li>
       </ul>
 
       <h4>Browser Mode vs Server Mode</h4>
@@ -858,7 +877,14 @@
     <div class="modal-content" style="max-height:80vh;overflow-y:auto;max-width:700px">
       <button class="modal-close" type="button">&times;</button>
       <h3>📝 Changelog</h3>
-      
+
+      <h4>Version 1.2.5 (February 28, 2026)</h4>
+      <ul>
+        <li><strong>Style Grid:</strong> New button below the Style selector opens a modal showing all 27 styles as live thumbnails rendered from your image — click any to apply</li>
+        <li><strong>SVG Export:</strong> New "Download SVG" button vectorizes the sketch into true scalable paths using imagetracerjs (loaded from CDN on first use)</li>
+        <li><strong>Animate (WebM):</strong> New "Animate (WebM)" button exports a scan-line reveal animation as a .webm video with selectable duration (2s / 3s / 5s)</li>
+      </ul>
+
       <h4>Version 1.2.0 (February 21, 2026)</h4>
       <ul>
         <li><strong>Invert Shading Checkbox:</strong> New control to invert colors (black ↔ white) for artistic effects</li>
@@ -1081,6 +1107,16 @@
       }
     }
   </style>
+
+  <!-- Style Grid Modal -->
+  <div id="modal-grid" class="modal" style="display:none">
+    <div class="modal-content" style="max-width:920px;width:92vw;max-height:88vh;">
+      <button class="modal-close" type="button">&times;</button>
+      <h3 style="margin-top:0">Style Grid</h3>
+      <p id="gridStatus" style="font-size:13px;color:var(--muted);margin:0 0 12px">Click a style to apply it and close.</p>
+      <div id="gridContainer" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:12px;overflow-y:auto;max-height:65vh;"></div>
+    </div>
+  </div>
 
   <script src="jszip.min.js"></script>
   <script src="script.js"></script>

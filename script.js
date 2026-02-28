@@ -101,7 +101,37 @@
   let comparePos = 0.5;   // 0–1 position of comparison divider
   let isDraggingCompare = false; // Dragging comparison handle
   const textureCache = {}; // Cache generated texture canvases by type+size
-  
+
+  const ALL_STYLES = [
+    {value:'contour',label:'Contour'},
+    {value:'blindcontour',label:'Blind Contour'},
+    {value:'gesture',label:'Gesture'},
+    {value:'lineart',label:'Line Art'},
+    {value:'crosscontour',label:'Cross-Contour'},
+    {value:'hatching',label:'Hatching'},
+    {value:'crosshatching',label:'Cross-Hatching'},
+    {value:'scribble',label:'Scribble'},
+    {value:'stippling',label:'Stippling'},
+    {value:'tonalpencil',label:'Tonal Pencil'},
+    {value:'charcoal',label:'Charcoal'},
+    {value:'drybrush',label:'Dry Brush'},
+    {value:'inkwash',label:'Ink Wash'},
+    {value:'comic',label:'Comic'},
+    {value:'cartoon',label:'Cartoon'},
+    {value:'fashion',label:'Fashion'},
+    {value:'urban',label:'Urban'},
+    {value:'architectural',label:'Architectural'},
+    {value:'academic',label:'Academic'},
+    {value:'etching',label:'Etching'},
+    {value:'minimalist',label:'Minimalist'},
+    {value:'glitch',label:'Glitch'},
+    {value:'mixedmedia',label:'Mixed Media'},
+    {value:'photorealism',label:'Retro Pen'},
+    {value:'graphiteportrait',label:'Graphite'},
+    {value:'oilpainting',label:'Oil Painting'},
+    {value:'watercolor',label:'Watercolor'},
+  ];
+
   // Mobile detection and optimization - detect mobile devices, tablets, and small screens
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 1280;
   let forceServerOverride = false; // User can manually override the auto-disable
@@ -821,6 +851,122 @@
     }
   });
   downloadZip.addEventListener('click', downloadAllZip);
+
+  // Download SVG (via imagetracerjs CDN, lazy-loaded)
+  document.getElementById('downloadSvg').addEventListener('click', async () => {
+    if (!hasCanvasContent()) {
+      showErrorMessage('No image loaded. Please load an image and click Generate first.');
+      return;
+    }
+    const btn = document.getElementById('downloadSvg');
+    btn.disabled = true;
+    btn.textContent = 'Vectorizing…';
+    try {
+      await loadImageTracer();
+      const ctx = preview.getContext('2d');
+      const imgData = ctx.getImageData(0, 0, preview.width, preview.height);
+      const svgStr = ImageTracer.imagedataToSVG(imgData, {
+        ltres: 1, qtres: 1, pathomit: 4,
+        colorsampling: 2, numberofcolors: 4,
+        scale: 1, linefilter: false,
+      });
+      const blob = new Blob([svgStr], {type: 'image/svg+xml'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const name = document.getElementById('outputName').value.trim() || getDefaultFilename();
+      a.href = url; a.download = name + '.svg';
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } catch(err) {
+      showErrorMessage('SVG export failed. Check your internet connection for the first use.');
+      console.error(err);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Download SVG';
+    }
+  });
+
+  // Animate (WebM scan-line reveal via MediaRecorder)
+  document.getElementById('animateBtn').addEventListener('click', async () => {
+    if (!hasCanvasContent()) {
+      showErrorMessage('No image loaded. Please load an image and click Generate first.');
+      return;
+    }
+    if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) {
+      showErrorMessage('Animation export requires Chrome, Firefox, or Edge.');
+      return;
+    }
+    const btn = document.getElementById('animateBtn');
+    btn.disabled = true;
+    btn.textContent = 'Recording…';
+    const w = preview.width, h = preview.height;
+    const duration = parseInt(document.getElementById('animDuration').value, 10);
+    const sketchImg = new Image();
+    await new Promise(r => { sketchImg.onload = r; sketchImg.src = preview.toDataURL('image/png'); });
+    const pCtx = preview.getContext('2d');
+    const px = pCtx.getImageData(0, 0, 1, 1).data;
+    const bgColor = `rgb(${px[0]},${px[1]},${px[2]})`;
+    const animCanvas = document.createElement('canvas');
+    animCanvas.width = w; animCanvas.height = h;
+    const animCtx = animCanvas.getContext('2d');
+    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+      ? 'video/webm;codecs=vp9' : 'video/webm';
+    const stream = animCanvas.captureStream(30);
+    const recorder = new MediaRecorder(stream, {mimeType});
+    const chunks = [];
+    recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+    recorder.onstop = () => {
+      const blob = new Blob(chunks, {type: 'video/webm'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const name = document.getElementById('outputName').value.trim() || getDefaultFilename();
+      a.href = url; a.download = name + '-animation.webm';
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      btn.disabled = false;
+      btn.textContent = 'Animate (WebM)';
+    };
+    recorder.start();
+    const fps = 30;
+    const frameCount = Math.round(duration / 1000 * fps);
+    const frameDelay = Math.round(1000 / fps);
+    // Pixel-dissolve reveal: shuffle 8px blocks and reveal in random order
+    const blockSize = 8;
+    const cols = Math.ceil(w / blockSize);
+    const rows = Math.ceil(h / blockSize);
+    const totalBlocks = cols * rows;
+    const order = Array.from({length: totalBlocks}, (_, i) => i);
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+    const blocksPerFrame = Math.ceil(totalBlocks / frameCount);
+    animCtx.fillStyle = bgColor;
+    animCtx.fillRect(0, 0, w, h);
+    let revealed = 0;
+    for (let frame = 0; frame < frameCount; frame++) {
+      const end = Math.min(revealed + blocksPerFrame, totalBlocks);
+      for (let k = revealed; k < end; k++) {
+        const bx = (order[k] % cols) * blockSize;
+        const by = Math.floor(order[k] / cols) * blockSize;
+        const bw = Math.min(blockSize, w - bx);
+        const bh = Math.min(blockSize, h - by);
+        animCtx.drawImage(sketchImg, bx, by, bw, bh, bx, by, bw, bh);
+      }
+      revealed = end;
+      await new Promise(r => setTimeout(r, frameDelay));
+    }
+    await new Promise(r => setTimeout(r, 400));
+    recorder.stop();
+  });
+
+  // Style Grid button
+  document.getElementById('styleGridBtn').addEventListener('click', openStyleGrid);
+
+  // Close modal-grid on outside click (close button handled by existing querySelectorAll('.modal-close'))
+  document.getElementById('modal-grid').addEventListener('click', e => {
+    if (e.target === e.currentTarget) e.currentTarget.style.display = 'none';
+  });
 
   // Reset button
   document.getElementById('resetAll').addEventListener('click', () => {
@@ -2761,6 +2907,140 @@
     // convert to ImageData
     const id = new ImageData(new Uint8ClampedArray(pixels), w, h);
     return id;
+  }
+
+  // Lazy-load imagetracerjs from CDN for SVG export
+  function loadImageTracer() {
+    return new Promise((resolve, reject) => {
+      if (window.ImageTracer) { resolve(); return; }
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/imagetracerjs@1.2.6/imagetracer_v1.2.6.js';
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('Failed to load ImageTracer'));
+      document.head.appendChild(s);
+    });
+  }
+
+  // Styles not supported by the server — canvas-only
+  const CANVAS_ONLY_STYLES = new Set(['lineart','crosscontour','scribble','photorealism','graphiteportrait','oilpainting','watercolor']);
+
+  // Open Style Grid modal — renders thumbnails via server or canvas depending on active engine
+  async function openStyleGrid() {
+    const modal = document.getElementById('modal-grid');
+    const container = document.getElementById('gridContainer');
+    const status = document.getElementById('gridStatus');
+    modal.style.display = 'flex';
+
+    if (!singleImage) {
+      status.textContent = 'Load an image first.';
+      container.innerHTML = '';
+      return;
+    }
+
+    container.innerHTML = '';
+    const THUMB = 150;
+    const isServer = renderingEngine === 'opencv';
+    const styles = isServer ? ALL_STYLES.filter(s => !CANVAS_ONLY_STYLES.has(s.value)) : ALL_STYLES;
+
+    const origStyle = document.getElementById('style').value;
+    const origZoom = zoomLevel;
+    zoomLevel = 1.0;
+
+    // For server mode: prepare a 512px square crop of singleImage as a File (sent once per request)
+    let thumbFile = null;
+    if (isServer) {
+      const offC = document.createElement('canvas');
+      offC.width = 512; offC.height = 512;
+      const offCtx = offC.getContext('2d');
+      const fit = fitCropRect(singleImage.width, singleImage.height, 512, 512);
+      offCtx.drawImage(singleImage, fit.sx, fit.sy, fit.sw, fit.sh, 0, 0, 512, 512);
+      const blob = await new Promise(r => offC.toBlob(r, 'image/png'));
+      thumbFile = new File([blob], 'thumb.png', {type: 'image/png'});
+    }
+
+    for (let i = 0; i < styles.length; i++) {
+      const s = styles[i];
+      status.textContent = `Rendering ${i + 1} / ${styles.length}…`;
+
+      const card = document.createElement('div');
+      card.style.cssText = 'display:flex;flex-direction:column;align-items:center;cursor:pointer;border:2px solid transparent;border-radius:8px;padding:6px;transition:border-color 0.2s;';
+      card.title = `Apply: ${s.label}`;
+      card.addEventListener('mouseover', () => card.style.borderColor = 'var(--primary)');
+      card.addEventListener('mouseout',  () => card.style.borderColor = 'transparent');
+
+      const thumb = document.createElement('canvas');
+      thumb.width = THUMB; thumb.height = THUMB;
+      thumb.style.cssText = 'border-radius:4px;width:100%;display:block;';
+      card.appendChild(thumb);
+
+      const lbl = document.createElement('div');
+      lbl.textContent = s.label;
+      lbl.style.cssText = 'font-size:11px;margin-top:5px;color:var(--text);font-weight:500;text-align:center;';
+      card.appendChild(lbl);
+
+      container.appendChild(card);
+
+      const thumbCtx = thumb.getContext('2d');
+
+      if (isServer) {
+        // Server rendering: POST thumbnail image with this style to the server
+        try {
+          const serverUrl = document.getElementById('serverUrl').value.trim();
+          const fd = new FormData();
+          fd.append('file', thumbFile);
+          fd.append('artStyle', document.getElementById('artStyle').value);
+          fd.append('style', s.value);
+          fd.append('brush', document.getElementById('brush').value);
+          fd.append('seed', getSeed());
+          fd.append('intensity', document.getElementById('intensity').value);
+          fd.append('stroke', document.getElementById('stroke').value);
+          fd.append('smoothing', document.getElementById('smoothing').value);
+          fd.append('skipHatching', document.getElementById('skipHatching').checked);
+          fd.append('colorize', document.getElementById('colorize').checked);
+          fd.append('invert', document.getElementById('invert').checked);
+          fd.append('contrast', document.getElementById('contrast').value);
+          fd.append('saturation', document.getElementById('saturation').value);
+          fd.append('hueShift', document.getElementById('hueShift').value);
+          fd.append('resolution', '512');
+          fd.append('aspect', '1:1');
+          const resp = await fetch(serverUrl, {method: 'POST', body: fd});
+          if (!resp.ok) throw new Error('Server error ' + resp.status);
+          const resultBlob = await resp.blob();
+          const img = await loadImageFromFile(new File([resultBlob], 'r.png'));
+          thumbCtx.drawImage(img, 0, 0, THUMB, THUMB);
+        } catch(err) {
+          // Fallback: draw raw image on failure
+          const fit = fitCropRect(singleImage.width, singleImage.height, THUMB, THUMB);
+          thumbCtx.drawImage(singleImage, fit.sx, fit.sy, fit.sw, fit.sh, 0, 0, THUMB, THUMB);
+          console.warn('Grid server render failed for', s.value, err);
+        }
+      } else {
+        // Canvas rendering
+        const fit = fitCropRect(singleImage.width, singleImage.height, THUMB, THUMB);
+        thumbCtx.drawImage(singleImage, fit.sx, fit.sy, fit.sw, fit.sh, 0, 0, THUMB, THUMB);
+        document.getElementById('style').value = s.value;
+        applySketchTransform(thumbCtx, THUMB, THUMB);
+      }
+
+      // Click: apply style and close
+      card.addEventListener('click', () => {
+        document.getElementById('style').value = s.value;
+        pushUndo();
+        if (renderingEngine === 'opencv') {
+          renderCurrentImageWithOpenCV();
+        } else {
+          drawPreview();
+        }
+        modal.style.display = 'none';
+      });
+
+      await new Promise(r => setTimeout(r, 0)); // yield to browser between renders
+    }
+
+    // Restore
+    document.getElementById('style').value = origStyle;
+    zoomLevel = origZoom;
+    status.textContent = 'Click a style to apply it and close.';
   }
 
   // initial blank canvas
