@@ -1856,96 +1856,135 @@
     }
   }
 
-  function applyBrushEffect(ctx, w, h, brush, stroke, intensity, edges, rand){
-    if(brush === 'line') return;  // line is default, no additional effect
-    
+  function applyBrushEffect(ctx, w, h, brush, stroke, intensity, edges, rand) {
+    if (brush === 'line') return;
+
     const imgData = ctx.getImageData(0, 0, w, h);
-    const overlay = ctx.createImageData(w, h);
-    
-    // Copy current canvas to overlay
-    for(let i=0; i<imgData.data.length; i++) overlay.data[i] = imgData.data[i];
-    
-    if(brush === 'hatch'){
-      // Add diagonal hatching pattern
-      ctx.globalCompositeOperation = 'multiply';
-      ctx.strokeStyle = 'rgba(80, 80, 80, 0.3)';
-      ctx.lineWidth = 0.5 + stroke*0.3;
-      const spacing = Math.max(6, 16 - stroke);
-      for(let y=-h; y<h*2; y+=spacing){
-        ctx.beginPath();
-        ctx.moveTo(-w, y);
-        ctx.lineTo(w*2, y + w); 
-        ctx.stroke();
-      }
-      ctx.globalCompositeOperation = 'source-over';
-    } else if(brush === 'crosshatch'){
-      // Add perpendicular hatching
-      ctx.globalCompositeOperation = 'multiply';
-      ctx.strokeStyle = 'rgba(80, 80, 80, 0.25)';
-      ctx.lineWidth = 0.5 + stroke*0.25;
-      const spacing = Math.max(8, 18 - stroke);
-      // Diagonal 1
-      for(let y=-h; y<h*2; y+=spacing){
-        ctx.beginPath();
-        ctx.moveTo(-w, y);
-        ctx.lineTo(w*2, y + w);
-        ctx.stroke();
-      }
-      // Diagonal 2 (perpendicular)
-      for(let y=-h; y<h*2; y+=spacing){
-        ctx.beginPath();
-        ctx.moveTo(w*2, y);
-        ctx.lineTo(-w, y + w);
-        ctx.stroke();
-      }
-      ctx.globalCompositeOperation = 'source-over';
-    } else if(brush === 'charcoal'){
-      // Add soft charcoal smudging/blending
-      const d = overlay.data;
-      // Increase darkness and reduce contrast for softer look
-      for(let i=0; i<d.length; i+=4){
-        const avg = (d[i] + d[i+1] + d[i+2]) / 3;
-        d[i] = Math.round(avg * 0.8 + d[i] * 0.2);
-        d[i+1] = Math.round(avg * 0.8 + d[i+1] * 0.2);
-        d[i+2] = Math.round(avg * 0.8 + d[i+2] * 0.2);
-      }
-      ctx.putImageData(overlay, 0, 0);
-      // Apply slight blur for softer edges
-      ctx.globalCompositeOperation = 'multiply';
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
-      const step = Math.max(4, 12 - stroke);
-      for(let y=0; y<h; y+=step){
-        for(let x=0; x<w; x+=step){
-          const idx = (y*w + x) * 4;
-          if(overlay.data[idx+3] > 50){
-            const radius = 2 + stroke*0.5;
-            ctx.fillRect(x-radius, y-radius, radius*2, radius*2);
+    const d = imgData.data;
+    // Grayscale brightness map of current sketch output
+    const brt = new Float32Array(w * h);
+    for (let i = 0; i < w * h; i++) brt[i] = (d[i*4] + d[i*4+1] + d[i*4+2]) / 3;
+
+    if (brush === 'hatch' || brush === 'crosshatch') {
+      // Pure ImageData d-grid — O(w*h) per pass, no canvas path API.
+      // Per-pixel perpendicular distance from nearest hatching line via modulo.
+      const spacing = Math.max(4, Math.round(18 - stroke * 1.4));
+      const halfLw  = Math.max(0.3, 0.38 + stroke * 0.09);
+      const toneThr = 85 + intensity * 12;  // 97 (i=1) to 205 (i=10)
+      const hyst    = 8;
+      const PASSES  = brush === 'hatch'
+        ? [[Math.PI / 6,     toneThr,      0.60]]
+        : [[Math.PI / 6,     toneThr,      0.60],
+           [Math.PI * 2 / 3, toneThr - 24, 0.44]];
+      for (const [angle, thr, alpha] of PASSES) {
+        const cos_a = Math.cos(angle), sin_a = Math.sin(angle);
+        const scale = 1 - alpha * (1 - 18 / 255);
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            let dv = (-x * sin_a + y * cos_a) % spacing;
+            if (dv < 0) dv += spacing;
+            if (dv >= halfLw && dv <= spacing - halfLw) continue; // not on a line
+            const i = y * w + x;
+            if (brt[i] >= thr + hyst) continue;                   // too light, skip
+            const v = Math.max(0, Math.round(brt[i] * scale));
+            d[i*4] = d[i*4+1] = d[i*4+2] = v;
           }
         }
       }
-      ctx.globalCompositeOperation = 'source-over';
-    } else if(brush === 'inkWash'){
-      // Add diluted ink wash effect with transparency
-      const d = overlay.data;
-      for(let i=0; i<d.length; i+=4){
-        // Reduce opacity for wash effect
-        d[i+3] = Math.round(d[i+3] * 0.7);
+      ctx.putImageData(imgData, 0, 0);
+
+    } else if (brush === 'charcoal') {
+      // Fine grain noise via ImageData pixel scatter — no path API for the 4M-pixel loop.
+      const grainChance = 0.009 + intensity * 0.007;
+      const grainScale  = 1 - (0.17 + stroke * 0.03) * (1 - 24 / 255);
+      for (let i = 0; i < w * h; i++) {
+        const g = brt[i];
+        if (g < 18 || g > 235 || rand() > grainChance) continue;
+        const v = Math.max(0, Math.round(g * grainScale));
+        d[i*4] = d[i*4+1] = d[i*4+2] = v;
       }
-      ctx.putImageData(overlay, 0, 0);
-      // Add soft wash overlays
-      ctx.globalCompositeOperation = 'lighten';
-      ctx.fillStyle = 'rgba(200, 200, 200, 0.15)';
-      const step = Math.max(8, 20 - stroke);
-      for(let y=0; y<h; y+=step){
-        for(let x=0; x<w; x+=step){
-          const idx = (y*w + x) * 4;
-          if(overlay.data[idx+3] > 0){
-            const size = 15 + stroke*2;
-            ctx.fillRect(x-size/2, y-size/2, size, size);
-          }
+      ctx.putImageData(imgData, 0, 0);
+      // Directional grain marks via canvas path — count is bounded by grid (~(w/step)*(h/step))
+      const markStep  = Math.max(4, Math.round(16 - stroke * 1.1));
+      const markLen   = Math.round(markStep * (1.3 + stroke * 0.2));
+      const markAlpha = (0.07 + intensity * 0.016).toFixed(3);
+      const slope     = 0.27;   // tan(15 deg)
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.strokeStyle = `rgba(22, 14, 8, ${markAlpha})`;
+      ctx.lineWidth   = Math.max(0.35, stroke * 0.5);
+      ctx.lineCap     = 'round';
+      ctx.beginPath();
+      for (let y = 0; y < h; y += markStep) {
+        for (let x = 0; x < w; x += markStep) {
+          if (brt[y * w + x] > 215) continue;
+          const jx  = x + (rand() - 0.5) * markStep * 0.7;
+          const jy  = y + (rand() - 0.5) * markStep * 0.7;
+          const len = markLen * (0.4 + rand() * 0.8);
+          const hdx = slope * len * 0.5;
+          ctx.moveTo(jx - hdx, jy - len * 0.5);
+          ctx.lineTo(jx + hdx, jy + len * 0.5);
         }
       }
+      ctx.stroke();
       ctx.globalCompositeOperation = 'source-over';
+
+    } else if (brush === 'inkWash') {
+      // Box-blur softening
+      const blurPasses = 1 + Math.round(stroke * 0.2);
+      const washStr    = 0.28 + stroke * 0.055;
+      let blur = new Float32Array(brt);
+      const next = new Float32Array(w * h);
+      for (let p = 0; p < blurPasses; p++) {
+        const inv9 = 1 / 9;
+        for (let y = 1; y < h - 1; y++) {
+          for (let x = 1; x < w - 1; x++) {
+            const i = y * w + x;
+            next[i] = (blur[i-w-1] + blur[i-w] + blur[i-w+1] +
+                       blur[i  -1] + blur[i  ] + blur[i  +1] +
+                       blur[i+w-1] + blur[i+w] + blur[i+w+1]) * inv9;
+          }
+        }
+        for (let x = 0; x < w; x++) { next[x] = blur[x]; next[(h-1)*w+x] = blur[(h-1)*w+x]; }
+        for (let y = 0; y < h; y++) { next[y*w] = blur[y*w]; next[y*w+w-1] = blur[y*w+w-1]; }
+        blur.set(next);
+      }
+      // Blend original with blurred
+      for (let i = 0; i < w * h; i++) {
+        const v = Math.round(brt[i] * (1 - washStr) + blur[i] * washStr);
+        d[i*4] = d[i*4+1] = d[i*4+2] = v;
+        d[i*4+3] = 255;
+      }
+      // Wet-edge bloom via box-blurred dark mask — no ctx.arc loop.
+      // Build a float mask (1.0 where original sketch has dark ink marks).
+      const bloomR  = 2 + Math.round(stroke * 0.45);
+      const bloomAlpha = 0.07 + intensity * 0.009;
+      const darkMask = new Float32Array(w * h);
+      for (let i = 0; i < w * h; i++) darkMask[i] = brt[i] < 75 ? 1.0 : 0.0;
+      // Spread the mask by bloomR box-blur passes (each pass ≈ 1px spread)
+      let bBlur = new Float32Array(darkMask);
+      const bNext = new Float32Array(w * h);
+      for (let p = 0; p < bloomR; p++) {
+        const inv9b = 1 / 9;
+        for (let y = 1; y < h - 1; y++) {
+          for (let x = 1; x < w - 1; x++) {
+            const i = y * w + x;
+            bNext[i] = (bBlur[i-w-1] + bBlur[i-w] + bBlur[i-w+1] +
+                        bBlur[i  -1] + bBlur[i  ] + bBlur[i  +1] +
+                        bBlur[i+w-1] + bBlur[i+w] + bBlur[i+w+1]) * inv9b;
+          }
+        }
+        for (let x = 0; x < w; x++) { bNext[x] = bBlur[x]; bNext[(h-1)*w+x] = bBlur[(h-1)*w+x]; }
+        for (let y = 0; y < h; y++) { bNext[y*w] = bBlur[y*w]; bNext[y*w+w-1] = bBlur[y*w+w-1]; }
+        bBlur.set(bNext);
+      }
+      // Lighten pixels near dark marks (ink-bleed halo)
+      for (let i = 0; i < w * h; i++) {
+        const str = bBlur[i] * bloomAlpha;
+        if (str < 0.002) continue;
+        const v = d[i*4];
+        d[i*4] = d[i*4+1] = d[i*4+2] = Math.min(255, Math.round(v + (240 - v) * str));
+      }
+      ctx.putImageData(imgData, 0, 0);
     }
   }
 
@@ -2763,35 +2802,16 @@
 
   function renderMinimalist(ctx, w, h, edges, gray, intensity, stroke, rand) {
     // Very high threshold — only dominant contours survive, lots of white space
-    const thr      = Math.max(20, 160 - intensity * 14); // 146 (i=1) → 20 (i=10)
-    const softness = 8 + stroke * 1.5;                   // anti-alias band
-    const lineV    = Math.max(0, 38 - stroke * 3);       // line darkness (grey→black)
+    // Hard threshold (no softness band) keeps the background pure white like blind contour
+    const thr   = Math.max(30, 160 - intensity * 14); // 146 (i=1) → 30 (i=10)
+    const lineV = Math.max(0, 18 - stroke * 1);       // near-black lines
 
     const overlay = ctx.createImageData(w, h);
     const d = overlay.data;
-
-    // White background
     for (let i = 0; i < w * h; i++) {
-      d[i*4] = d[i*4+1] = d[i*4+2] = 255;
+      const v = edges[i] > thr ? lineV : 255;
+      d[i*4] = d[i*4+1] = d[i*4+2] = v;
       d[i*4+3] = 255;
-    }
-
-    // Smoothstep anti-aliased thin lines
-    for (let y = 1; y < h - 1; y++) {
-      for (let x = 1; x < w - 1; x++) {
-        const i = y * w + x;
-        const e = edges[i];
-        if (e <= thr) continue;
-
-        let v;
-        if (e >= thr + softness) {
-          v = lineV;
-        } else {
-          const t = (e - thr) / softness;
-          v = Math.round(255 - (255 - lineV) * t * t * (3 - 2 * t));
-        }
-        d[i*4] = d[i*4+1] = d[i*4+2] = Math.max(0, v);
-      }
     }
     ctx.putImageData(overlay, 0, 0);
   }
