@@ -930,13 +930,30 @@
     const fps = 30;
     const frameCount = Math.round(duration / 1000 * fps);
     const frameDelay = Math.round(1000 / fps);
-    for (let frame = 0; frame <= frameCount; frame++) {
-      const revealH = Math.round((frame / frameCount) * h);
-      animCtx.fillStyle = bgColor;
-      animCtx.fillRect(0, 0, w, h);
-      if (revealH > 0) {
-        animCtx.drawImage(sketchImg, 0, 0, w, revealH, 0, 0, w, revealH);
+    // Pixel-dissolve reveal: shuffle 8px blocks and reveal in random order
+    const blockSize = 8;
+    const cols = Math.ceil(w / blockSize);
+    const rows = Math.ceil(h / blockSize);
+    const totalBlocks = cols * rows;
+    const order = Array.from({length: totalBlocks}, (_, i) => i);
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+    const blocksPerFrame = Math.ceil(totalBlocks / frameCount);
+    animCtx.fillStyle = bgColor;
+    animCtx.fillRect(0, 0, w, h);
+    let revealed = 0;
+    for (let frame = 0; frame < frameCount; frame++) {
+      const end = Math.min(revealed + blocksPerFrame, totalBlocks);
+      for (let k = revealed; k < end; k++) {
+        const bx = (order[k] % cols) * blockSize;
+        const by = Math.floor(order[k] / cols) * blockSize;
+        const bw = Math.min(blockSize, w - bx);
+        const bh = Math.min(blockSize, h - by);
+        animCtx.drawImage(sketchImg, bx, by, bw, bh, bx, by, bw, bh);
       }
+      revealed = end;
       await new Promise(r => setTimeout(r, frameDelay));
     }
     await new Promise(r => setTimeout(r, 400));
