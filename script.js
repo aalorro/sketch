@@ -97,6 +97,10 @@
   let panStartY = 0; // Start Y position of pan
   let currentRenderedImage = null; // Store the rendered image (server or canvas) to preserve during zoom/pan
   let renderingEngine = 'canvas'; // 'canvas' or 'opencv' - controls which renderer is used
+  let compareMode = false; // Before/after comparison slider active
+  let comparePos = 0.5;   // 0–1 position of comparison divider
+  let isDraggingCompare = false; // Dragging comparison handle
+  const textureCache = {}; // Cache generated texture canvases by type+size
   
   // Mobile detection and optimization - detect mobile devices, tablets, and small screens
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 1280;
@@ -318,7 +322,9 @@
       contrast: document.getElementById('contrast').value,
       saturation: document.getElementById('saturation').value,
       hueShift: document.getElementById('hueShift').value,
-      colorize: document.getElementById('colorize').checked
+      colorize: document.getElementById('colorize').checked,
+      textureType: document.getElementById('textureType').value,
+      textureOpacity: document.getElementById('textureOpacity').value
     };
   }
   function restoreState(state){
@@ -357,6 +363,29 @@
   document.addEventListener('keydown', e=>{
     if((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey){ e.preventDefault(); undoBtn.click(); }
     if((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z'))){ e.preventDefault(); redoBtn.click(); }
+  });
+
+  // Clipboard paste: Ctrl+V to load an image directly from clipboard
+  document.addEventListener('paste', e=>{
+    const items = Array.from((e.clipboardData || e.originalEvent.clipboardData).items);
+    const imageItem = items.find(item => item.type.startsWith('image/'));
+    if(!imageItem) return;
+    e.preventDefault();
+    const file = imageItem.getAsFile();
+    if(!file) return;
+    currentFiles = [file];
+    currentImageIndex = 0;
+    panOffsetX = 0; panOffsetY = 0;
+    zoomLevel = 1.0;
+    currentRenderedImage = null;
+    updateZoomDisplay();
+    enableControls();
+    loadImageFromFile(file).then(img=>{
+      singleImage = img;
+      drawPreview();
+      updateImageNavDisplay();
+    }).catch(err=>console.error('Paste failed:', err));
+    updateFileInfo();
   });
 
   // initialize output name placeholder with current timestamp
@@ -616,13 +645,13 @@
     }
   });
   // Generic state capture for control changes
-  ['artStyle','style','intensity','stroke','smoothing','brush','outputName','skipHatching','useWebGL','colorize','invert'].forEach(id=>{
+  ['artStyle','style','intensity','stroke','smoothing','brush','outputName','skipHatching','useWebGL','colorize','invert','textureType'].forEach(id=>{
     const el = document.getElementById(id);
     if(el) el.addEventListener('change', ()=>{ pushUndo(); if(currentFiles.length) drawPreview(); });
   });
 
   // Real-time slider updates without undo/redo on every drag
-  ['intensity','stroke','smoothing','contrast','saturation','hueShift'].forEach(id=>{
+  ['intensity','stroke','smoothing','contrast','saturation','hueShift','textureOpacity'].forEach(id=>{
     const el = document.getElementById(id);
     if(el) el.addEventListener('input', ()=>{ if(currentFiles.length) drawPreview(); });
   });
@@ -649,6 +678,48 @@
   function updateZoomDisplay(){
     document.getElementById('zoomLevel').textContent = Math.round(zoomLevel * 100) + '%';
   }
+
+  // Before/After comparison slider
+  const compareToggleBtn = document.getElementById('compareToggle');
+  const compareCanvasEl = document.getElementById('compareCanvas');
+  const compareHandleEl = document.getElementById('compareHandle');
+
+  if(compareToggleBtn){
+    compareToggleBtn.addEventListener('click', ()=>{
+      compareMode = !compareMode;
+      compareToggleBtn.style.background = compareMode ? '#7c3aed' : '#6b7280';
+      compareToggleBtn.textContent = compareMode ? 'Exit Compare' : 'Compare';
+      if(compareCanvasEl) compareCanvasEl.style.display = compareMode ? 'block' : 'none';
+      if(compareHandleEl) compareHandleEl.style.display = compareMode ? 'block' : 'none';
+      if(compareMode) drawCompareOverlay();
+    });
+  }
+
+  if(compareHandleEl){
+    compareHandleEl.addEventListener('mousedown', e=>{ isDraggingCompare = true; e.preventDefault(); });
+    compareHandleEl.addEventListener('touchstart', e=>{ isDraggingCompare = true; e.preventDefault(); }, {passive: false});
+  }
+
+  document.addEventListener('mousemove', e=>{
+    if(!isDraggingCompare) return;
+    const container = document.getElementById('previewContainer');
+    if(!container) return;
+    const rect = container.getBoundingClientRect();
+    comparePos = Math.max(0.05, Math.min(0.95, (e.clientX - rect.left) / rect.width));
+    drawCompareOverlay();
+  });
+  document.addEventListener('mouseup', ()=>{ isDraggingCompare = false; });
+
+  document.addEventListener('touchmove', e=>{
+    if(!isDraggingCompare) return;
+    const container = document.getElementById('previewContainer');
+    if(!container) return;
+    const rect = container.getBoundingClientRect();
+    const touch = e.touches[0];
+    comparePos = Math.max(0.05, Math.min(0.95, (touch.clientX - rect.left) / rect.width));
+    drawCompareOverlay();
+  }, {passive: true});
+  document.addEventListener('touchend', ()=>{ isDraggingCompare = false; });
 
   // Helper: Clear stored rendered image and re-preview when parameters change
   function clearAndRedraw(){
@@ -1095,6 +1166,77 @@
 
   function downloadDataURL(dataURL, filename){ const a = document.createElement('a'); a.href = dataURL; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); }
 
+  // Draw original image clipped to the left portion of the compare overlay canvas
+  function drawCompareOverlay(){
+    const cc = document.getElementById('compareCanvas');
+    const ch = document.getElementById('compareHandle');
+    if(!compareMode || !singleImage || !cc) return;
+    const cw = preview.width, cheight = preview.height;
+    cc.width = cw; cc.height = cheight;
+    const ctx2 = cc.getContext('2d');
+    ctx2.clearRect(0, 0, cw, cheight);
+    ctx2.save();
+    ctx2.beginPath();
+    ctx2.rect(0, 0, comparePos * cw, cheight);
+    ctx2.clip();
+    const fit = fitCropRect(singleImage.width, singleImage.height, cw, cheight);
+    ctx2.drawImage(singleImage, fit.sx, fit.sy, fit.sw, fit.sh, 0, 0, cw, cheight);
+    ctx2.restore();
+    // Draw divider line
+    ctx2.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx2.fillRect(Math.floor(comparePos * cw) - 1, 0, 3, cheight);
+    // Position handle
+    if(ch) ch.style.left = (comparePos * 100) + '%';
+  }
+
+  // Generate and cache a procedural texture canvas for a given type and size
+  function generateTexture(type, w, h){
+    const key = type + '_' + w + '_' + h;
+    if(textureCache[key]) return textureCache[key];
+    const tc = document.createElement('canvas');
+    tc.width = w; tc.height = h;
+    const tctx = tc.getContext('2d');
+    const imgData = tctx.createImageData(w, h);
+    const d = imgData.data;
+    for(let i = 0; i < d.length; i += 4){
+      const px = (i / 4) % w;
+      const py = Math.floor(i / 4 / w);
+      let v;
+      if(type === 'paper'){
+        v = 200 + Math.floor(Math.random() * 55);
+      } else if(type === 'rough'){
+        v = 160 + Math.floor(Math.random() * 95);
+      } else if(type === 'film'){
+        v = 100 + Math.floor(Math.random() * 155);
+      } else { // canvas weave
+        v = ((px % 4 < 2) === (py % 4 < 2)) ? 220 : 180;
+        v += Math.floor(Math.random() * 20) - 10;
+        v = Math.max(0, Math.min(255, v));
+      }
+      d[i] = d[i+1] = d[i+2] = v;
+      d[i+3] = 255;
+    }
+    tctx.putImageData(imgData, 0, 0);
+    textureCache[key] = tc;
+    return tc;
+  }
+
+  // Overlay a paper/canvas/grain texture on ctx using multiply blending
+  function applyTextureOverlay(ctx, w, h){
+    const typeEl = document.getElementById('textureType');
+    const opacityEl = document.getElementById('textureOpacity');
+    if(!typeEl || !opacityEl) return;
+    const type = typeEl.value;
+    const opacity = parseFloat(opacityEl.value) / 10;
+    if(type === 'none' || opacity === 0) return;
+    const tc = generateTexture(type, w, h);
+    ctx.save();
+    ctx.globalAlpha = opacity;
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.drawImage(tc, 0, 0, w, h);
+    ctx.restore();
+  }
+
   function loadImageFromFile(file){
     return new Promise((resolve, reject)=>{
       const url = URL.createObjectURL(file); const im = new Image(); im.onload = ()=>{ URL.revokeObjectURL(url); resolve(im); }; im.onerror = reject; im.src = url; });
@@ -1154,6 +1296,8 @@
       ctx.scale(zoomLevel, zoomLevel);
       ctx.drawImage(currentRenderedImage, 0, 0);
       ctx.restore();
+      applyTextureOverlay(ctx, canvasW, canvasH);
+      drawCompareOverlay();
       return;
     }
     
@@ -1294,6 +1438,8 @@
 
     // Apply zoom scaling to preview canvas
     applyZoomTransform(ctx, w, h);
+    applyTextureOverlay(ctx, w, h);
+    drawCompareOverlay();
   }
 
   function applySmoothing(ctx, w, h, smoothing){
@@ -2581,10 +2727,10 @@
     // fit img
     const fit = fitCropRect(img.width, img.height, cw, ch);
     ctx.drawImage(img, fit.sx, fit.sy, fit.sw, fit.sh, 0,0,cw,ch);
-    
+
     // Store the rendered image for zoom/pan operations to use (server or canvas rendered)
     currentRenderedImage = img;
-    
+
     // Also update the original canvas if available
     if(typeof original !== 'undefined' && original && typeof singleImage !== 'undefined' && singleImage) {
       const octx = original.getContext('2d');
@@ -2592,6 +2738,9 @@
       const ofit = fitCropRect(singleImage.width, singleImage.height, original.width, original.height);
       octx.drawImage(singleImage, ofit.sx, ofit.sy, ofit.sw, ofit.sh, 0,0,original.width,original.height);
     }
+
+    applyTextureOverlay(ctx, cw, ch);
+    drawCompareOverlay();
   }
 
   // Experimental WebGL Sobel: renders to RGBA where R=G=B=edge
