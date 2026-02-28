@@ -2973,7 +2973,11 @@
       card.addEventListener('click', () => {
         document.getElementById('style').value = s.value;
         pushUndo();
-        drawPreview();
+        if (renderingEngine === 'opencv') {
+          renderCurrentImageWithOpenCV();
+        } else {
+          drawPreview();
+        }
         modal.style.display = 'none';
       });
 
