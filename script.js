@@ -1781,43 +1781,135 @@
     ctx.restore();
   }
 
-  function applyMediumEffect(ctx, w, h, medium){
+  function applyMediumEffect(ctx, w, h, medium) {
     const imgData = ctx.getImageData(0, 0, w, h);
     const d = imgData.data;
-    
-    // Define medium characteristics: { iterations: line thickening, toneDelta: shading adjustment }
-    const mediumProps = {
-      'pencil': { dilations: 0, toneDelta: 15, graininess: 20 },      // Finest lines, light
-      'ink': { dilations: 1, toneDelta: -10, graininess: 0 },         // Slight thickening, subtle darkening
-      'marker': { dilations: 1, toneDelta: -20, graininess: 0 },      // Same thickness, more tone
-      'pen': { dilations: 2, toneDelta: -30, graininess: 0 },         // Moderate thickening, darker
-      'pastel': { dilations: 3, toneDelta: -35, graininess: 15 }      // Thickest, soft grain, darkest
-    };
-    
-    const props = mediumProps[medium] || mediumProps['pencil'];
-    
-    // Apply line thickening via dilation (morphological operation)
-    if(props.dilations > 0){
-      dilateMask(d, w, h, props.dilations);
-    }
-    
-    // Apply tonal adjustments (shading)
-    for(let i=0; i<d.length; i+=4){
-      d[i] = Math.max(0, Math.min(255, d[i] + props.toneDelta));     // R
-      d[i+1] = Math.max(0, Math.min(255, d[i+1] + props.toneDelta)); // G
-      d[i+2] = Math.max(0, Math.min(255, d[i+2] + props.toneDelta)); // B
-    }
-    
-    // Apply grain texture if needed
-    if(props.graininess > 0){
-      for(let i=0; i<d.length; i+=4){
-        const noise = Math.random() * props.graininess - props.graininess/2;
-        d[i] = Math.max(0, Math.min(255, d[i] + noise));
-        d[i+1] = Math.max(0, Math.min(255, d[i+1] + noise));
-        d[i+2] = Math.max(0, Math.min(255, d[i+2] + noise));
+    const n = w * h;
+    // BG_THR: pixels >= this are treated as paper background (pure/near-white).
+    // Uniform toneDelta on ALL pixels was the old bug — it turned white→gray.
+    // Each medium now touches marks (< BG_THR) and background (>= BG_THR) separately.
+    const BG = 242;
+
+    switch (medium) {
+
+      case 'pencil': {
+        // Warm graphite on paper: marks lifted (graphite floor ~18), warm tint, mid-tone grain.
+        for (let i = 0; i < n; i++) {
+          const v = d[i*4];
+          if (v < BG) {
+            const lifted = Math.max(18, Math.round(v + (BG - v) * 0.05));
+            d[i*4]   = Math.min(255, lifted + 3);  // R: warm graphite
+            d[i*4+1] = lifted;
+            d[i*4+2] = Math.max(0, lifted - 3);    // B: suppress
+          }
+          // Background (>= BG): untouched — clean white paper
+        }
+        // Grain only in mid-tones; skip pure background and black cores
+        for (let i = 0; i < n; i++) {
+          const v = d[i*4];
+          if (v > 28 && v < 218) {
+            const g = (Math.random() - 0.5) * 14;
+            d[i*4]   = Math.max(0, Math.min(255, d[i*4]   + g));
+            d[i*4+1] = Math.max(0, Math.min(255, d[i*4+1] + g));
+            d[i*4+2] = Math.max(0, Math.min(255, d[i*4+2] + g));
+          }
+        }
+        break;
+      }
+
+      case 'ink': {
+        // India ink: 1 dilation (hard edge), crush darks toward pure black, cold blue-black tint.
+        dilateMask(d, w, h, 1);
+        for (let i = 0; i < n; i++) {
+          const v = d[i*4];
+          if (v < BG) {
+            const crushed = Math.max(0, Math.round(v * 0.80 - 10));
+            d[i*4]   = Math.max(0, crushed - 3);   // R: cooler
+            d[i*4+1] = crushed;
+            d[i*4+2] = Math.min(255, crushed + 6); // B: blue-black
+          }
+          // Background: stays white
+        }
+        break;
+      }
+
+      case 'marker': {
+        // Broad felt-tip: 1 dilation (blunt edge), bold warm marks, faint warm paper bleed.
+        dilateMask(d, w, h, 1);
+        for (let i = 0; i < n; i++) {
+          const v = d[i*4];
+          if (v >= BG) {
+            d[i*4]   = 255;   // very subtle warm paper tint
+            d[i*4+1] = 252;
+            d[i*4+2] = 245;
+          } else {
+            const bold = Math.max(0, Math.round(v * 0.82 - 8));
+            d[i*4]   = Math.min(255, bold + 8);  // R: warm ink
+            d[i*4+1] = Math.min(255, bold + 2);
+            d[i*4+2] = Math.max(0, bold - 10);   // B: suppress warmth
+          }
+        }
+        break;
+      }
+
+      case 'pen': {
+        // Technical pen / ballpoint: 1 dilation (precise edge), crush to near-black, cool blue tint.
+        dilateMask(d, w, h, 1);
+        for (let i = 0; i < n; i++) {
+          const v = d[i*4];
+          if (v < BG) {
+            const crisp = Math.max(0, Math.round(v * 0.78 - 12));
+            d[i*4]   = Math.max(0, crisp - 2);    // R: slightly cool
+            d[i*4+1] = crisp;
+            d[i*4+2] = Math.min(255, crisp + 6);  // B: slight blue (ballpoint)
+          }
+          // Background: stays white
+        }
+        break;
+      }
+
+      case 'pastel': {
+        // Chalk pastel: soften/smear marks, chalky lift on darks, warm color, heavy grain, paper tooth.
+        // Step 1 — edge softening: blend each mark pixel with its 4-connected average
+        const src = new Uint8ClampedArray(d);
+        for (let y = 1; y < h - 1; y++) {
+          for (let x = 1; x < w - 1; x++) {
+            const i = y * w + x;
+            if (src[i*4] < 236) {
+              const avg = (src[i*4] + src[(i-1)*4] + src[(i+1)*4] + src[(i-w)*4] + src[(i+w)*4]) / 5;
+              const soft = Math.round(src[i*4] * 0.65 + avg * 0.35);
+              d[i*4] = d[i*4+1] = d[i*4+2] = soft;
+            }
+          }
+        }
+        // Step 2 — chalky warm tone + dark lift + paper tooth
+        for (let i = 0; i < n; i++) {
+          const v = d[i*4];
+          if (v >= BG) {
+            d[i*4]   = 255;   // warm paper tooth
+            d[i*4+1] = 253;
+            d[i*4+2] = 247;
+          } else {
+            const chalky = Math.max(32, Math.round(v + (BG - v) * 0.12));
+            d[i*4]   = Math.min(255, chalky + 6);  // warm chalk
+            d[i*4+1] = Math.min(255, chalky + 3);
+            d[i*4+2] = Math.max(0, chalky - 5);
+          }
+        }
+        // Step 3 — heavy grain in mark areas only
+        for (let i = 0; i < n; i++) {
+          const v = (d[i*4] + d[i*4+1] + d[i*4+2]) / 3;
+          if (v > 28 && v < 240) {
+            const g = (Math.random() - 0.5) * 28;
+            d[i*4]   = Math.max(0, Math.min(255, d[i*4]   + g));
+            d[i*4+1] = Math.max(0, Math.min(255, d[i*4+1] + g));
+            d[i*4+2] = Math.max(0, Math.min(255, d[i*4+2] + g));
+          }
+        }
+        break;
       }
     }
-    
+
     ctx.putImageData(imgData, 0, 0);
   }
 

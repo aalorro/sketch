@@ -859,24 +859,6 @@ def stylize_opencv(img_bgr, artStyle='pencil', style='line', brush='line',
         # Default: tonal rendering
         result = 255 - np.minimum(255, edges).astype(np.uint8)
     
-    # Apply medium effect (line thickness and tonal adjustments)
-    medium_props = {
-        'pencil': {'dilations': 0, 'tone_delta': 15},
-        'ink': {'dilations': 1, 'tone_delta': -10},
-        'marker': {'dilations': 1, 'tone_delta': -20},
-        'pen': {'dilations': 2, 'tone_delta': -30},
-        'pastel': {'dilations': 3, 'tone_delta': -35}
-    }
-    
-    props = medium_props.get(artStyle, medium_props['pencil'])
-    
-    if props['dilations'] > 0:
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-        result = cv2.dilate(result, kernel, iterations=props['dilations'])
-    
-    if props['tone_delta'] != 0:
-        result = np.clip(result.astype(np.int16) + props['tone_delta'], 0, 255).astype(np.uint8)
-    
     # Apply smoothing (gaussian blur)
     if smoothing > 0:
         kernel_size = max(3, int(smoothing * 2) | 1)  # Ensure odd number >= 3
@@ -888,7 +870,10 @@ def stylize_opencv(img_bgr, artStyle='pencil', style='line', brush='line',
 
     # Convert to BGR
     result_bgr = cv2.cvtColor(result, cv2.COLOR_GRAY2BGR)
-    
+
+    # Apply medium effect (color character, dilation, tinting)
+    result_bgr = apply_medium_effect_bgr(result_bgr, artStyle)
+
     # Apply colorization if enabled (blend original colors into grayscale)
     if colorize and img_color is not None:
         try:
@@ -906,6 +891,99 @@ def stylize_opencv(img_bgr, artStyle='pencil', style='line', brush='line',
         result_bgr = cv2.bitwise_not(result_bgr)
     
     return result_bgr
+
+
+def apply_medium_effect_bgr(img_bgr, art_style):
+    """Apply medium-specific color character to a BGR sketch image.
+    Mirrors the canvas applyMediumEffect implementation.
+    BG=242: pixels >= 242 are paper background; < 242 are marks.
+    Input must be a grayscale-sourced BGR image (all channels equal).
+    """
+    BG = 242
+    result = img_bgr.copy().astype(np.int16)
+    v = result[:, :, 0].copy()  # luminance (B channel == G == R for gray input)
+    mark_mask = v < BG
+    bg_mask   = ~mark_mask
+
+    if art_style == 'pencil':
+        # Warm graphite: lift darks (floor 18), warm tint (+3R/-3B on marks)
+        lifted = np.where(mark_mask,
+                          np.maximum(18, (v + (BG - v) * 0.05 + 0.5).astype(np.int16)),
+                          v)
+        result[:, :, 2] = np.where(mark_mask, np.minimum(255, lifted + 3), result[:, :, 2])  # R
+        result[:, :, 1] = np.where(mark_mask, lifted,                       result[:, :, 1])  # G
+        result[:, :, 0] = np.where(mark_mask, np.maximum(0,  lifted - 3),   result[:, :, 0])  # B
+        # Mid-tone grain (28 < lum < 218)
+        lum = result[:, :, 1]
+        grain_mask = (lum > 28) & (lum < 218)
+        if grain_mask.any():
+            grain = ((np.random.rand(*v.shape) - 0.5) * 14).astype(np.int16)
+            for ch in range(3):
+                result[:, :, ch] = np.where(grain_mask, result[:, :, ch] + grain, result[:, :, ch])
+
+    elif art_style == 'ink':
+        # India ink: dilate, crush darks (v*0.80-10), cold blue-black (-3R/+6B)
+        gray_u8 = np.clip(v, 0, 255).astype(np.uint8)
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        dilated = cv2.dilate(gray_u8, kernel, iterations=1).astype(np.int16)
+        m = dilated < BG
+        crushed = np.maximum(0, (dilated * 0.80 - 10 + 0.5).astype(np.int16))
+        result[:, :, 2] = np.where(m, np.maximum(0,   crushed - 3), result[:, :, 2])  # R
+        result[:, :, 1] = np.where(m, crushed,                       result[:, :, 1])  # G
+        result[:, :, 0] = np.where(m, np.minimum(255, crushed + 6),  result[:, :, 0])  # B
+
+    elif art_style == 'marker':
+        # Bold warm: dilate, warm paper on BG (BGR 245/252/255), warm marks (+8R/+2G/-10B)
+        gray_u8 = np.clip(v, 0, 255).astype(np.uint8)
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        dilated = cv2.dilate(gray_u8, kernel, iterations=1).astype(np.int16)
+        m = dilated < BG
+        bg2 = ~m
+        bold = np.maximum(0, (dilated * 0.82 - 8 + 0.5).astype(np.int16))
+        result[:, :, 0] = np.where(bg2, 245,                         result[:, :, 0])  # B bg
+        result[:, :, 1] = np.where(bg2, 252,                         result[:, :, 1])  # G bg
+        result[:, :, 2] = np.where(bg2, 255,                         result[:, :, 2])  # R bg
+        result[:, :, 2] = np.where(m,   np.minimum(255, bold + 8),   result[:, :, 2])  # R marks
+        result[:, :, 1] = np.where(m,   np.minimum(255, bold + 2),   result[:, :, 1])  # G marks
+        result[:, :, 0] = np.where(m,   np.maximum(0,   bold - 10),  result[:, :, 0])  # B marks
+
+    elif art_style == 'pen':
+        # Technical pen: dilate, crisp crush (v*0.78-12), cool blue (-2R/+6B)
+        gray_u8 = np.clip(v, 0, 255).astype(np.uint8)
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        dilated = cv2.dilate(gray_u8, kernel, iterations=1).astype(np.int16)
+        m = dilated < BG
+        crisp = np.maximum(0, (dilated * 0.78 - 12 + 0.5).astype(np.int16))
+        result[:, :, 2] = np.where(m, np.maximum(0,   crisp - 2), result[:, :, 2])  # R
+        result[:, :, 1] = np.where(m, crisp,                       result[:, :, 1])  # G
+        result[:, :, 0] = np.where(m, np.minimum(255, crisp + 6),  result[:, :, 0])  # B
+
+    elif art_style == 'pastel':
+        # Step 1: edge softening via Gaussian blur blend on marks (v < 236)
+        gray_u8 = np.clip(v, 0, 255).astype(np.uint8)
+        blurred = cv2.GaussianBlur(gray_u8, (3, 3), 0).astype(np.int16)
+        soft_mask = v < 236
+        softened = np.where(soft_mask, (v * 0.65 + blurred * 0.35 + 0.5).astype(np.int16), v)
+        # Step 2: chalky warm lift (floor 32, +6R/+3G/-5B), paper tooth on BG (BGR 247/253/255)
+        chalky = np.where(mark_mask,
+                          np.maximum(32, (softened + (BG - softened) * 0.12 + 0.5).astype(np.int16)),
+                          softened)
+        result[:, :, 0] = np.where(bg_mask, 247,                         result[:, :, 0])  # B bg
+        result[:, :, 1] = np.where(bg_mask, 253,                         result[:, :, 1])  # G bg
+        result[:, :, 2] = np.where(bg_mask, 255,                         result[:, :, 2])  # R bg
+        result[:, :, 2] = np.where(mark_mask, np.minimum(255, chalky + 6), result[:, :, 2])  # R
+        result[:, :, 1] = np.where(mark_mask, np.minimum(255, chalky + 3), result[:, :, 1])  # G
+        result[:, :, 0] = np.where(mark_mask, np.maximum(0,   chalky - 5), result[:, :, 0])  # B
+        # Step 3: heavy grain in mark areas (28 < lum < 240, ±14)
+        lum = (result[:, :, 0].astype(np.int32) + result[:, :, 1].astype(np.int32) +
+               result[:, :, 2].astype(np.int32)) // 3
+        grain_mask = (lum > 28) & (lum < 240)
+        if grain_mask.any():
+            grain = ((np.random.rand(*v.shape) - 0.5) * 28).astype(np.int16)
+            for ch in range(3):
+                result[:, :, ch] = np.where(grain_mask, result[:, :, ch] + grain, result[:, :, ch])
+
+    return np.clip(result, 0, 255).astype(np.uint8)
 
 
 def apply_color_adjustments(img_bgr, contrast, saturation, hue_shift):
