@@ -1,6 +1,6 @@
 # Sketchify — Image to Sketch (Static Web App)
 
-**By ArtMondo** | **Version 1.2.4**
+**By ArtMondo** | **Version 1.2.5**
 
 This repository contains a sophisticated, client-side web app that creates stunning sketch art from your photos in seconds — choose from 26+ artistic styles, preview changes in real-time, and batch-process multiple images. Fast, private, and completely free, with all processing happening directly in your browser.
 
@@ -67,6 +67,8 @@ Implemented features
 - UNDO/REDO: Full history stack (50 items) with keyboard shortcuts (Ctrl+Z, Ctrl+Shift+Z, Ctrl+Y)
 - Reset button: Restore all controls to default values
 - Side-by-side preview: View original and rendered images simultaneously
+- **Before/After comparison slider:** Click Compare on the rendered panel to overlay a draggable divider that reveals the original photo beneath the sketch — mouse and touch friendly
+- **Clipboard paste:** Press Ctrl+V anywhere on the page to load an image directly from the clipboard
 - Responsive layout: Works on desktop and adjusts for smaller screens
 
 **Advanced options:**
@@ -75,6 +77,7 @@ Implemented features
 - Server integration: Optional local/remote Flask server for custom processing
 - Reproducibility: Seed input for deterministic random effects
 - Preset management: Save and load custom configuration presets locally (stored in browser localStorage)
+- **Texture overlay:** Apply procedurally generated paper grain, canvas weave, rough paper, or film grain textures over any sketch style using multiply blending; opacity-controlled and included in exports
 
 **Optimizations:**
 - Sequential batch processing to limit peak memory usage
@@ -92,6 +95,7 @@ Keyboard Shortcuts
 |----------|--------|
 | `Ctrl+Z` | Undo last change |
 | `Ctrl+Shift+Z` or `Ctrl+Y` | Redo |
+| `Ctrl+V` | Paste image from clipboard |
 | — | Styles update preview in real-time (no Generate needed) |
 
 For detailed guidance on advanced settings, see [SETTINGS_GUIDE.md](SETTINGS_GUIDE.md).
