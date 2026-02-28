@@ -46,51 +46,60 @@ def read_image_from_stream(stream):
 
 
 def render_stippling(gray, edges, intensity, stroke):
-    """Stippling: dots of varying sizes based on edges"""
+    """Stippling: tone-driven dots -- darker areas get more/larger dots"""
     h, w = gray.shape
     result = np.full((h, w), 255, dtype=np.uint8)
-    
-    step = max(2, int(6 - stroke * 0.5))  # Smaller step = denser stippling
+    step = max(3, round(14 - stroke * 1.1))
+    dot_thr = int(90 + intensity * 11)   # 101-200
+    base_r = 0.4 + stroke * 0.18
     for y in range(0, h, step):
         for x in range(0, w, step):
-            val = edges[y, x] / 255.0
-            if val > 0.05:  # Lower threshold for more dots
-                radius = max(1.5, val * (1.0 + stroke * 0.5))  # Larger dots
-                cv2.circle(result, (x, y), int(radius), 0, -1)
+            g = int(gray[y, x])
+            if g >= dot_thr:
+                continue
+            darkness = 1.0 - g / max(1, dot_thr)
+            r = max(1, round(base_r * (0.5 + darkness)))
+            jx = max(r, min(w - 1 - r, x + int((random.random() - 0.5) * step * 0.8)))
+            jy = max(r, min(h - 1 - r, y + int((random.random() - 0.5) * step * 0.8)))
+            cv2.circle(result, (jx, jy), r, 0, -1)
     return result
 
 
 def render_charcoal(gray, edges, intensity, stroke):
-    """Charcoal: bold darks, soft edges, dramatic light on light paper base"""
+    """Charcoal: S-curve tonal compression + edge deepening + directional marks at ~15deg"""
     h, w = gray.shape
-    
-    # Start with light paper base
-    result = np.full((h, w), 245, dtype=np.uint8)
-    
-    # Build charcoal with bold darks naturally from image tone
-    for i in range(h):
-        for j in range(w):
-            gray_val = gray[i, j]
-            # Extract shadow information: darker image areas become darker charcoal
-            shadow_amount = (255.0 - gray_val) / 255.0  # 0=light, 1=dark
-            tonal_value = 245 - (shadow_amount * 200)  # 245 (light) to 45 (dark)
-            result[i, j] = int(tonal_value)
-    
-    # Soften edges with gaussian blur for realistic charcoal effect
-    result = cv2.GaussianBlur(result, (5, 5), 1.5)
-    
-    # Add dramatic edge definition with soft blending
-    edge_mask = (edges > 40).astype(np.float32)
-    edge_strength = np.minimum(1.0, edges.astype(np.float32) / 200.0)
-    
-    # Dark accents along strong edges for definition
-    edge_darkening = (edge_strength * edge_mask * 80).astype(np.uint8)
-    result = np.maximum(0, result.astype(np.int16) - edge_darkening).astype(np.uint8)
-    
-    # Soften the result slightly for that smudged charcoal feel
-    result = cv2.GaussianBlur(result, (3, 3), 1)
-    
-    return result
+    # S-curve tonal mapping + edge deepening (vectorized)
+    edge_thr = max(10, 80 - intensity * 6)
+    edge_bite = 0.8 + intensity * 0.07
+    t = gray.astype(np.float32) / 255.0
+    s = np.where(t < 0.5, 2*t*t, 1 - 2*(1-t)*(1-t))
+    v = np.clip(22 + s * 220, 0, 255).astype(np.int32)
+    e_over = np.maximum(0, edges.astype(np.int32) - edge_thr)
+    v = np.maximum(0, v - (e_over * edge_bite).astype(np.int32))
+    result = v.astype(np.uint8)
+    # Directional marks at ~15deg in shadow areas (multiply-like darkening)
+    mark_step = max(4, round(18 - stroke * 1.4))
+    mark_len = round(mark_step * (1.5 + stroke * 0.2))
+    mark_alpha = 0.07 + intensity * 0.018
+    mark_scale = 1.0 - mark_alpha * (1.0 - 30.0 / 255.0)
+    line_w = max(1, round(stroke * 0.7))
+    slope = 0.27  # tan(15deg)
+    mark_mask = np.zeros((h, w), dtype=np.uint8)
+    for y0 in range(0, h, mark_step):
+        for x0 in range(0, w, mark_step):
+            if gray[y0, x0] > 200:
+                continue
+            jx = x0 + int((random.random() - 0.5) * mark_step * 0.6)
+            jy = y0 + int((random.random() - 0.5) * mark_step * 0.6)
+            length = mark_len * (0.5 + random.random() * 0.8)
+            dx, dy = int(slope * length), int(length)
+            p1 = (max(0, min(w-1, jx - dx//2)), max(0, min(h-1, jy - dy//2)))
+            p2 = (max(0, min(w-1, jx + dx//2)), max(0, min(h-1, jy + dy//2)))
+            cv2.line(mark_mask, p1, p2, 255, line_w)
+    has_mark = mark_mask > 0
+    result_f = result.astype(np.float32)
+    result_f[has_mark] = np.clip(result_f[has_mark] * mark_scale, 0, 255)
+    return result_f.astype(np.uint8)
 
 
 def render_dry_brush(gray, edges, intensity, stroke):
@@ -162,11 +171,47 @@ def render_comic(gray, edges, intensity, stroke):
 
 
 def render_fashion(gray, edges, intensity, stroke):
-    """Fashion sketch: clean lines with flowing curves"""
+    """Fashion: warm paper + tonal shadow wash + thin contour lines + vertical drape marks"""
     h, w = gray.shape
-    thr = 20 + (11 - intensity) * 12
-    result = np.where(edges > thr, 255, 0).astype(np.uint8)
-    return result
+    line_thr = max(12, int(60 - intensity*4 - stroke*1.2))
+    softness = 8 + stroke * 1.5
+    shadow_thr = 100 + intensity * 8  # 108-180
+    # Warm paper base + shadow wash from gray (not edges)
+    g = gray.astype(np.float32)
+    base = np.full((h, w), 250.0, dtype=np.float32)
+    sdiff = np.maximum(0.0, shadow_thr - g)
+    depth = np.power(np.where(g < shadow_thr, sdiff / shadow_thr, 0.0), 1.5)
+    base -= depth * (20 + intensity * 2)
+    # Smoothstep contour lines
+    e = edges.astype(np.float32)
+    fully = e >= (line_thr + softness)
+    band = (e > line_thr) & ~fully
+    base[fully] = base[fully] * 0.03
+    t_b = (e[band] - line_thr) / softness
+    base[band] = base[band] * (1 - t_b*t_b*(3-2*t_b)*0.97)
+    result = np.clip(base, 0, 255).astype(np.uint8)
+    # Vertical drape marks in shadow areas (multiply-like darkening)
+    mark_step = max(6, round(24 - stroke * 1.5))
+    mark_len = max(10, round(h / 8 * (0.8 + stroke * 0.1)))
+    mark_alpha = 0.03 + intensity * 0.008
+    mark_scale = 1.0 - mark_alpha * (1.0 - 40.0 / 255.0)
+    line_w = max(1, round(stroke * 0.3))
+    mark_mask = np.zeros((h, w), dtype=np.uint8)
+    for x0 in range(0, w, mark_step):
+        for y0 in range(0, h, mark_step):
+            if gray[y0, x0] > 160:
+                continue
+            jx = x0 + int((random.random()-0.5)*mark_step*0.5)
+            jy = y0 + int((random.random()-0.5)*mark_step*0.5)
+            length = int(mark_len * (0.3 + random.random()*0.9))
+            lean = int((random.random()-0.5)*mark_step*0.2)
+            p1 = (max(0,min(w-1,jx)), max(0,min(h-1,jy)))
+            p2 = (max(0,min(w-1,jx+lean)), max(0,min(h-1,jy+length)))
+            cv2.line(mark_mask, p1, p2, 255, line_w)
+    has_mark = mark_mask > 0
+    result_f = result.astype(np.float32)
+    result_f[has_mark] = np.clip(result_f[has_mark] * mark_scale, 0, 255)
+    return result_f.astype(np.uint8)
 
 
 def render_urban(gray, edges, intensity, stroke):
@@ -238,95 +283,196 @@ def render_etching(gray, edges, intensity, stroke):
 
 
 def render_minimalist(gray, edges, intensity, stroke):
-    """Minimalist: aggressive, clean threshold"""
+    """Minimalist: very high threshold + smoothstep anti-aliased thin lines, lots of white space"""
     h, w = gray.shape
-    thr = 60 + (11 - intensity) * 20
-    result = np.where(edges > thr, 255, 0).astype(np.uint8)
-    return result
+    thr = max(20, 160 - intensity * 14)  # 146 (i=1) to 20 (i=10)
+    softness = 8 + stroke * 1.5
+    line_v = max(0, 38 - stroke * 3)
+    e = edges.astype(np.float32)
+    result = np.full((h, w), 255, dtype=np.float32)
+    fully = e >= (thr + softness)
+    band = (e > thr) & ~fully
+    result[fully] = line_v
+    t_b = (e[band] - thr) / softness
+    result[band] = np.clip(255 - (255 - line_v) * t_b*t_b*(3 - 2*t_b), 0, 255)
+    return result.astype(np.uint8)
 
 
 def render_glitch(gray, edges, intensity, stroke):
-    """Glitch: boosted digital artifacts and randomness"""
+    """Glitch: noise-corrupted edges + row-shift + chromatic bars + dropout bands"""
     h, w = gray.shape
-    thr = 10 + (11 - intensity) * 12
-    
-    edges_copy = edges.copy().astype(np.float32)
-    
-    # More glitch corruption (10% instead of 5%)
-    for i in range(h):
-        for j in range(w):
-            if random.random() < 0.15:  # Increased glitch corruption
-                edges_copy[i, j] = random.random() * 255
-    
-    result = 255 - np.minimum(255, np.maximum(0, edges_copy - thr)).astype(np.uint8)
-    
-    # Add more aggressive scanline effect
-    for y in range(0, h, 2):
+    thr = max(10, 60 - intensity * 5)
+    noise_chance = 0.04 + intensity * 0.025
+    # 1. Edge base with noise corruption
+    e = edges.astype(np.float32).copy()
+    noise_mask = np.random.random((h, w)) < noise_chance
+    e[noise_mask] = np.random.rand(int(noise_mask.sum())) * 255
+    e_u8 = np.clip(e, 0, 255).astype(np.uint8)
+    result = np.where(e_u8 > thr,
+                      np.maximum(np.int16(0), np.int16(230) - e_u8.astype(np.int16)).astype(np.uint8),
+                      np.uint8(255)).astype(np.uint8)
+    # 2. Row-shift corruption (horizontal slice displacement)
+    corrupt_chance = 0.04 + intensity * 0.035
+    max_shift = max(1, round(w * (0.03 + intensity * 0.04)))
+    for y in range(h):
+        if random.random() > corrupt_chance:
+            continue
+        shift = round((random.random() - 0.5) * 2 * max_shift)
+        result[y] = np.roll(result[y], shift)
+    # 3. Chromatic aberration bands (simulate as lighter displaced rows in grayscale)
+    num_bars = round(3 + intensity * 1.5)
+    for _ in range(num_bars):
+        bar_y = random.randint(0, h - 1)
+        bar_h = max(1, round(1 + random.random() * (3 + intensity * 0.5)))
+        y1, y2 = max(0, bar_y), min(h, bar_y + bar_h)
+        result[y1:y2] = np.minimum(255, result[y1:y2].astype(np.int16) + 35).astype(np.uint8)
+    # 4. Flat-colour dropout bands
+    num_dropouts = round(2 + intensity * 0.8)
+    for _ in range(num_dropouts):
+        bar_y = random.randint(0, h - 1)
+        bar_h = max(1, round(1 + random.random() * 3))
+        y1, y2 = max(0, bar_y), min(h, bar_y + bar_h)
+        row = result[y1:y2].astype(np.int16)
         if random.random() > 0.5:
-            result[y, :] = np.clip(result[y, :].astype(int) - 60, 0, 255).astype(np.uint8)
-    
-    # Add color shift simulation (RGB channel offset)
-    for y in range(0, h, random.randint(5, 15)):
-        if random.random() > 0.6:
-            shift = random.randint(-3, 3)
-            result[y, :] = np.roll(result[y, :], shift)
-    
+            result[y1:y2] = np.minimum(255, row + 50).astype(np.uint8)
+        else:
+            result[y1:y2] = np.maximum(0, row - 50).astype(np.uint8)
     return result
 
 
 def render_mixed_media(gray, edges, intensity, stroke):
-    """Mixed media: combination of techniques"""
+    """Mixed media: warm tonal base + stipple mid-tones + diagonal cross-hatch shadows"""
     h, w = gray.shape
-    thr = 10 + (11 - intensity) * 12
-    result = 255 - np.minimum(255, np.maximum(0, edges - thr)).astype(np.uint8)
-    
-    # Add mixed textures
-    step = max(5, int(12 - stroke) * 1.5)
-    for y in range(0, h, int(step)):
-        for x in range(0, w, int(step)):
-            if random.random() > 0.5:
-                cv2.rectangle(result, (x, y), (x + int(step//2), y + int(step//2)), 
-                             max(0, int(result[y, x] * 0.8)), -1)
-    return result
+    line_thr = max(12, 65 - intensity * 5)
+    softness = 10.0
+    # Warm tonal base (quadratic darkening from gray)
+    g = gray.astype(np.float32)
+    base = 242.0 - (1.0 - g / 255.0) ** 2 * 115.0
+    # Smoothstep pen lines at strong edges
+    e = edges.astype(np.float32)
+    fully = e >= (line_thr + softness)
+    band = (e > line_thr) & ~fully
+    base[fully] = base[fully] * 0.07
+    t_b = (e[band] - line_thr) / softness
+    lf = t_b * t_b * (3 - 2 * t_b)
+    base[band] = base[band] * (1 - lf * 0.93)
+    result = np.clip(base, 0, 255).astype(np.uint8)
+    # Stipple dots in mid-tone areas (gray 80-178)
+    dot_step = max(4, round(15 - stroke * 1.0))
+    base_r = 0.5 + stroke * 0.14
+    for y in range(0, h, dot_step):
+        for x in range(0, w, dot_step):
+            gi = int(gray[min(h-1, y), min(w-1, x)])
+            if gi < 80 or gi > 178:
+                continue
+            jx = x + int((random.random() - 0.5) * dot_step * 0.7)
+            jy = y + int((random.random() - 0.5) * dot_step * 0.7)
+            r = max(1, round(base_r * (1 + (178 - gi) / 178 * 0.6)))
+            cv2.circle(result, (max(r, min(w-1-r, jx)), max(r, min(h-1-r, jy))), r, 30, -1)
+    # Diagonal cross-hatch in deep shadows via mask
+    h_step = max(3, round(13 - stroke * 0.9))
+    h_len = round(h_step * 2.5)
+    h_alpha = 0.18 + intensity * 0.025
+    h_scale = 1.0 - h_alpha * (1.0 - 48.0 / 255.0)
+    a1 = np.pi / 5         # 36 deg
+    c1, s1 = float(np.cos(a1)), float(np.sin(a1))
+    a2 = np.pi * 2 / 5    # 72 deg cross
+    c2, s2 = float(np.cos(a2)), float(np.sin(a2))
+    lw = max(1, round(stroke * 0.35))
+    mark_mask = np.zeros((h, w), dtype=np.uint8)
+    for y in range(0, h, h_step):
+        for x in range(0, w, h_step):
+            gi = int(gray[min(h-1, y), min(w-1, x)])
+            if gi > 108:
+                continue
+            jx = x + int((random.random() - 0.5) * h_step * 0.4)
+            jy = y + int((random.random() - 0.5) * h_step * 0.4)
+            hl = h_len * (0.5 + random.random() * 0.6)
+            p1 = (max(0, min(w-1, round(jx - c1*hl/2))), max(0, min(h-1, round(jy - s1*hl/2))))
+            p2 = (max(0, min(w-1, round(jx + c1*hl/2))), max(0, min(h-1, round(jy + s1*hl/2))))
+            cv2.line(mark_mask, p1, p2, 255, lw)
+            if gi < 68:
+                p3 = (max(0, min(w-1, round(jx - c2*hl/2))), max(0, min(h-1, round(jy - s2*hl/2))))
+                p4 = (max(0, min(w-1, round(jx + c2*hl/2))), max(0, min(h-1, round(jy + s2*hl/2))))
+                cv2.line(mark_mask, p3, p4, 255, lw)
+    has_mark = mark_mask > 0
+    result_f = result.astype(np.float32)
+    result_f[has_mark] = np.clip(result_f[has_mark] * h_scale, 0, 255)
+    return result_f.astype(np.uint8)
 
 
 def render_contour(gray, edges, intensity, stroke):
-    """Contour drawing: outlines only, focuses on shape accuracy"""
+    """Contour: anti-aliased smooth lines via smoothstep transition"""
     h, w = gray.shape
-    thr = 40 + (11 - intensity) * 18
-    result = np.where(edges > thr, 0, 255).astype(np.uint8)
-    return result
+    thr = max(12, int(40 + (11 - intensity) * 13 - stroke * 2.5))
+    softness = 6 + stroke * 2
+    e = edges.astype(np.float32)
+    result = np.full((h, w), 255, dtype=np.float32)
+    fully = e >= (thr + softness)
+    band = (e > thr) & ~fully
+    result[fully] = 10  # near-black line interior
+    t_b = (e[band] - thr) / softness
+    result[band] = np.clip(255 - 245 * t_b * t_b * (3 - 2 * t_b), 10, 255)
+    return result.astype(np.uint8)
 
 
 def render_blind_contour(gray, edges, intensity, stroke):
-    """Blind contour: random, expressive strokes without adherence to edges"""
+    """Blind contour: long fan-directed walks following edges with random drift"""
     h, w = gray.shape
     result = np.full((h, w), 255, dtype=np.uint8)
-    
-    stroke_count = int(15 + intensity * 2)
-    step_size = max(30, int(80 - stroke * 3))
-    
-    for _ in range(stroke_count):
-        # Random starting point
-        x = random.randint(0, w - 1)
-        y = random.randint(0, h - 1)
-        
-        # Draw continuous, random path
-        path_length = random.randint(5, 13)
-        points = [(x, y)]
-        
-        for _ in range(path_length):
-            x += random.randint(-step_size, step_size)
-            y += random.randint(-step_size, step_size)
-            x = max(0, min(w - 1, x))
-            y = max(0, min(h - 1, y))
-            points.append((x, y))
-        
-        # Draw the path
-        for i in range(len(points) - 1):
-            thickness = max(1, int(1 + random.random() * 1.2))
-            cv2.line(result, points[i], points[i + 1], 51, thickness)
-    
+    step_len = max(1.5, (w + h) / 600)
+    num_strokes = 2 + round(intensity * 0.2)   # 2-4
+    total_steps = int((w + h) * (4 + intensity * 0.5))
+    steps_per_stroke = total_steps // num_strokes
+    base_width = max(1, round(0.55 + stroke * 0.18))
+    drift_range = (0.18 + (10 - intensity) * 0.035) * np.pi
+    edge_sensitivity = 8 + intensity * 2.5
+    lookahead = step_len * 4
+    fan_count = 12
+    fan_spread = np.pi * 0.44   # +-40 deg
+
+    def edge_at(x, y):
+        xi, yi = int(x), int(y)
+        if xi < 0 or xi >= w or yi < 0 or yi >= h:
+            return 0.0
+        return float(edges[yi, xi])
+
+    def find_start():
+        bx, by, be = random.random() * w, random.random() * h, 0.0
+        for _ in range(50):
+            x = random.random() * w
+            y = random.random() * h
+            ev = edge_at(x, y)
+            if ev > be:
+                be, bx, by = ev, x, y
+        return bx, by
+
+    for _ in range(num_strokes):
+        x, y = find_start()
+        angle = random.random() * np.pi * 2
+        pts = [(int(round(x)), int(round(y)))]
+        for _step in range(steps_per_stroke):
+            best_score, best_angle = -1.0, angle
+            for f in range(fan_count):
+                t_a = angle - fan_spread / 2 + (f / (fan_count - 1)) * fan_spread
+                lx = x + np.cos(t_a) * lookahead
+                ly = y + np.sin(t_a) * lookahead
+                deviation = abs(t_a - angle)
+                score = edge_at(lx, ly) + (1 - deviation / np.pi) * edge_sensitivity
+                if score > best_score:
+                    best_score, best_angle = score, t_a
+            angle = best_angle + (random.random() - 0.5) * drift_range
+            x += np.cos(angle) * step_len
+            y += np.sin(angle) * step_len
+            # Soft boundary: reflect at canvas edges
+            if x < 0:      x = -x;           angle = np.pi - angle
+            if x > w - 1:  x = 2*(w-1) - x;  angle = np.pi - angle
+            if y < 0:      y = -y;            angle = -angle
+            if y > h - 1:  y = 2*(h-1) - y;  angle = -angle
+            pts.append((int(round(x)), int(round(y))))
+        if len(pts) >= 2:
+            pts_arr = np.array(pts, dtype=np.int32)
+            cv2.polylines(result, [pts_arr], isClosed=False, color=18, thickness=base_width)
     return result
 
 
@@ -398,21 +544,34 @@ def render_cartoon(gray, edges, intensity, stroke):
 
 
 def render_hatching(gray, edges, intensity, stroke):
-    """Hatching: parallel lines for shading"""
+    """Hatching: tone-driven 30-degree parallel lines, vectorized with d-grid"""
     h, w = gray.shape
-    thr = 10 + (11 - intensity) * 12
-    result = 255 - np.minimum(255, np.maximum(0, edges - thr)).astype(np.uint8)
-    
-    # Vertical hatching lines
-    step = max(3, int(12 - stroke))
-    line_width = max(1, int(0.5 + stroke * 0.3))
-    
-    for x in range(0, w, step):
-        for y in range(0, h, step * 2):
-            if edges[y, x] > 25:
-                cv2.line(result, (x, y), (x, min(y + step, h - 1)), 17, line_width)
-    
-    return result
+    # Edge outline for form definition
+    edge_thr = 35 + (11 - intensity) * 13
+    result = np.where(edges > edge_thr, np.uint8(12), np.uint8(255))
+    # Hatching parameters
+    spacing = max(3, round(16 - stroke * 1.3))
+    half_lw = max(0.5, (0.45 + stroke * 0.1) / 2.0)
+    tone_thr = 60 + intensity * 14   # 74 (i=1) to 200 (i=10)
+    hyst = 6
+    h_alpha = 0.82
+    h_scale = 1.0 - h_alpha * (1.0 - 14.0 / 255.0)  # multiply blend factor
+    # Per-pixel perpendicular distance from any 30-deg hatching line
+    angle = np.pi / 6   # 30 deg
+    cos_a, sin_a = float(np.cos(angle)), float(np.sin(angle))
+    xs = np.arange(w, dtype=np.float32)
+    ys = np.arange(h, dtype=np.float32)
+    XX, YY = np.meshgrid(xs, ys)
+    d_grid = (-XX * sin_a + YY * cos_a) % spacing
+    on_line = (d_grid < half_lw) | (d_grid > spacing - half_lw)
+    # Tone mask: draw where image is dark enough (with hysteresis headroom)
+    gray_sm = cv2.GaussianBlur(gray, (3, 3), 0).astype(np.float32)
+    tone_mask = gray_sm < (tone_thr + hyst)
+    # Apply multiply-equivalent darkening to marked pixels
+    has_mark = on_line & tone_mask
+    result_f = result.astype(np.float32)
+    result_f[has_mark] = np.clip(result_f[has_mark] * h_scale, 0, 255)
+    return result_f.astype(np.uint8)
 
 
 def render_crosshatching(gray, edges, intensity, stroke):
