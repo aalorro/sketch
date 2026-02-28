@@ -190,6 +190,88 @@ See [README.md](README.md#local-development-setup-recommended-for-testing) for c
 
 ---
 
+## Before/After Comparison Slider
+
+**Description:** Overlays the original photo on the left portion of the rendered sketch panel with a draggable divider, so you can compare the source image and the sketch side-by-side within the same frame.
+
+**Default:** ❌ Off
+
+**How to use:**
+1. Load and render an image
+2. Click the **Compare** button in the zoom controls row below the rendered panel
+3. Drag the ⇔ handle left or right to reveal more original or more sketch
+4. Click **Exit Compare** to return to normal view
+
+**Works with:**
+- All sketch styles and rendering paths (canvas, WebGL, server)
+- Mouse drag and touch drag (mobile-friendly)
+- Any zoom or pan level
+
+**Tips:**
+- Use it to judge how much detail the sketch retains vs. the original
+- Combine with the Intensity slider — drag to compare while adjusting to find the right balance
+- The divider resets to 50% each time you activate Compare
+
+---
+
+## Clipboard Paste (Ctrl+V)
+
+**Description:** Load an image directly from your clipboard by pressing Ctrl+V anywhere on the page — no file picker needed.
+
+**Default:** Always available
+
+**How to use:**
+1. Copy any image to your clipboard (screenshot, right-click → Copy Image, etc.)
+2. Click anywhere on the Sketchify page to focus it
+3. Press **Ctrl+V** (or **Cmd+V** on Mac)
+4. The image loads and previews instantly, exactly like using the file picker
+
+**Works with:**
+- Screenshots (Win+Shift+S, Snipping Tool, macOS screenshot)
+- Images copied from browsers, design tools, file explorers
+- Any image format your browser supports (PNG, JPEG, WebP, etc.)
+
+**Notes:**
+- Pasting replaces the current image and resets zoom/pan to default
+- A hint `"or paste an image with Ctrl+V"` appears below the Load image button as a reminder
+- Pasting does not trigger Generate automatically — adjust settings and click Generate as usual
+
+---
+
+## Texture Overlay
+
+**Description:** Composites a procedurally generated texture on top of the finished sketch using multiply blending, simulating physical media like paper grain, canvas weave, or film grain.
+
+**Default:** None (opacity slider default: 3)
+
+**Texture types:**
+
+| Type | Character | Best for |
+|------|-----------|----------|
+| Paper grain | Subtle light noise (200–255 luminance) | Pencil and charcoal styles |
+| Canvas weave | Grid weave pattern with gentle noise | Oil painting, dry brush styles |
+| Rough paper | Stronger grain (160–255 luminance) | Etching, pastel, expressive styles |
+| Film grain | High-contrast noise (100–255 luminance) | Glitch, mixed-media, dark moody styles |
+
+**Controls:**
+- **Texture** dropdown — select the texture type (or None to disable)
+- **Texture opacity** slider (0–10) — controls how strongly the texture blends; 0 = invisible, 10 = full intensity
+
+**When to use:**
+- **Paper grain:** Add subtle warmth and tactility to pencil or charcoal sketches
+- **Canvas weave:** Give oil or dry brush styles a painterly physical feel
+- **Rough paper:** Emphasise grit and imperfection in expressive or etching styles
+- **Film grain:** Add a moody, aged, or cinematic quality to any style
+
+**Tips:**
+- Start with opacity 2–4 for a subtle effect; 6–8 for a pronounced look
+- Multiply blending darkens the sketch slightly — pair with a higher Contrast value if needed
+- Texture is baked into exported PNG/JPG files
+- Texture type and opacity participate in undo/redo and preset save/load
+- Changing canvas size (resolution/aspect) auto-generates a fresh texture at the new dimensions
+
+---
+
 ## Quick Decision Tree
 
 **"Should I enable these features?"**
@@ -210,6 +292,14 @@ See [README.md](README.md#local-development-setup-recommended-for-testing) for c
 4. Use Server Style-Transfer?
    → Running a local server? YES
    → Want privacy/offline? NO
+
+5. Texture Overlay?
+   → Want a physical media feel? YES — pick type + set opacity 2-5
+   → Want a clean digital sketch? NO (leave at None)
+
+6. Before/After Compare?
+   → Evaluating how much detail the sketch keeps? YES — click Compare
+   → Just browsing styles? NO
 ```
 
 ---
@@ -248,6 +338,14 @@ See [README.md](README.md#local-development-setup-recommended-for-testing) for c
 
 **Best for:** Using deployed ML style transfer models, proprietary algorithms
 
+### Configuration 5: Physical Media Look
+- Skip hatching: ❌ OFF
+- Use GPU: ❌ OFF
+- Texture: Paper grain or Canvas weave, opacity 3–5
+- Style: Charcoal, Etching, or Dry brush
+
+**Best for:** Sketches that look hand-drawn on textured paper or canvas
+
 ---
 
 ## Troubleshooting
@@ -277,4 +375,13 @@ See [README.md](README.md#local-development-setup-recommended-for-testing) for c
 - Keep "Use external ML" and "Use server" OFF
 - All processing stays in your browser
 - No images are uploaded anywhere
+
+**Texture makes the sketch too dark:**
+- Lower the Texture opacity slider (try 1–3)
+- Increase the Contrast slider slightly to compensate for multiply darkening
+- Switch to Paper grain (lightest texture) if other types feel too heavy
+
+**Compare slider handle is hard to grab on mobile:**
+- Tap anywhere near the divider line — the handle is 32px wide
+- Pinch to zoom out first if the canvas is filling the screen
 
