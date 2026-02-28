@@ -2797,69 +2797,151 @@
   }
 
   function renderGlitch(ctx, w, h, edges, gray, intensity, stroke, rand) {
-    const thr = 10 + (11-intensity)*12;
-    const overlay = ctx.createImageData(w,h);
-    for(let i=0; i<w*h; i++) {
+    // ── 1. Edge base with noise corruption ────────────────────────────────────
+    const thr = Math.max(10, 60 - intensity * 5);
+    const noiseChance = 0.04 + intensity * 0.025; // corrupt pixel probability
+    const overlay = ctx.createImageData(w, h);
+    const d = overlay.data;
+
+    for (let i = 0; i < w * h; i++) {
       let e = edges[i];
-      // More aggressive glitch corruption
-      if(rand()<0.15) e = rand()*255;  // Increased from 0.1
-      const v = 255 - Math.min(255, Math.max(0, e - thr));
-      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v;
-      overlay.data[i*4+3]=255;
+      if (rand() < noiseChance) e = rand() * 255; // data corruption
+      const v = e > thr ? Math.max(0, 230 - e) : 255;
+      d[i*4] = d[i*4+1] = d[i*4+2] = v;
+      d[i*4+3] = 255;
     }
-    ctx.putImageData(overlay,0,0);
-    
-    // Add aggressive scanlines and glitch artifacts
+
+    // ── 2. Row-shift corruption (horizontal slice displacement) ───────────────
+    const corruptChance = 0.04 + intensity * 0.035; // 0.075–0.39 per row
+    const maxShift = Math.round(w * (0.03 + intensity * 0.04)); // up to ~43% of width
+    const rowBuf = new Uint8ClampedArray(w * 4);
+
+    for (let y = 0; y < h; y++) {
+      if (rand() > corruptChance) continue;
+      const shift = Math.round((rand() - 0.5) * 2 * maxShift);
+      const rowOff = y * w * 4;
+      // Copy row to buffer
+      for (let x = 0; x < w; x++) {
+        rowBuf[x*4]   = d[rowOff + x*4];
+        rowBuf[x*4+1] = d[rowOff + x*4+1];
+        rowBuf[x*4+2] = d[rowOff + x*4+2];
+        rowBuf[x*4+3] = 255;
+      }
+      // Write back with circular shift
+      for (let x = 0; x < w; x++) {
+        const srcX = ((x - shift) % w + w) % w;
+        d[rowOff + x*4]   = rowBuf[srcX*4];
+        d[rowOff + x*4+1] = rowBuf[srcX*4+1];
+        d[rowOff + x*4+2] = rowBuf[srcX*4+2];
+      }
+    }
+    ctx.putImageData(overlay, 0, 0);
+
+    // ── 3. Chromatic aberration bands (RGB channel misalignment) ─────────────
+    const numBars = Math.round(3 + intensity * 1.5);
+    ctx.globalCompositeOperation = 'screen';
+    for (let b = 0; b < numBars; b++) {
+      const barY  = Math.floor(rand() * h);
+      const barH  = Math.round(1 + rand() * (3 + intensity * 0.5));
+      const shift = Math.round((rand() - 0.5) * maxShift * 2);
+      const alpha = (0.12 + rand() * 0.18).toFixed(2);
+      // Red displaced one way
+      ctx.fillStyle = `rgba(255,0,0,${alpha})`;
+      ctx.fillRect(shift, barY, w, barH);
+      // Cyan displaced opposite (cyan = green+blue)
+      ctx.fillStyle = `rgba(0,255,255,${(parseFloat(alpha) * 0.7).toFixed(2)})`;
+      ctx.fillRect(-shift, barY + 1, w, barH);
+    }
+
+    // ── 4. Flat-colour dropout bands ─────────────────────────────────────────
+    const numDropouts = Math.round(2 + intensity * 0.8);
     ctx.globalCompositeOperation = 'overlay';
-    ctx.strokeStyle = 'rgba(200,50,50,0.3)';
-    ctx.lineWidth = 1;
-    for(let y=0; y<h; y+=2) {
-      if(rand()>0.5) {
-        ctx.beginPath();
-        ctx.moveTo(0 + rand()*5, y);
-        ctx.lineTo(w + rand()*5, y);
-        ctx.stroke();
-      }
+    for (let b = 0; b < numDropouts; b++) {
+      const barY      = Math.floor(rand() * h);
+      const barH      = Math.round(1 + rand() * 3);
+      const brightness = rand() > 0.5 ? 230 : 20;
+      ctx.fillStyle = `rgba(${brightness},${brightness},${brightness},0.45)`;
+      ctx.fillRect(0, barY, w, barH);
     }
-    
-    // Add random offset effects
-    ctx.globalCompositeOperation = 'lighten';
-    ctx.fillStyle = 'rgba(100,200,255,0.2)';
-    for(let y=0; y<h; y+=Math.max(5, 15-stroke)) {
-      if(rand()>0.6) {
-        const shift = Math.random() * 10 - 5;
-        ctx.fillRect(shift + rand()*20, y, Math.random()*30, 3);
-      }
-    }
-    
+
+    ctx.globalAlpha = 1.0;
     ctx.globalCompositeOperation = 'source-over';
   }
 
   function renderMixedMedia(ctx, w, h, edges, gray, intensity, stroke, rand) {
-    const thr = 10 + (11-intensity)*12;
-    const overlay = ctx.createImageData(w,h);
-    for(let i=0; i<w*h; i++) {
-      const v = 255 - Math.min(255, Math.max(0, edges[i] - thr));
-      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v;
-      overlay.data[i*4+3]=255;
+    // ── 1. Warm tonal base (acrylic wash / paper ground) ─────────────────────
+    const overlay  = ctx.createImageData(w, h);
+    const d        = overlay.data;
+    const lineThr  = Math.max(12, 65 - intensity * 5);
+    const softness = 10;
+
+    for (let i = 0; i < w * h; i++) {
+      const g = gray[i];
+      const e = edges[i];
+      // Quadratic darkening from grey: cream highlights → warm shadow
+      const base = Math.round(242 - (1 - g / 255) * (1 - g / 255) * 115);
+      let r  = Math.min(255, base + 5);
+      let gv = base;
+      let b  = Math.max(0, base - 14); // warm (slight yellow-brown) bias
+
+      // Pen lines at strong edges
+      if (e > lineThr) {
+        const t  = Math.min(1, (e - lineThr) / softness);
+        const lf = t * t * (3 - 2 * t);
+        r  = Math.round(r  - r  * lf * 0.93);
+        gv = Math.round(gv - gv * lf * 0.93);
+        b  = Math.round(b  - b  * lf * 0.93);
+      }
+      d[i*4] = r; d[i*4+1] = gv; d[i*4+2] = b; d[i*4+3] = 255;
     }
-    ctx.putImageData(overlay,0,0);
-    // Mix of techniques
+    ctx.putImageData(overlay, 0, 0);
+
+    // ── 2. Stipple dots in mid-tone areas (pencil/stipple layer) ─────────────
+    const dotStep  = Math.max(4, Math.round(15 - stroke * 1.0));
+    const baseR    = 0.5 + stroke * 0.14;
+    ctx.fillStyle  = 'rgba(55,38,18,0.55)';
+    ctx.beginPath();
+    for (let y = 0; y < h; y += dotStep) {
+      for (let x = 0; x < w; x += dotStep) {
+        const g = gray[Math.min(w*h-1, y*w+x)];
+        if (g < 80 || g > 178) continue; // mid-tones only
+        const jx = x + (rand()-0.5)*dotStep*0.7;
+        const jy = y + (rand()-0.5)*dotStep*0.7;
+        const r  = baseR * (1 + (178 - g) / 178 * 0.6);
+        ctx.moveTo(jx + r, jy);
+        ctx.arc(jx, jy, r, 0, Math.PI * 2);
+      }
+    }
+    ctx.fill();
+
+    // ── 3. Diagonal cross-hatching in dark shadows (pen/ink layer) ────────────
+    const hStep  = Math.max(3, Math.round(13 - stroke * 0.9));
+    const hLen   = Math.round(hStep * 2.5);
+    const hAlpha = (0.18 + intensity * 0.025).toFixed(3);
+    const a1 = Math.PI / 5,       c1 = Math.cos(a1), s1 = Math.sin(a1); // 36°
+    const a2 = Math.PI * 2 / 5,   c2 = Math.cos(a2), s2 = Math.sin(a2); // 72° cross
+
     ctx.globalCompositeOperation = 'multiply';
-    ctx.fillStyle = 'rgba(0,0,0,0.2)';
-    ctx.strokeStyle = 'rgba(100,0,0,0.3)';
-    const step = Math.max(5, 12-stroke);
-    for(let y=0; y<h; y+=step*1.5) {
-      for(let x=0; x<w; x+=step*1.5) {
-        if(rand()>0.5) {
-          ctx.fillRect(x, y, step/2, step/2);
-        } else {
-          ctx.beginPath();
-          ctx.arc(x, y, step/3, 0, Math.PI*2);
-          ctx.stroke();
+    ctx.strokeStyle = `rgba(48,32,12,${hAlpha})`;
+    ctx.lineWidth   = Math.max(0.5, stroke * 0.35);
+    ctx.lineCap     = 'round';
+    ctx.beginPath();
+    for (let y = 0; y < h; y += hStep) {
+      for (let x = 0; x < w; x += hStep) {
+        const g = gray[Math.min(w*h-1, y*w+x)];
+        if (g > 108) continue; // darkest shadows only
+        const jx = x + (rand()-0.5)*hStep*0.4;
+        const jy = y + (rand()-0.5)*hStep*0.4;
+        const hl = hLen * (0.5 + rand() * 0.6);
+        ctx.moveTo(jx - c1*hl/2, jy - s1*hl/2);
+        ctx.lineTo(jx + c1*hl/2, jy + s1*hl/2);
+        if (g < 68) { // cross-hatch only in deepest shadow
+          ctx.moveTo(jx - c2*hl/2, jy - s2*hl/2);
+          ctx.lineTo(jx + c2*hl/2, jy + s2*hl/2);
         }
       }
     }
+    ctx.stroke();
     ctx.globalCompositeOperation = 'source-over';
   }
 
@@ -3029,51 +3111,76 @@
     ctx.globalCompositeOperation = 'source-over';
   }
 
-  function renderOilPainting(ctx, w, h, edges, gray, intensity, stroke, rand){
-    // Oil painting: thick bold expressive strokes with blended tones
-    const thr = 20 + (11-intensity)*10 - stroke * 0.5;
-    const overlay = ctx.createImageData(w, h);
-    
-    // Gray mid-tone base for oil effect
-    for(let i=0; i<w*h; i++){
-      const v = (edges[i] > thr) ? 80 : 200;
-      overlay.data[i*4] = v;
-      overlay.data[i*4+1] = v;
-      overlay.data[i*4+2] = v;
-      overlay.data[i*4+3] = 255;
+  function renderOilPainting(ctx, w, h, edges, gray, intensity, stroke, rand) {
+    // ── 1. Tonal base with strong S-curve contrast (oil pigment richness) ─────
+    const overlay  = ctx.createImageData(w, h);
+    const d        = overlay.data;
+    const contrast = 0.65 + intensity * 0.035; // 0.69–1.0
+
+    for (let i = 0; i < w * h; i++) {
+      const t  = gray[i] / 255;
+      const s  = t < 0.5 ? 2*t*t : 1 - 2*(1-t)*(1-t); // S-curve
+      const sc = Math.max(0, Math.min(1, 0.5 + (s - 0.5) * contrast));
+      const v  = Math.round(sc * 255);
+      // Warm highlights (slight cream), deep shadows (near-black)
+      d[i*4]   = Math.min(255, v + (v > 128 ?  5 : -2));
+      d[i*4+1] = v;
+      d[i*4+2] = Math.max(0,   v - (v > 128 ?  7 :  0));
+      d[i*4+3] = 255;
     }
     ctx.putImageData(overlay, 0, 0);
-    
-    // Add thick expressive brush strokes
-    ctx.globalCompositeOperation = 'color-dodge';
-    ctx.globalAlpha = 0.4;
-    ctx.fillStyle = '#333333';
-    
-    const brushSize = Math.max(4, 8 - stroke * 0.2);
-    for(let y=0; y<h; y+=brushSize*0.7){
-      for(let x=0; x<w; x+=brushSize*0.7){
-        const idx = y*w + x;
-        if(idx < w*h && edges[idx] > thr){
-          ctx.fillRect(x, y, brushSize, brushSize);
-        }
+
+    // ── 2. Form-following brush strokes (perpendicular to image gradient) ─────
+    const brushStep = Math.max(4, Math.round(18 - stroke * 1.2));
+    const brushLen  = Math.round(brushStep * (1.0 + stroke * 0.2));
+    const brushW    = Math.max(1.5, stroke * 0.6);
+    const bAlpha    = (0.13 + intensity * 0.018).toFixed(3);
+
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.strokeStyle = `rgba(20,14,8,${bAlpha})`;
+    ctx.lineWidth   = brushW;
+    ctx.lineCap     = 'round';
+    ctx.beginPath();
+
+    for (let y = 2; y < h - 2; y += brushStep) {
+      for (let x = 2; x < w - 2; x += brushStep) {
+        const g = gray[y * w + x];
+        if (g > 218) continue; // skip bright highlights
+
+        // Gradient at this pixel → stroke runs perpendicular to it (follows form)
+        const gxVal = gray[y*w + (x+1)] - gray[y*w + (x-1)];
+        const gyVal = gray[(y+1)*w + x] - gray[(y-1)*w + x];
+        const mag   = Math.sqrt(gxVal*gxVal + gyVal*gyVal);
+        const angle = mag < 2
+          ? rand() * Math.PI                              // flat area: gestural random
+          : Math.atan2(gyVal, gxVal) + Math.PI/2 + (rand()-0.5)*0.35; // form-following
+
+        const jx  = x + (rand()-0.5)*brushStep*0.5;
+        const jy  = y + (rand()-0.5)*brushStep*0.5;
+        const len = brushLen * (0.5 + rand() * 0.7);
+        ctx.moveTo(jx - Math.cos(angle)*len/2, jy - Math.sin(angle)*len/2);
+        ctx.lineTo(jx + Math.cos(angle)*len/2, jy + Math.sin(angle)*len/2);
       }
     }
-    
-    // Add highlight strokes
-    ctx.globalCompositeOperation = 'lighten';
-    ctx.globalAlpha = 0.3;
-    ctx.fillStyle = '#cccccc';
-    
-    for(let y=0; y<h; y+=brushSize*1.2){
-      for(let x=0; x<w; x+=brushSize*1.2){
-        const idx = y*w + x;
-        if(idx < w*h && edges[idx] > thr * 0.7){
-          ctx.fillRect(x, y, brushSize/2, brushSize/2);
-        }
+    ctx.stroke();
+
+    // ── 3. Edge definition (soft contour reinforcement) ───────────────────────
+    const edgeThr  = Math.max(15, 70 - intensity * 5);
+    const eAlpha   = (0.22 + intensity * 0.04).toFixed(3);
+    ctx.strokeStyle = `rgba(15,10,5,${eAlpha})`;
+    ctx.lineWidth   = Math.max(0.5, brushW * 0.5);
+    ctx.beginPath();
+    for (let y = 1; y < h - 1; y += 2) {
+      for (let x = 1; x < w - 1; x += 2) {
+        const e = edges[y*w+x];
+        if (e <= edgeThr) continue;
+        const t = Math.min(1, (e - edgeThr) / 20);
+        if (rand() > t) continue; // probabilistic thinning
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + (rand()-0.5), y + (rand()-0.5));
       }
     }
-    
-    ctx.globalAlpha = 1.0;
+    ctx.stroke();
     ctx.globalCompositeOperation = 'source-over';
   }
 
