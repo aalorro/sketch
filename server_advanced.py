@@ -619,7 +619,92 @@ def render_tonal_shading(gray, edges, intensity, stroke):
     return result
 
 
-def stylize_opencv(img_bgr, artStyle='pencil', style='line', brush='line', 
+def apply_brush_effect(result, intensity, stroke, brush):
+    """Apply brush texture overlay on the grayscale style output.
+    Mirrors the canvas applyBrushEffect logic for the five brush modes."""
+    if brush == 'line':
+        return result
+    h, w = result.shape
+
+    if brush in ('hatch', 'crosshatch'):
+        # Tone-aware hatching: vectorized d-grid modulo, draw only where sketch is dark
+        spacing  = max(4, round(18 - stroke * 1.4))
+        tone_thr = 85 + intensity * 12   # 97 (i=1) to 205 (i=10)
+        hyst     = 8
+        half_lw  = max(0.15, (0.38 + stroke * 0.09) / 2.0)
+        xs = np.arange(w, dtype=np.float32)
+        ys = np.arange(h, dtype=np.float32)
+        XX, YY = np.meshgrid(xs, ys)
+        PASSES = [(np.pi / 6, tone_thr, 0.60)]
+        if brush == 'crosshatch':
+            PASSES.append((np.pi * 2 / 3, tone_thr - 24, 0.44))
+        result_f = result.astype(np.float32)
+        for angle, thr, alpha in PASSES:
+            cos_a = float(np.cos(angle))
+            sin_a = float(np.sin(angle))
+            d_grid   = (-XX * sin_a + YY * cos_a) % spacing
+            on_line  = (d_grid < half_lw) | (d_grid > spacing - half_lw)
+            tone_mask = result_f < (thr + hyst)
+            h_scale  = 1.0 - alpha * (1.0 - 18.0 / 255.0)
+            result_f[on_line & tone_mask] = np.clip(
+                result_f[on_line & tone_mask] * h_scale, 0, 255)
+        return result_f.astype(np.uint8)
+
+    elif brush == 'charcoal':
+        # Directional grain marks at ~15 deg (matching renderCharcoal angle) + grain noise
+        mark_step  = max(4, round(16 - stroke * 1.1))
+        mark_len   = round(mark_step * (1.3 + stroke * 0.2))
+        mark_alpha = 0.07 + intensity * 0.016
+        mark_scale = 1.0 - mark_alpha * (1.0 - 22.0 / 255.0)
+        slope  = 0.27   # tan(15 deg)
+        line_w = max(1, round(stroke * 0.5))
+        mark_mask = np.zeros((h, w), dtype=np.uint8)
+        for y in range(0, h, mark_step):
+            for x in range(0, w, mark_step):
+                if int(result[min(h-1, y), min(w-1, x)]) > 215:
+                    continue
+                jx     = x + int((random.random() - 0.5) * mark_step * 0.7)
+                jy     = y + int((random.random() - 0.5) * mark_step * 0.7)
+                length = mark_len * (0.4 + random.random() * 0.8)
+                hdx    = slope * length * 0.5
+                p1 = (max(0, min(w-1, round(jx - hdx))), max(0, min(h-1, round(jy - length*0.5))))
+                p2 = (max(0, min(w-1, round(jx + hdx))), max(0, min(h-1, round(jy + length*0.5))))
+                cv2.line(mark_mask, p1, p2, 255, line_w)
+        grain_chance = 0.009 + intensity * 0.007
+        grain_alpha  = 0.17 + stroke * 0.03
+        grain_scale  = 1.0 - grain_alpha * (1.0 - 24.0 / 255.0)
+        grain_mask   = np.random.random((h, w)) < grain_chance
+        mid_mask     = (result > 18) & (result < 235)
+        result_f = result.astype(np.float32)
+        result_f[mark_mask > 0] = np.clip(result_f[mark_mask > 0] * mark_scale, 0, 255)
+        result_f[grain_mask & mid_mask] = np.clip(
+            result_f[grain_mask & mid_mask] * grain_scale, 0, 255)
+        return result_f.astype(np.uint8)
+
+    elif brush == 'inkwash':
+        # 3x3 box-blur softening (1-3 passes) blended with original + wet-edge bloom
+        blur_passes = 1 + round(stroke * 0.2)
+        wash_str    = 0.28 + stroke * 0.055
+        orig   = result.astype(np.float32)
+        blurred = orig.copy()
+        for _ in range(blur_passes):
+            blurred = cv2.blur(blurred, (3, 3))
+        washed = np.clip(orig * (1 - wash_str) + blurred * wash_str, 0, 255).astype(np.uint8)
+        # Wet-edge bloom: lighten near dark sketch marks (simulates ink bleed)
+        bloom_r     = max(1, 2 + round(stroke * 0.45))
+        bloom_alpha = 0.07 + intensity * 0.009
+        ksize       = bloom_r * 2 + 1
+        dark_mask   = (result < 75).astype(np.float32)
+        bloom_spread = cv2.GaussianBlur(dark_mask * 255, (ksize, ksize), bloom_r * 0.5) / 255.0
+        result_f    = washed.astype(np.float32)
+        boost       = np.maximum(0.0, 238.0 - result_f) * bloom_spread * bloom_alpha
+        result_f    = np.clip(result_f + boost, 0, 255)
+        return result_f.astype(np.uint8)
+
+    return result
+
+
+def stylize_opencv(img_bgr, artStyle='pencil', style='line', brush='line',
                    stroke=1, skipHatching=False, seed=0, intensity=6,
                    smoothing=0, colorize=False, invert=False, 
                    contrast=0, saturation=0, hueShift=0):
@@ -713,6 +798,10 @@ def stylize_opencv(img_bgr, artStyle='pencil', style='line', brush='line',
         kernel_size = max(3, int(smoothing * 2) | 1)  # Ensure odd number >= 3
         result = cv2.GaussianBlur(result, (kernel_size, kernel_size), 0)
     
+    # Apply brush texture overlay
+    if brush != 'line':
+        result = apply_brush_effect(result, intensity, stroke, brush)
+
     # Convert to BGR
     result_bgr = cv2.cvtColor(result, cv2.COLOR_GRAY2BGR)
     
