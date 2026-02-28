@@ -2035,8 +2035,8 @@
     // Number of separate pen lifts: 2 at low intensity (looser), 4 at high (more passes)
     const numStrokes = 2 + Math.round(intensity * 0.2);  // 2–4
 
-    // Total walk length grows with intensity (more coverage = more detail)
-    const totalSteps = Math.floor((w + h) * (4 + intensity * 0.5));
+    // Total walk length grows with intensity and stroke (more stroke = more coverage)
+    const totalSteps = Math.floor((w + h) * (4 + intensity * 0.5 + stroke * 0.25));
     const stepsPerStroke = Math.floor(totalSteps / numStrokes);
 
     // Line weight from stroke slider; slight per-stroke variation for organic feel
@@ -2109,7 +2109,7 @@
       // Render as a smooth quadratic-bezier path (midpoint method)
       ctx.beginPath();
       ctx.lineWidth = baseWidth + rand() * 0.25;
-      ctx.strokeStyle = 'rgba(18, 12, 8, 0.88)';
+      ctx.strokeStyle = `rgba(18,12,8,${(0.60 + stroke * 0.04).toFixed(2)})`; // stroke → darker/bolder marks
       ctx.moveTo(pts[0][0], pts[0][1]);
       for (let i = 1; i < pts.length - 1; i++) {
         const mx = (pts[i][0] + pts[i+1][0]) / 2;
@@ -2469,19 +2469,23 @@
   }
 
   function renderTonalPencil(ctx, w, h, edges, gray, intensity, stroke, rand) {
-    // Smooth, blended tonal rendering with intensity control
-    const edgeWeight = (intensity / 11) * 0.7;  // Higher intensity = more edge emphasis
-    const grayWeight = (1 - (intensity / 11) * 0.5);  // Higher intensity = less gray smoothing
-    const overlay = ctx.createImageData(w,h);
-    for(let i=0; i<w*h; i++) {
+    // S-curve tonal map + stroke-controlled edge threshold and softness
+    const edgeThr  = Math.max(14, 45 + (11 - intensity) * 11 - stroke * 2); // stroke lowers thr → more edge darkening
+    const softness = 5 + stroke;   // wider anti-alias band at high stroke → smoother transitions
+    const overlay  = ctx.createImageData(w, h);
+    const d        = overlay.data;
+    for (let i = 0; i < w * h; i++) {
+      const t = gray[i] / 255;
+      const s = t < 0.5 ? 2*t*t : 1 - 2*(1-t)*(1-t);  // S-curve
+      let v = Math.round(30 + s * 222);                   // pencil range [30, 252]
       const e = edges[i];
-      const g = gray[i];
-      const blended = edgeWeight * e + grayWeight * g * 0.5;
-      const v = 255 - Math.min(255, blended);
-      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v;
-      overlay.data[i*4+3]=255;
+      if (e > edgeThr) {
+        const tt = Math.min(1, (e - edgeThr) / softness);
+        v = Math.max(0, Math.round(v - (v - 25) * tt * tt * (3 - 2 * tt)));
+      }
+      d[i*4] = d[i*4+1] = d[i*4+2] = v; d[i*4+3] = 255;
     }
-    ctx.putImageData(overlay,0,0);
+    ctx.putImageData(overlay, 0, 0);
   }
 
   function renderCharcoal(ctx, w, h, edges, gray, intensity, stroke, rand) {
@@ -2568,24 +2572,21 @@
   }
 
   function renderInkWash(ctx, w, h, edges, gray, intensity, stroke, rand) {
-    const thr = 20 + (11-intensity)*15;
-    const overlay = ctx.createImageData(w,h);
-    for(let i=0; i<w*h; i++) {
-      const v = 255 - Math.min(255, Math.max(0, edges[i] - thr/2));
-      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v;
-      overlay.data[i*4+3]=255;
+    const thr       = Math.max(8, 40 + (11 - intensity) * 12 - stroke * 2); // stroke → finer ink lines
+    const washAlpha = (0.08 + stroke * 0.012).toFixed(3);                   // stroke → heavier wash
+    const overlay   = ctx.createImageData(w, h);
+    for (let i = 0; i < w * h; i++) {
+      const v = 255 - Math.min(255, Math.max(0, edges[i] - thr / 2));
+      overlay.data[i*4] = overlay.data[i*4+1] = overlay.data[i*4+2] = v;
+      overlay.data[i*4+3] = 255;
     }
-    ctx.putImageData(overlay,0,0);
-    // Add diluted ink washes
+    ctx.putImageData(overlay, 0, 0);
     ctx.globalCompositeOperation = 'multiply';
-    ctx.fillStyle = 'rgba(0,0,0,0.15)';
-    const step = Math.max(6, 14-stroke);
-    for(let y=0; y<h; y+=step*1.5) {
-      for(let x=0; x<w; x+=step*1.5) {
-        const i = y*w+x;
-        if(edges[i]/255 > 0.2) {
-          ctx.fillRect(x - step/2, y - step/2, step*1.2, step*1.2);
-        }
+    ctx.fillStyle = `rgba(0,0,0,${washAlpha})`;
+    const step = Math.max(6, 14 - stroke);  // stroke → denser wash tiles
+    for (let y = 0; y < h; y += step * 1.5) {
+      for (let x = 0; x < w; x += step * 1.5) {
+        if (edges[y * w + x] / 255 > 0.2) ctx.fillRect(x - step / 2, y - step / 2, step * 1.2, step * 1.2);
       }
     }
     ctx.globalCompositeOperation = 'source-over';
@@ -2707,58 +2708,56 @@
   }
 
   function renderUrban(ctx, w, h, edges, gray, intensity, stroke, rand) {
-    const thr = 15 + (11-intensity)*12;
-    const overlay = ctx.createImageData(w,h);
-    for(let i=0; i<w*h; i++) {
+    const thr         = Math.max(8, 45 + (11 - intensity) * 12 - stroke * 3); // stroke → more pen line detail
+    const overlayAlpha = (0.12 + stroke * 0.012).toFixed(3);                  // stroke → heavier wash tint
+    const overlay = ctx.createImageData(w, h);
+    for (let i = 0; i < w * h; i++) {
       const v = 255 - Math.min(255, Math.max(0, edges[i] - thr));
-      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v;
-      overlay.data[i*4+3]=255;
+      overlay.data[i*4] = overlay.data[i*4+1] = overlay.data[i*4+2] = v; overlay.data[i*4+3] = 255;
     }
-    ctx.putImageData(overlay,0,0);
-    // Add quick wash overlays
+    ctx.putImageData(overlay, 0, 0);
     ctx.globalCompositeOperation = 'overlay';
-    ctx.fillStyle = 'rgba(100,150,200,0.2)';
-    const step = Math.max(10, 20-stroke);
-    for(let y=0; y<h; y+=step) {
-      for(let x=0; x<w; x+=step) {
-        ctx.fillRect(x, y, step, step);
-      }
+    ctx.fillStyle = `rgba(100,150,200,${overlayAlpha})`;
+    const step = Math.max(10, 20 - stroke);  // stroke → denser wash grid
+    for (let y = 0; y < h; y += step) {
+      for (let x = 0; x < w; x += step) { ctx.fillRect(x, y, step, step); }
     }
     ctx.globalCompositeOperation = 'source-over';
   }
 
   function renderArchitectural(ctx, w, h, edges, gray, intensity, stroke, rand) {
-    const thr = 10 + (11-intensity)*10;
-    const overlay = ctx.createImageData(w,h);
-    for(let i=0; i<w*h; i++) {
-      const v = (edges[i]>thr) ? 0 : 255;
-      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v;
-      overlay.data[i*4+3]=255;
+    const thr      = Math.max(8, 52 + (11 - intensity) * 14 - stroke * 3); // stroke → lower thr → more lines
+    const softness = Math.max(2, 4 + stroke * 0.8);                         // stroke → wider anti-alias band
+    const overlay  = ctx.createImageData(w, h);
+    const d        = overlay.data;
+    for (let i = 0; i < w * h; i++) {
+      const e = edges[i];
+      let v;
+      if      (e <= thr)               v = 255;
+      else if (e >= thr + softness)    v = 5;
+      else { const t = (e - thr) / softness; v = Math.round(255 - 250 * t * t * (3 - 2 * t)); }
+      d[i*4] = d[i*4+1] = d[i*4+2] = v; d[i*4+3] = 255;
     }
-    ctx.putImageData(overlay,0,0);
+    ctx.putImageData(overlay, 0, 0);
   }
 
   function renderAcademic(ctx, w, h, edges, gray, intensity, stroke, rand) {
-    const thr = 8 + (11-intensity)*10;
-    const overlay = ctx.createImageData(w,h);
-    for(let i=0; i<w*h; i++) {
+    const thr         = Math.max(6, 35 + (11 - intensity) * 10 - stroke * 2); // stroke → more edge detail
+    const shadingAlpha = (0.06 + stroke * 0.008).toFixed(3);                  // stroke → heavier shading
+    const overlay = ctx.createImageData(w, h);
+    for (let i = 0; i < w * h; i++) {
       let e = edges[i];
-      if(intensity<5) e *= (0.8 + rand()*0.3);
+      if (intensity < 5) e *= (0.8 + rand() * 0.3);
       const v = 255 - Math.min(255, Math.max(0, e - thr));
-      overlay.data[i*4]=overlay.data[i*4+1]=overlay.data[i*4+2]=v;
-      overlay.data[i*4+3]=255;
+      overlay.data[i*4] = overlay.data[i*4+1] = overlay.data[i*4+2] = v; overlay.data[i*4+3] = 255;
     }
-    ctx.putImageData(overlay,0,0);
-    // Subtle shading
+    ctx.putImageData(overlay, 0, 0);
     ctx.globalCompositeOperation = 'overlay';
-    ctx.fillStyle = 'rgba(0,0,0,0.1)';
-    const step = Math.max(6, 14-stroke);
-    for(let y=0; y<h; y+=step*2) {
-      for(let x=0; x<w; x+=step*2) {
-        const i = y*w+x;
-        if(edges[i]/255 > 0.15) {
-          ctx.fillRect(x, y, step, step);
-        }
+    ctx.fillStyle = `rgba(0,0,0,${shadingAlpha})`;
+    const step = Math.max(6, 14 - stroke);  // stroke → denser shading blocks
+    for (let y = 0; y < h; y += step * 2) {
+      for (let x = 0; x < w; x += step * 2) {
+        if (edges[y * w + x] / 255 > 0.15) ctx.fillRect(x, y, step, step);
       }
     }
     ctx.globalCompositeOperation = 'source-over';
@@ -2805,8 +2804,8 @@
     // Plain Sobel thresholding leaves fat gradient blobs that look like shading;
     // NMS keeps only the local peak in each gradient direction, matching the
     // sparse-lines-on-white character of blind contour.
-    const thr   = Math.max(30, 160 - intensity * 14); // 146 (i=1) → 30 (i=10)
-    const lineV = Math.max(0, 18 - stroke);
+    const thr   = Math.max(20, 160 - intensity * 14 - stroke * 5); // stroke → more lines survive NMS
+    const lineV = Math.max(0, 18 - stroke);                         // stroke → darker lines
 
     // Recompute Sobel gx, gy for direction (magnitude already in `edges`)
     const gxA = new Float32Array(w * h);
@@ -2865,7 +2864,7 @@
 
     // ── 2. Row-shift corruption (horizontal slice displacement) ───────────────
     const corruptChance = 0.04 + intensity * 0.035; // 0.075–0.39 per row
-    const maxShift = Math.round(w * (0.03 + intensity * 0.04)); // up to ~43% of width
+    const maxShift = Math.round(w * (0.02 + intensity * 0.04) * (0.4 + stroke * 0.08)); // stroke → bigger row shifts
     const rowBuf = new Uint8ClampedArray(w * 4);
 
     for (let y = 0; y < h; y++) {
@@ -2910,7 +2909,7 @@
     ctx.globalCompositeOperation = 'overlay';
     for (let b = 0; b < numDropouts; b++) {
       const barY      = Math.floor(rand() * h);
-      const barH      = Math.round(1 + rand() * 3);
+      const barH      = Math.round(1 + rand() * (1 + stroke * 0.3)); // stroke → taller dropout bands
       const brightness = rand() > 0.5 ? 230 : 20;
       ctx.fillStyle = `rgba(${brightness},${brightness},${brightness},0.45)`;
       ctx.fillRect(0, barY, w, barH);
@@ -3249,9 +3248,9 @@
     // ── 1. Full-image tonal wash + ink lines in one ImageData pass ────────────
     const overlay   = ctx.createImageData(w, h);
     const d         = overlay.data;
-    const inkThr    = Math.max(15, 85 - intensity * 6); // ink line threshold (79→25)
+    const inkThr    = Math.max(12, 85 - intensity * 6 - stroke * 2); // stroke → finer ink lines
     const inkSoft   = 30;
-    const washDepth = 0.18 + intensity * 0.025; // max shadow darkness (0.21→0.43)
+    const washDepth = 0.15 + intensity * 0.022 + stroke * 0.008; // stroke → deeper tonal wash
 
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
@@ -3315,49 +3314,27 @@
   }
 
   function renderGraphitePortrait(ctx, w, h, edges, gray, intensity, stroke, rand){
-    // Graphite portrait: simple smooth tonal portrait
-    // Just use edge detection to create clean portrait lines
-    const thr = 25 + (11 - intensity) * 6;  // Use intensity to control edge sensitivity
+    const thr         = Math.max(10, 55 + (11 - intensity) * 12 - stroke * 3); // stroke → more line detail
+    const shadowAlpha = 0.04 + stroke * 0.008;                                  // stroke → denser shadow wash
+    const shadowStep  = Math.max(2, 5 - Math.round(stroke * 0.3));              // stroke → finer shadow grid
     const overlay = ctx.createImageData(w, h);
-    const d = overlay.data;
-    
-    // Base: light paper background
-    for(let i=0; i<w*h*4; i+=4){
-      d[i] = 248;    // R
-      d[i+1] = 248;  // G
-      d[i+2] = 248;  // B
-      d[i+3] = 255;  // A
-    }
-    
-    // Draw detected edges as pencil lines
-    for(let y=0; y<h; y++){
-      for(let x=0; x<w; x++){
-        const idx = y*w + x;
-        if(edges[idx] > thr){
-          const lineVal = Math.max(0, 248 - edges[idx] * 0.8);
-          d[idx*4] = lineVal;
-          d[idx*4+1] = lineVal;
-          d[idx*4+2] = lineVal;
-        }
+    const d       = overlay.data;
+    for (let i = 0; i < w * h * 4; i += 4) { d[i] = d[i+1] = d[i+2] = 248; d[i+3] = 255; }
+    for (let i = 0; i < w * h; i++) {
+      if (edges[i] > thr) {
+        const v = Math.max(0, 248 - edges[i] * 0.8);
+        d[i*4] = d[i*4+1] = d[i*4+2] = v;
       }
     }
-    
     ctx.putImageData(overlay, 0, 0);
-    
-    // Soft shadow wash in background areas
     ctx.globalCompositeOperation = 'multiply';
-    ctx.globalAlpha = 0.08;
-    ctx.fillStyle = '#333333';
-    
-    for(let y=0; y<h; y+=3){
-      for(let x=0; x<w; x+=3){
-        const idx = y*w + x;
-        if(idx < w*h && edges[idx] < thr * 0.7){
-          ctx.fillRect(x, y, 3, 3);
-        }
+    ctx.globalAlpha = shadowAlpha;
+    ctx.fillStyle   = '#333333';
+    for (let y = 0; y < h; y += shadowStep) {
+      for (let x = 0; x < w; x += shadowStep) {
+        if (edges[y * w + x] < thr * 0.7) ctx.fillRect(x, y, shadowStep, shadowStep);
       }
     }
-    
     ctx.globalAlpha = 1.0;
     ctx.globalCompositeOperation = 'source-over';
   }
