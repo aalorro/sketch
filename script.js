@@ -101,6 +101,7 @@
   let comparePos = 0.5;   // 0–1 position of comparison divider
   let isDraggingCompare = false; // Dragging comparison handle
   const textureCache = {}; // Cache generated texture canvases by type+size
+  let gridGeneration = 0;  // Incremented each time Style Grid opens; old async loops self-abort
 
   const ALL_STYLES = [
     {value:'contour',label:'Contour'},
@@ -886,7 +887,7 @@
     }
   });
 
-  // Animate (WebM scan-line reveal via MediaRecorder)
+  // Animate (WebM pixel-dissolve reveal via MediaRecorder)
   document.getElementById('animateBtn').addEventListener('click', async () => {
     if (!hasCanvasContent()) {
       showErrorMessage('No image loaded. Please load an image and click Generate first.');
@@ -899,65 +900,79 @@
     const btn = document.getElementById('animateBtn');
     btn.disabled = true;
     btn.textContent = 'Recording…';
-    const w = preview.width, h = preview.height;
-    const duration = parseInt(document.getElementById('animDuration').value, 10);
-    const sketchImg = new Image();
-    await new Promise(r => { sketchImg.onload = r; sketchImg.src = preview.toDataURL('image/png'); });
-    const pCtx = preview.getContext('2d');
-    const px = pCtx.getImageData(0, 0, 1, 1).data;
-    const bgColor = `rgb(${px[0]},${px[1]},${px[2]})`;
-    const animCanvas = document.createElement('canvas');
-    animCanvas.width = w; animCanvas.height = h;
-    const animCtx = animCanvas.getContext('2d');
-    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-      ? 'video/webm;codecs=vp9' : 'video/webm';
-    const stream = animCanvas.captureStream(30);
-    const recorder = new MediaRecorder(stream, {mimeType});
-    const chunks = [];
-    recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-    recorder.onstop = () => {
-      const blob = new Blob(chunks, {type: 'video/webm'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      const name = document.getElementById('outputName').value.trim() || getDefaultFilename();
-      a.href = url; a.download = name + '-animation.webm';
-      document.body.appendChild(a); a.click(); a.remove();
-      URL.revokeObjectURL(url);
+    let recorder;
+    let recordingSuccessful = false;
+    try {
+      const w = preview.width, h = preview.height;
+      const duration = parseInt(document.getElementById('animDuration').value, 10);
+      const sketchImg = new Image();
+      await new Promise(r => { sketchImg.onload = r; sketchImg.src = preview.toDataURL('image/png'); });
+      const pCtx = preview.getContext('2d');
+      const px = pCtx.getImageData(0, 0, 1, 1).data;
+      const bgColor = `rgb(${px[0]},${px[1]},${px[2]})`;
+      const animCanvas = document.createElement('canvas');
+      animCanvas.width = w; animCanvas.height = h;
+      const animCtx = animCanvas.getContext('2d');
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+        ? 'video/webm;codecs=vp9' : 'video/webm';
+      const stream = animCanvas.captureStream(30);
+      recorder = new MediaRecorder(stream, {mimeType});
+      const chunks = [];
+      recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      recorder.onstop = () => {
+        if (recordingSuccessful) {
+          const blob = new Blob(chunks, {type: 'video/webm'});
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          const name = document.getElementById('outputName').value.trim() || getDefaultFilename();
+          a.href = url; a.download = name + '-animation.webm';
+          document.body.appendChild(a); a.click(); a.remove();
+          URL.revokeObjectURL(url);
+        }
+        btn.disabled = false;
+        btn.textContent = 'Animate (WebM)';
+      };
+      // Draw background before starting recorder so first captured frame is not blank
+      animCtx.fillStyle = bgColor;
+      animCtx.fillRect(0, 0, w, h);
+      recorder.start();
+      const fps = 30;
+      const frameCount = Math.round(duration / 1000 * fps);
+      const frameDelay = Math.round(1000 / fps);
+      // Pixel-dissolve reveal: shuffle 8px blocks and reveal in random order
+      const blockSize = 8;
+      const cols = Math.ceil(w / blockSize);
+      const rows = Math.ceil(h / blockSize);
+      const totalBlocks = cols * rows;
+      const order = Array.from({length: totalBlocks}, (_, i) => i);
+      for (let i = order.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [order[i], order[j]] = [order[j], order[i]];
+      }
+      const blocksPerFrame = Math.ceil(totalBlocks / frameCount);
+      let revealed = 0;
+      for (let frame = 0; frame < frameCount; frame++) {
+        const end = Math.min(revealed + blocksPerFrame, totalBlocks);
+        for (let k = revealed; k < end; k++) {
+          const bx = (order[k] % cols) * blockSize;
+          const by = Math.floor(order[k] / cols) * blockSize;
+          const bw = Math.min(blockSize, w - bx);
+          const bh = Math.min(blockSize, h - by);
+          animCtx.drawImage(sketchImg, bx, by, bw, bh, bx, by, bw, bh);
+        }
+        revealed = end;
+        await new Promise(r => setTimeout(r, frameDelay));
+      }
+      recordingSuccessful = true;
+      await new Promise(r => setTimeout(r, 400));
+      recorder.stop();
+    } catch(err) {
+      showErrorMessage('Animation export failed.');
+      console.error(err);
+      try { if (recorder && recorder.state !== 'inactive') recorder.stop(); } catch(_) {}
       btn.disabled = false;
       btn.textContent = 'Animate (WebM)';
-    };
-    recorder.start();
-    const fps = 30;
-    const frameCount = Math.round(duration / 1000 * fps);
-    const frameDelay = Math.round(1000 / fps);
-    // Pixel-dissolve reveal: shuffle 8px blocks and reveal in random order
-    const blockSize = 8;
-    const cols = Math.ceil(w / blockSize);
-    const rows = Math.ceil(h / blockSize);
-    const totalBlocks = cols * rows;
-    const order = Array.from({length: totalBlocks}, (_, i) => i);
-    for (let i = order.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [order[i], order[j]] = [order[j], order[i]];
     }
-    const blocksPerFrame = Math.ceil(totalBlocks / frameCount);
-    animCtx.fillStyle = bgColor;
-    animCtx.fillRect(0, 0, w, h);
-    let revealed = 0;
-    for (let frame = 0; frame < frameCount; frame++) {
-      const end = Math.min(revealed + blocksPerFrame, totalBlocks);
-      for (let k = revealed; k < end; k++) {
-        const bx = (order[k] % cols) * blockSize;
-        const by = Math.floor(order[k] / cols) * blockSize;
-        const bw = Math.min(blockSize, w - bx);
-        const bh = Math.min(blockSize, h - by);
-        animCtx.drawImage(sketchImg, bx, by, bw, bh, bx, by, bw, bh);
-      }
-      revealed = end;
-      await new Promise(r => setTimeout(r, frameDelay));
-    }
-    await new Promise(r => setTimeout(r, 400));
-    recorder.stop();
   });
 
   // Style Grid button
@@ -2926,6 +2941,7 @@
 
   // Open Style Grid modal — renders thumbnails via server or canvas depending on active engine
   async function openStyleGrid() {
+    const gen = ++gridGeneration; // any older loop will see gen !== gridGeneration and abort
     const modal = document.getElementById('modal-grid');
     const container = document.getElementById('gridContainer');
     const status = document.getElementById('gridStatus');
@@ -2959,6 +2975,7 @@
     }
 
     for (let i = 0; i < styles.length; i++) {
+      if (gridGeneration !== gen) break; // aborted by a newer openStyleGrid call
       const s = styles[i];
       status.textContent = `Rendering ${i + 1} / ${styles.length}…`;
 
@@ -2983,6 +3000,15 @@
       const thumbCtx = thumb.getContext('2d');
 
       if (isServer) {
+        // Show loading placeholder while server fetch is in-flight
+        thumbCtx.fillStyle = '#e5e7eb';
+        thumbCtx.fillRect(0, 0, THUMB, THUMB);
+        thumbCtx.fillStyle = '#9ca3af';
+        thumbCtx.font = '11px sans-serif';
+        thumbCtx.textAlign = 'center';
+        thumbCtx.textBaseline = 'middle';
+        thumbCtx.fillText('rendering…', THUMB / 2, THUMB / 2);
+
         // Server rendering: POST thumbnail image with this style to the server
         try {
           const serverUrl = document.getElementById('serverUrl').value.trim();
@@ -3010,6 +3036,7 @@
           thumbCtx.drawImage(img, 0, 0, THUMB, THUMB);
         } catch(err) {
           // Fallback: draw raw image on failure
+          thumbCtx.clearRect(0, 0, THUMB, THUMB);
           const fit = fitCropRect(singleImage.width, singleImage.height, THUMB, THUMB);
           thumbCtx.drawImage(singleImage, fit.sx, fit.sy, fit.sw, fit.sh, 0, 0, THUMB, THUMB);
           console.warn('Grid server render failed for', s.value, err);
@@ -3037,10 +3064,12 @@
       await new Promise(r => setTimeout(r, 0)); // yield to browser between renders
     }
 
-    // Restore
-    document.getElementById('style').value = origStyle;
-    zoomLevel = origZoom;
-    status.textContent = 'Click a style to apply it and close.';
+    // Only restore state if this is still the active generation (not aborted)
+    if (gridGeneration === gen) {
+      document.getElementById('style').value = origStyle;
+      zoomLevel = origZoom;
+      status.textContent = 'Click a style to apply it and close.';
+    }
   }
 
   // initial blank canvas
