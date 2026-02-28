@@ -2921,7 +2921,10 @@
     });
   }
 
-  // Open Style Grid modal — renders a 150px thumbnail for each style
+  // Styles not supported by the server — canvas-only
+  const CANVAS_ONLY_STYLES = new Set(['lineart','crosscontour','scribble','photorealism','graphiteportrait','oilpainting','watercolor']);
+
+  // Open Style Grid modal — renders thumbnails via server or canvas depending on active engine
   async function openStyleGrid() {
     const modal = document.getElementById('modal-grid');
     const container = document.getElementById('gridContainer');
@@ -2936,13 +2939,28 @@
 
     container.innerHTML = '';
     const THUMB = 150;
+    const isServer = renderingEngine === 'opencv';
+    const styles = isServer ? ALL_STYLES.filter(s => !CANVAS_ONLY_STYLES.has(s.value)) : ALL_STYLES;
+
     const origStyle = document.getElementById('style').value;
     const origZoom = zoomLevel;
     zoomLevel = 1.0;
 
-    for (let i = 0; i < ALL_STYLES.length; i++) {
-      const s = ALL_STYLES[i];
-      status.textContent = `Rendering ${i + 1} / ${ALL_STYLES.length}…`;
+    // For server mode: prepare a 512px square crop of singleImage as a File (sent once per request)
+    let thumbFile = null;
+    if (isServer) {
+      const offC = document.createElement('canvas');
+      offC.width = 512; offC.height = 512;
+      const offCtx = offC.getContext('2d');
+      const fit = fitCropRect(singleImage.width, singleImage.height, 512, 512);
+      offCtx.drawImage(singleImage, fit.sx, fit.sy, fit.sw, fit.sh, 0, 0, 512, 512);
+      const blob = await new Promise(r => offC.toBlob(r, 'image/png'));
+      thumbFile = new File([blob], 'thumb.png', {type: 'image/png'});
+    }
+
+    for (let i = 0; i < styles.length; i++) {
+      const s = styles[i];
+      status.textContent = `Rendering ${i + 1} / ${styles.length}…`;
 
       const card = document.createElement('div');
       card.style.cssText = 'display:flex;flex-direction:column;align-items:center;cursor:pointer;border:2px solid transparent;border-radius:8px;padding:6px;transition:border-color 0.2s;';
@@ -2962,12 +2980,47 @@
 
       container.appendChild(card);
 
-      // Render thumbnail
       const thumbCtx = thumb.getContext('2d');
-      const fit = fitCropRect(singleImage.width, singleImage.height, THUMB, THUMB);
-      thumbCtx.drawImage(singleImage, fit.sx, fit.sy, fit.sw, fit.sh, 0, 0, THUMB, THUMB);
-      document.getElementById('style').value = s.value;
-      applySketchTransform(thumbCtx, THUMB, THUMB);
+
+      if (isServer) {
+        // Server rendering: POST thumbnail image with this style to the server
+        try {
+          const serverUrl = document.getElementById('serverUrl').value.trim();
+          const fd = new FormData();
+          fd.append('file', thumbFile);
+          fd.append('artStyle', document.getElementById('artStyle').value);
+          fd.append('style', s.value);
+          fd.append('brush', document.getElementById('brush').value);
+          fd.append('seed', getSeed());
+          fd.append('intensity', document.getElementById('intensity').value);
+          fd.append('stroke', document.getElementById('stroke').value);
+          fd.append('smoothing', document.getElementById('smoothing').value);
+          fd.append('skipHatching', document.getElementById('skipHatching').checked);
+          fd.append('colorize', document.getElementById('colorize').checked);
+          fd.append('invert', document.getElementById('invert').checked);
+          fd.append('contrast', document.getElementById('contrast').value);
+          fd.append('saturation', document.getElementById('saturation').value);
+          fd.append('hueShift', document.getElementById('hueShift').value);
+          fd.append('resolution', '512');
+          fd.append('aspect', '1:1');
+          const resp = await fetch(serverUrl, {method: 'POST', body: fd});
+          if (!resp.ok) throw new Error('Server error ' + resp.status);
+          const resultBlob = await resp.blob();
+          const img = await loadImageFromFile(new File([resultBlob], 'r.png'));
+          thumbCtx.drawImage(img, 0, 0, THUMB, THUMB);
+        } catch(err) {
+          // Fallback: draw raw image on failure
+          const fit = fitCropRect(singleImage.width, singleImage.height, THUMB, THUMB);
+          thumbCtx.drawImage(singleImage, fit.sx, fit.sy, fit.sw, fit.sh, 0, 0, THUMB, THUMB);
+          console.warn('Grid server render failed for', s.value, err);
+        }
+      } else {
+        // Canvas rendering
+        const fit = fitCropRect(singleImage.width, singleImage.height, THUMB, THUMB);
+        thumbCtx.drawImage(singleImage, fit.sx, fit.sy, fit.sw, fit.sh, 0, 0, THUMB, THUMB);
+        document.getElementById('style').value = s.value;
+        applySketchTransform(thumbCtx, THUMB, THUMB);
+      }
 
       // Click: apply style and close
       card.addEventListener('click', () => {
