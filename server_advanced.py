@@ -343,19 +343,11 @@ def render_etching(gray, edges, intensity, stroke):
 
 
 def render_minimalist(gray, edges, intensity, stroke):
-    """Minimalist: very high threshold + smoothstep anti-aliased thin lines, lots of white space"""
+    """Minimalist: hard threshold only — pure white background + sparse near-black lines, no gradient shading"""
     h, w = gray.shape
-    thr = max(20, 160 - intensity * 14)  # 146 (i=1) to 20 (i=10)
-    softness = 8 + stroke * 1.5
-    line_v = max(0, 38 - stroke * 3)
-    e = edges.astype(np.float32)
-    result = np.full((h, w), 255, dtype=np.float32)
-    fully = e >= (thr + softness)
-    band = (e > thr) & ~fully
-    result[fully] = line_v
-    t_b = (e[band] - thr) / softness
-    result[band] = np.clip(255 - (255 - line_v) * t_b*t_b*(3 - 2*t_b), 0, 255)
-    return result.astype(np.uint8)
+    thr   = max(30, 160 - intensity * 14)   # 146 (i=1) → 30 (i=10)
+    line_v = max(0, 18 - stroke)             # near-black lines
+    return np.where(edges > thr, np.uint8(line_v), np.uint8(255))
 
 
 def render_glitch(gray, edges, intensity, stroke):

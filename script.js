@@ -2812,35 +2812,16 @@
 
   function renderMinimalist(ctx, w, h, edges, gray, intensity, stroke, rand) {
     // Very high threshold — only dominant contours survive, lots of white space
-    const thr      = Math.max(20, 160 - intensity * 14); // 146 (i=1) → 20 (i=10)
-    const softness = 8 + stroke * 1.5;                   // anti-alias band
-    const lineV    = Math.max(0, 38 - stroke * 3);       // line darkness (grey→black)
+    // Hard threshold (no softness band) keeps the background pure white like blind contour
+    const thr   = Math.max(30, 160 - intensity * 14); // 146 (i=1) → 30 (i=10)
+    const lineV = Math.max(0, 18 - stroke * 1);       // near-black lines
 
     const overlay = ctx.createImageData(w, h);
     const d = overlay.data;
-
-    // White background
     for (let i = 0; i < w * h; i++) {
-      d[i*4] = d[i*4+1] = d[i*4+2] = 255;
+      const v = edges[i] > thr ? lineV : 255;
+      d[i*4] = d[i*4+1] = d[i*4+2] = v;
       d[i*4+3] = 255;
-    }
-
-    // Smoothstep anti-aliased thin lines
-    for (let y = 1; y < h - 1; y++) {
-      for (let x = 1; x < w - 1; x++) {
-        const i = y * w + x;
-        const e = edges[i];
-        if (e <= thr) continue;
-
-        let v;
-        if (e >= thr + softness) {
-          v = lineV;
-        } else {
-          const t = (e - thr) / softness;
-          v = Math.round(255 - (255 - lineV) * t * t * (3 - 2 * t));
-        }
-        d[i*4] = d[i*4+1] = d[i*4+2] = Math.max(0, v);
-      }
     }
     ctx.putImageData(overlay, 0, 0);
   }
