@@ -313,19 +313,19 @@ def render_etching(gray, edges, intensity, stroke):
     xs = np.arange(w, dtype=np.float32)
     ys = np.arange(h, dtype=np.float32)
     XX, YY = np.meshgrid(xs, ys)
-    # Edge contours (fine, precise)
-    edge_thr = max(5, int(20 + (11-intensity) * 6))
+    # Edge contours — stroke lowers threshold (more/bolder lines) and widens softness band
+    edge_thr = max(5, int(20 + (11-intensity) * 6 - stroke * 1.5))
     e        = edges.astype(np.float32)
-    soft     = 4.0
+    soft     = 4.0 + stroke * 0.5   # stroke → wider anti-alias band
     result_f = np.full((h, w), 255, dtype=np.float32)
     fully    = e >= (edge_thr + soft)
     band     = (e > edge_thr) & ~fully
     result_f[fully] = 5.0
     t_b = (e[band] - edge_thr) / soft
     result_f[band] = np.clip(255 - 250*t_b*t_b*(3-2*t_b), 5, 255)
-    # 4-angle tone-driven hatching: cumulative layers for darker areas
-    spacing = max(2, round(5 - stroke * 0.2))
-    half_lw = 0.4
+    # 4-angle tone-driven hatching — stroke controls spacing AND line weight
+    spacing = max(2, round(6 - stroke * 0.4))    # was max(2, round(5 - stroke * 0.2)) — much wider range now
+    half_lw = 0.4 + stroke * 0.05                # stroke → thicker hatch lines
     h_alpha = 0.20 + intensity * 0.015
     h_scale = 1.0 - h_alpha * (1.0 - 10.0 / 255.0)
     # tone_thr increases with intensity so more of the image gets hatched at higher intensity
@@ -346,10 +346,10 @@ def render_minimalist(gray, edges, intensity, stroke):
     """Minimalist: Canny thin 1-pixel edges on white — no shading, like blind contour.
     cv2.Canny applies NMS internally so only edge peaks survive, never fat tonal blobs."""
     h, w = gray.shape
-    # Map intensity to Canny thresholds (high intensity → lower thr → more lines)
-    canny_hi = max(30, 160 - intensity * 13)   # 147 (i=1) → 30 (i=10)
-    canny_lo = max(8,  canny_hi // 3)
-    line_v   = max(0, 18 - stroke)
+    # Map intensity+stroke to Canny thresholds (lower → more lines survive NMS)
+    canny_hi = max(20, 160 - intensity * 13 - stroke * 4)  # stroke → more lines
+    canny_lo = max(6,  canny_hi // 3)
+    line_v   = max(0, 18 - stroke)                          # stroke → darker lines
     thin = cv2.Canny(gray, canny_lo, canny_hi)  # binary 0/255, 1-pixel-wide
     return np.where(thin > 0, np.uint8(line_v), np.uint8(255))
 
@@ -369,7 +369,7 @@ def render_glitch(gray, edges, intensity, stroke):
                       np.uint8(255)).astype(np.uint8)
     # 2. Row-shift corruption (horizontal slice displacement)
     corrupt_chance = 0.04 + intensity * 0.035
-    max_shift = max(1, round(w * (0.03 + intensity * 0.04)))
+    max_shift = max(1, round(w * (0.02 + intensity * 0.04) * (0.4 + stroke * 0.08)))  # stroke → bigger row shifts
     for y in range(h):
         if random.random() > corrupt_chance:
             continue
@@ -386,7 +386,7 @@ def render_glitch(gray, edges, intensity, stroke):
     num_dropouts = round(2 + intensity * 0.8)
     for _ in range(num_dropouts):
         bar_y = random.randint(0, h - 1)
-        bar_h = max(1, round(1 + random.random() * 3))
+        bar_h = max(1, round(1 + random.random() * (1 + stroke * 0.3)))  # stroke → taller dropout bands
         y1, y2 = max(0, bar_y), min(h, bar_y + bar_h)
         row = result[y1:y2].astype(np.int16)
         if random.random() > 0.5:
@@ -478,7 +478,7 @@ def render_blind_contour(gray, edges, intensity, stroke):
     result = np.full((h, w), 255, dtype=np.uint8)
     step_len = max(1.5, (w + h) / 600)
     num_strokes = 2 + round(intensity * 0.2)   # 2-4
-    total_steps = int((w + h) * (4 + intensity * 0.5))
+    total_steps = int((w + h) * (4 + intensity * 0.5 + stroke * 0.25))  # stroke → more path coverage
     steps_per_stroke = total_steps // num_strokes
     base_width = max(1, round(0.55 + stroke * 0.18))
     drift_range = (0.18 + (10 - intensity) * 0.035) * np.pi
@@ -528,7 +528,8 @@ def render_blind_contour(gray, edges, intensity, stroke):
             pts.append((int(round(x)), int(round(y))))
         if len(pts) >= 2:
             pts_arr = np.array(pts, dtype=np.int32)
-            cv2.polylines(result, [pts_arr], isClosed=False, color=18, thickness=base_width)
+            line_color = max(4, 22 - stroke * 2)   # stroke → darker/bolder lines
+            cv2.polylines(result, [pts_arr], isClosed=False, color=line_color, thickness=base_width)
     return result
 
 
@@ -581,8 +582,8 @@ def render_cartoon(gray, edges, intensity, stroke):
              np.where(gray < 210, np.uint8(185),
                                   np.uint8(245)))).astype(np.uint8)
 
-    # Bold outlines: threshold edges then dilate for thick, clean cartoon lines
-    edge_thr = max(12, int(30 + (11 - intensity) * 9))
+    # Bold outlines — stroke lowers threshold (more outlines) and thickens via dilation
+    edge_thr = max(10, int(30 + (11 - intensity) * 9 - stroke * 2))  # stroke → more outlines
     softness = 5.0
     e = edges.astype(np.float32)
     # Smoothstep anti-aliased line on the posterized image

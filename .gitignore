@@ -1,3 +1,4 @@
 txt/
 server-package.zip
 tmp*
+__pycache__/
