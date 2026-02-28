@@ -103,70 +103,92 @@ def render_charcoal(gray, edges, intensity, stroke):
 
 
 def render_dry_brush(gray, edges, intensity, stroke):
-    """Dry brush: threshold with broken, textured strokes"""
+    """Dry brush: S-curve tonal base + broken mostly-horizontal strokes with dry dropout"""
     h, w = gray.shape
-    thr = 10 + (11 - intensity) * 12
-    result = 255 - np.minimum(255, np.maximum(0, edges - thr)).astype(np.uint8)
-    
-    # Add broken texture
-    for y in range(0, h, max(3, 10 - stroke)):
-        for x in range(0, w, max(3, 10 - stroke)):
-            if random.random() > 0.5:
-                cv2.line(result, (x, y), (x + random.randint(-5, 5), y + random.randint(-5, 5)), 
-                        int(50 + random.random() * 100), 1)
-    return result
+    # S-curve tonal base — slightly brighter range than charcoal (paper shows through)
+    t = gray.astype(np.float32) / 255.0
+    s = np.where(t < 0.5, 2*t*t, 1 - 2*(1-t)*(1-t))
+    result = np.clip(38 + s * 212, 0, 255).astype(np.uint8)
+    # Broken brush strokes: mostly horizontal (±20°), skip 32% for dry look
+    step   = max(3, round(11 - stroke * 0.8))
+    slen   = max(8, round(14 + stroke * 2.5))
+    lw     = max(1, round(0.5 + stroke * 0.45))
+    alpha  = 0.08 + intensity * 0.02
+    scale  = 1.0 - alpha * (1.0 - 20.0 / 255.0)
+    mark_mask = np.zeros((h, w), dtype=np.uint8)
+    for y in range(0, h, step):
+        for x in range(0, w, step):
+            gi = int(gray[min(h-1, y), min(w-1, x)])
+            ei = int(edges[min(h-1, y), min(w-1, x)])
+            if gi > 220 and ei < 15:
+                continue  # skip pure highlights with no edge
+            if random.random() < 0.32:
+                continue  # dry dropout
+            jx = x + int((random.random() - 0.5) * step * 0.6)
+            jy = y + int((random.random() - 0.5) * step * 0.6)
+            l  = slen * (0.35 + random.random() * 0.75)
+            ang = (random.random() - 0.5) * 0.7  # ±20 deg from horizontal
+            dx, dy = int(float(np.cos(ang)) * l / 2), int(float(np.sin(ang)) * l / 2)
+            p1 = (max(0, min(w-1, jx-dx)), max(0, min(h-1, jy-dy)))
+            p2 = (max(0, min(w-1, jx+dx)), max(0, min(h-1, jy+dy)))
+            cv2.line(mark_mask, p1, p2, 255, lw)
+    result_f = result.astype(np.float32)
+    result_f[mark_mask > 0] = np.clip(result_f[mark_mask > 0] * scale, 0, 255)
+    return result_f.astype(np.uint8)
 
 
 def render_ink_wash(gray, edges, intensity, stroke):
-    """Ink wash: soft edges with transparency effects"""
+    """Ink wash: diluted-ink tonal wash from blurred gray + sharp ink contour lines + wet-edge bloom"""
     h, w = gray.shape
-    thr = 20 + (11 - intensity) * 10
-    result = 255 - np.minimum(255, np.maximum(0, edges - thr)).astype(np.uint8)
-    
-    # Apply bilateral blur for wash effect
-    result = cv2.bilateralFilter(result, 9, 75, 75)
-    return result
+    # Tonal wash base: deeply blurred gray → organic pigment dilution
+    wash_strength = 0.55 + intensity * 0.04   # 0.59-0.95
+    blurred = cv2.GaussianBlur(gray, (15, 15), 5).astype(np.float32)
+    base = 255.0 - (1.0 - blurred / 255.0) ** 1.6 * wash_strength * 240.0
+    base = cv2.bilateralFilter(np.clip(base, 0, 255).astype(np.uint8), 7, 60, 40).astype(np.float32)
+    # Sharp ink contour lines (smoothstep anti-aliased)
+    ink_thr  = max(15, int(55 - intensity * 4))
+    softness = 6.0 + stroke * 1.2
+    e = edges.astype(np.float32)
+    fully = e >= (ink_thr + softness)
+    band  = (e > ink_thr) & ~fully
+    base[fully] = np.minimum(base[fully], 8.0)
+    t_b = (e[band] - ink_thr) / softness
+    base[band] = np.clip(base[band] * (1 - t_b*t_b*(3-2*t_b) * 0.96), 0, 255)
+    # Wet-edge bloom: lighten near dark ink lines (ink bleed into paper)
+    dark_mask  = (base < 60).astype(np.float32)
+    bk         = max(3, round(stroke * 2 + 1) | 1)
+    bloom      = cv2.GaussianBlur(dark_mask * 255, (bk, bk), 2.0) / 255.0
+    bloom_alph = 0.06 + intensity * 0.008
+    base       = np.clip(base + np.maximum(0.0, 235.0 - base) * bloom * bloom_alph, 0, 255)
+    return base.astype(np.uint8)
 
 
 def render_comic(gray, edges, intensity, stroke):
-    """Comic/manga: varied line weight, spot blacks, speed lines, stylized features"""
+    """Comic/manga: varied-weight line art + spot blacks + horizontal speed lines"""
     h, w = gray.shape
-    base_threshold = 10 + (11 - intensity) * 8
-    
-    # Create line art with varied line weight based on edge strength
-    result = np.ones((h, w), dtype=np.uint8) * 255  # Start with white
-    
-    for i in range(h):
-        for j in range(w):
-            edge_val = edges[i, j]
-            if edge_val > base_threshold:
-                # Vary line darkness: weak edges are light gray, strong edges are black
-                line_weight = max(0, min(255, (edge_val - base_threshold * 0.5) * 2))
-                darkness = max(0, 50 - int(line_weight * 0.3))
-                result[i, j] = darkness
-            else:
-                result[i, j] = 255
-    
-    # Add stylized spot blacks in dark areas for dramatic effect
+    thr = 10 + (11 - intensity) * 8
+    # Vectorized varied line weight: stronger edges → darker, weaker → near-white
+    e   = edges.astype(np.float32)
+    lw  = np.clip((e - thr * 0.5) * 2, 0, 255)
+    result = np.where(e > thr,
+                      np.clip(50 - lw * 0.3, 0, 50).astype(np.uint8),
+                      np.uint8(255))
+    # Spot blacks: dense filled circles in dark areas
     spot_step = max(4, 8 - stroke // 2)
     for y in range(spot_step, h, spot_step):
         for x in range(spot_step, w, spot_step):
-            if gray[y, x] < 120 and random.random() > 0.35:
-                # Vary spot black sizes for expressiveness
-                radius = 1 if random.random() > 0.5 else 2
-                offset_x = x + random.randint(-1, 1)
-                offset_y = y + random.randint(-1, 1)
-                cv2.circle(result, (offset_x, offset_y), radius, 0, -1)
-    
-    # Add speed lines in high-contrast areas for motion feel
+            if int(gray[y, x]) < 120 and random.random() > 0.35:
+                r  = 1 if random.random() > 0.5 else 2
+                ox = max(r, min(w-1-r, x + random.randint(-1, 1)))
+                oy = max(r, min(h-1-r, y + random.randint(-1, 1)))
+                cv2.circle(result, (ox, oy), r, 0, -1)
+    # Speed lines: short horizontal segments at strong-edge locations
     speed_step = max(8, 16 - stroke // 2)
     for y in range(0, h, speed_step * 2):
         for x in range(0, w, speed_step):
-            if edges[y, x] > base_threshold * 1.5 and random.random() > 0.5:
-                # Horizontal speed lines
-                cv2.line(result, (max(0, x - speed_step), y), 
-                        (min(w - 1, x + speed_step), y), 100, 1)
-    
+            if int(edges[y, x]) > thr * 1.5 and random.random() > 0.5:
+                cv2.line(result, (max(0, x-speed_step), y),
+                         (min(w-1, x+speed_step), y), 100, 1)
     return result
 
 
@@ -215,71 +237,109 @@ def render_fashion(gray, edges, intensity, stroke):
 
 
 def render_urban(gray, edges, intensity, stroke):
-    """Urban sketching: pen lines + quick washes; loose perspective, on-location feel"""
+    """Urban sketch: warm paper + blurred-gray watercolor wash + crisp smoothstep pen lines"""
     h, w = gray.shape
-    
-    # Crisp pen outlines from edges (light touch, not dark)
-    thr = 20 + (11 - intensity) * 10
-    lines = np.where(edges > thr, 0, 255).astype(np.uint8)  # Black lines on white
-    
-    # Start with light base
-    result = np.full((h, w), 245, dtype=np.uint8)  # Near-white paper base
-    
-    # Apply pen lines
-    result = np.where(lines < 128, 20, result)  # Dark lines where edges exist
-    
-    # Add quick wash effects (soft, not pixelated)
-    # Use soft brush strokes following tone, not random blocks
-    wash_intensity = stroke * 0.15  # 0-1.5 wash amount
-    
-    # Create a soft wash layer based on original image tone
-    wash_strength = (255 - gray) / 255.0 * wash_intensity
-    wash_array = (wash_strength * 60).astype(np.uint8)  # Max wash darkening = 60
-    
-    # Apply wash with slight blur for that quick-watercolor feel
-    wash_array = cv2.GaussianBlur(wash_array, (5, 5), 1)
-    
-    # Combine: lines + light wash
-    result = np.minimum(result.astype(np.int16) + wash_array.astype(np.int16), 255).astype(np.uint8)
-    
-    return result
+    # Warm near-white paper base
+    base = np.full((h, w), 248.0, dtype=np.float32)
+    # Quick watercolor wash from blurred gray tone
+    wash_blur = cv2.GaussianBlur(gray, (9, 9), 3).astype(np.float32)
+    wash_str  = 0.28 + stroke * 0.04
+    base -= (1.0 - wash_blur / 255.0) ** 1.8 * wash_str * 120.0
+    # Crisp pen lines (smoothstep anti-aliased)
+    pen_thr  = max(14, int(22 + (11-intensity) * 10 - stroke * 1.5))
+    softness = 5.0 + stroke
+    e = edges.astype(np.float32)
+    fully = e >= (pen_thr + softness)
+    band  = (e > pen_thr) & ~fully
+    base[fully] = np.minimum(base[fully], 18.0)
+    t_b = (e[band] - pen_thr) / softness
+    base[band] = np.clip(base[band] * (1 - t_b*t_b*(3-2*t_b) * 0.94), 0, 255)
+    return np.clip(base, 0, 255).astype(np.uint8)
 
 
 def render_architectural(gray, edges, intensity, stroke):
-    """Architectural: clean, precise lines"""
+    """Architectural: ultra-precise smoothstep lines, white space, no tonal fill"""
     h, w = gray.shape
-    thr = 10 + (11 - intensity) * 10
-    result = np.where(edges > thr, 255, 0).astype(np.uint8)
-    return result
+    # High threshold — only the sharpest, clearest edges survive
+    thr      = max(22, int(52 + (11-intensity) * 14 - stroke * 3))
+    softness = max(3.0, 4.0 + stroke * 0.8)
+    e        = edges.astype(np.float32)
+    result   = np.full((h, w), 255, dtype=np.float32)
+    fully    = e >= (thr + softness)
+    band     = (e > thr) & ~fully
+    result[fully] = 5.0
+    t_b = (e[band] - thr) / softness
+    result[band] = np.clip(255 - 250 * t_b*t_b*(3 - 2*t_b), 5, 255)
+    return result.astype(np.uint8)
 
 
 def render_academic(gray, edges, intensity, stroke):
-    """Academic: reliable, study-like rendering"""
+    """Academic figure: S-curve tonal form + smoothstep edge lines + hatching in deep shadows"""
     h, w = gray.shape
-    thr = 8 + (11 - intensity) * 10
-    result = 255 - np.minimum(255, np.maximum(0, edges - thr)).astype(np.uint8)
-    
-    # Subtle shading with randomness at low intensity
-    for i in range(h):
-        for j in range(w):
-            if intensity < 5 and random.random() > 0.8:
-                result[i, j] = int(result[i, j] * (0.8 + random.random() * 0.3))
-    return result
+    # S-curve tonal base for form (range 30-248, lighter than charcoal)
+    t    = gray.astype(np.float32) / 255.0
+    s    = np.where(t < 0.5, 2*t*t, 1 - 2*(1-t)*(1-t))
+    base = np.clip(30 + s * 218, 0, 255).astype(np.float32)
+    # Smoothstep edge lines
+    thr      = max(12, int(35 + (11-intensity) * 12 - stroke * 2))
+    softness = 5.0 + stroke * 1.5
+    e        = edges.astype(np.float32)
+    fully    = e >= (thr + softness)
+    band     = (e > thr) & ~fully
+    base[fully] = np.minimum(base[fully], 8.0)
+    t_b = (e[band] - thr) / softness
+    base[band] = np.clip(base[band] * (1 - t_b*t_b*(3-2*t_b) * 0.95), 0, 255)
+    result   = base.astype(np.uint8)
+    # Subtle 45-deg hatching in deep shadows only (adds study-sketch texture)
+    spacing  = max(5, round(22 - stroke * 1.5))
+    half_lw  = 0.4
+    xs = np.arange(w, dtype=np.float32)
+    ys = np.arange(h, dtype=np.float32)
+    XX, YY = np.meshgrid(xs, ys)
+    cos_a, sin_a = float(np.cos(np.pi/4)), float(np.sin(np.pi/4))
+    d_grid   = (-XX * sin_a + YY * cos_a) % spacing
+    on_line  = (d_grid < half_lw) | (d_grid > spacing - half_lw)
+    shade_mask = result < 80
+    h_alpha  = 0.25 + intensity * 0.02
+    h_scale  = 1.0 - h_alpha * (1.0 - 15.0 / 255.0)
+    result_f = result.astype(np.float32)
+    result_f[on_line & shade_mask] = np.clip(result_f[on_line & shade_mask] * h_scale, 0, 255)
+    return result_f.astype(np.uint8)
 
 
 def render_etching(gray, edges, intensity, stroke):
-    """Etching: fine, dense crosshatching pattern"""
+    """Etching: smoothstep contours + 4-angle tone-driven hatching (engraving plate look)"""
     h, w = gray.shape
-    thr = 5 + (11 - intensity) * 5
-    result = np.where(edges > thr, 255, 0).astype(np.uint8)
-    
-    # Add fine, detailed crosshatching (smaller step = finer lines)
-    step = max(2, 6 - stroke)  # Finer than before
-    for y in range(0, h, step):
-        cv2.line(result, (0, y), (w, y), max(0, 100 - stroke * 10), 1)
-    for x in range(0, w, step):
-        cv2.line(result, (x, 0), (x, h), max(0, 100 - stroke * 10), 1)
-    return result
+    xs = np.arange(w, dtype=np.float32)
+    ys = np.arange(h, dtype=np.float32)
+    XX, YY = np.meshgrid(xs, ys)
+    # Edge contours (fine, precise)
+    edge_thr = max(5, int(20 + (11-intensity) * 6))
+    e        = edges.astype(np.float32)
+    soft     = 4.0
+    result_f = np.full((h, w), 255, dtype=np.float32)
+    fully    = e >= (edge_thr + soft)
+    band     = (e > edge_thr) & ~fully
+    result_f[fully] = 5.0
+    t_b = (e[band] - edge_thr) / soft
+    result_f[band] = np.clip(255 - 250*t_b*t_b*(3-2*t_b), 5, 255)
+    # 4-angle tone-driven hatching: cumulative layers for darker areas
+    spacing = max(2, round(5 - stroke * 0.2))
+    half_lw = 0.4
+    h_alpha = 0.20 + intensity * 0.015
+    h_scale = 1.0 - h_alpha * (1.0 - 10.0 / 255.0)
+    # tone_thr increases with intensity so more of the image gets hatched at higher intensity
+    tone_levels = [int(180+intensity*5), int(120+intensity*5),
+                   int(70+intensity*3),  int(40+intensity*2)]
+    angles = [0.0, np.pi/4, np.pi/2, np.pi*3/4]
+    for tone_thr, angle in zip(tone_levels, angles):
+        cos_a = float(np.cos(angle))
+        sin_a = float(np.sin(angle))
+        d_grid   = (-XX * sin_a + YY * cos_a) % spacing
+        on_line  = (d_grid < half_lw) | (d_grid > spacing - half_lw)
+        tone_mask = gray < tone_thr
+        result_f[on_line & tone_mask] = np.clip(result_f[on_line & tone_mask] * h_scale, 0, 255)
+    return result_f.astype(np.uint8)
 
 
 def render_minimalist(gray, edges, intensity, stroke):
@@ -477,69 +537,73 @@ def render_blind_contour(gray, edges, intensity, stroke):
 
 
 def render_gesture(gray, edges, intensity, stroke):
-    """Gesture sketch: expressive, quick lines with emphasis on edges"""
+    """Gesture sketch: vectorized tonal base + Sobel-direction expressive marks"""
     h, w = gray.shape
-    edge_threshold = 30 + (11 - intensity) * 6
-    
-    # Light base with edge emphasis
-    result = np.full((h, w), 250, dtype=np.uint8)
-    for i in range(h):
-        for j in range(w):
-            edge_val = edges[i, j]
-            gray_val = gray[i, j]
-            if edge_val > edge_threshold:
-                v = 230 - int((edge_val / 255.0) * 150)
-            elif gray_val > 150:
-                v = 245
-            else:
-                v = max(60, 250 - int((gray_val / 255.0) * 120))
-            result[i, j] = v
-    
-    # Add flowing gesture lines at edges
-    step = max(4, int(10 - stroke * 0.5))
-    for y in range(0, h, step):
-        for x in range(0, w, step):
-            if edges[y, x] > edge_threshold * 0.8:
-                # Draw short expressive marks
-                angle = (edges[y, x] / 255.0) * 6.28
-                length = int(8 + stroke * 2)
-                x2 = int(x + length * np.cos(angle))
-                y2 = int(y + length * np.sin(angle))
-                cv2.line(result, (x, y), (x2, y2), 26, int(0.5 + stroke * 0.15))
-    
+    # Tonal base: dark shadows, lifted highlights, edge-darkened mid-tone
+    g = gray.astype(np.float32) / 255.0
+    e = edges.astype(np.float32) / 255.0
+    # S-curve on tone
+    base = np.where(g < 0.5,
+                    2.0 * g * g,
+                    1.0 - 2.0 * (1.0 - g) ** 2)
+    # Edge contribution pulls toward black
+    edge_pull = e * (0.18 + intensity * 0.022)
+    result_f = np.clip((1.0 - base * 0.55 - edge_pull) * 255.0, 20, 255)
+    result = result_f.astype(np.uint8)
+
+    # Compute Sobel gradients for true gesture-mark direction
+    gx = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
+    gy = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
+    grad_angle = np.arctan2(gy, gx)   # per-pixel gradient angle (tangent direction)
+
+    # Draw short expressive cv2.line marks where edges are strong
+    edge_thr = max(18, int(55 + (11 - intensity) * 7))
+    step = max(3, round(12 - stroke * 0.8))
+    mark_len = round(9 + stroke * 2.2)
+    mark_w = max(1, round(0.4 + stroke * 0.16))
+    for y in range(step // 2, h - step, step):
+        for x in range(step // 2, w - step, step):
+            if edges[y, x] > edge_thr:
+                a = float(grad_angle[y, x]) + np.pi / 2  # perpendicular = tangent to edge
+                dx = np.cos(a) * mark_len * 0.5
+                dy = np.sin(a) * mark_len * 0.5
+                x1 = int(round(x - dx))
+                y1 = int(round(y - dy))
+                x2 = int(round(x + dx))
+                y2 = int(round(y + dy))
+                cv2.line(result, (x1, y1), (x2, y2), 22, mark_w)
+
     return result
 
 
 def render_cartoon(gray, edges, intensity, stroke):
-    """Cartoon style: bold outlines with simplified color areas"""
+    """Cartoon style: vectorized 4-level posterization + cv2.dilate bold outlines"""
     h, w = gray.shape
-    threshold = int(25 + (11 - intensity) * 10 - stroke * 0.3)
-    
-    # Create simplified tonal areas
-    result = np.zeros((h, w), dtype=np.uint8)
-    for i in range(h):
-        for j in range(w):
-            e = edges[i, j]
-            g = gray[i, j]
-            if e > threshold:
-                v = 20  # Black outlines
-            elif g < 85:
-                v = 50  # Dark areas
-            elif g < 170:
-                v = 150  # Mid tones
-            else:
-                v = 240  # Light areas
-            result[i, j] = v
-    
-    # Add bold outlines
-    step = max(2, int(6 - stroke * 0.3))
-    for y in range(0, h, step):
-        for x in range(0, w, step):
-            if edges[y, x] > threshold:
-                radius = int(0.5 + stroke * 0.1)
-                if radius > 0:
-                    cv2.circle(result, (x, y), radius, 0, -1)
-    
+    # 4-level flat tonal posterization via np.where
+    result = np.where(gray < 64,  np.uint8(22),
+             np.where(gray < 140, np.uint8(90),
+             np.where(gray < 210, np.uint8(185),
+                                  np.uint8(245)))).astype(np.uint8)
+
+    # Bold outlines: threshold edges then dilate for thick, clean cartoon lines
+    edge_thr = max(12, int(30 + (11 - intensity) * 9))
+    softness = 5.0
+    e = edges.astype(np.float32)
+    # Smoothstep anti-aliased line on the posterized image
+    fully = e >= (edge_thr + softness)
+    band  = (e > edge_thr) & ~fully
+    result[fully] = 8
+    t_b = (e[band] - edge_thr) / softness
+    result[band] = np.clip(90 - 82 * t_b * t_b * (3 - 2 * t_b), 8, 90).astype(np.uint8)
+
+    # Dilate edge mask to thicken outlines based on stroke parameter
+    dil_r = max(0, round(stroke * 0.28 - 0.1))
+    if dil_r > 0:
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (dil_r * 2 + 1, dil_r * 2 + 1))
+        edge_mask = (e > edge_thr).astype(np.uint8)
+        thick_mask = cv2.dilate(edge_mask, kernel).astype(bool)
+        result[thick_mask] = np.minimum(result[thick_mask], np.uint8(18))
+
     return result
 
 
@@ -575,48 +639,71 @@ def render_hatching(gray, edges, intensity, stroke):
 
 
 def render_crosshatching(gray, edges, intensity, stroke):
-    """Cross-hatching: perpendicular lines for shading"""
+    """Cross-hatching: two-pass d-grid tone-driven hatching at 45° and 135°"""
     h, w = gray.shape
-    thr = 10 + (11 - intensity) * 12
-    result = 255 - np.minimum(255, np.maximum(0, edges - thr)).astype(np.uint8)
-    
-    step = max(4, int(14 - stroke))
-    line_width = max(1, int(0.5 + stroke * 0.25))
-    
-    # Diagonal hatching in two directions
-    for angle_idx, angle in enumerate([0, 45]):
-        radian = np.radians(angle)
-        for i in range(-h - w, h + w, step):
-            x1 = int(i * np.cos(radian))
-            y1 = int(i * np.sin(radian))
-            x2 = int((i - w) * np.cos(radian) + h * np.sin(radian))
-            y2 = int((i - w) * np.sin(radian) + h * np.cos(radian))
-            
-            # Clip to image bounds
-            if -10 < x1 < w + 10 and -10 < y1 < h + 10:
-                cv2.line(result, (max(0, x1), max(0, y1)), (min(w - 1, x2), min(h - 1, y2)), 17, line_width)
-    
-    return result
+    # Edge outline base
+    edge_thr = max(10, int(38 + (11 - intensity) * 13))
+    result = np.where(edges > edge_thr, np.uint8(10), np.uint8(255))
+
+    xs = np.arange(w, dtype=np.float32)
+    ys = np.arange(h, dtype=np.float32)
+    XX, YY = np.meshgrid(xs, ys)
+
+    spacing  = max(3, round(15 - stroke * 1.2))
+    half_lw  = max(0.5, (0.44 + stroke * 0.10) / 2.0)
+    gray_sm  = cv2.GaussianBlur(gray, (3, 3), 0).astype(np.float32)
+    result_f = result.astype(np.float32)
+
+    # Pass 1 – 45°: hatch where mid-to-dark tones
+    tone_thr1 = 55 + intensity * 16   # 71 (i=1) → 215 (i=10)
+    angle1    = np.pi / 4
+    d1 = (-XX * np.sin(angle1) + YY * np.cos(angle1)) % spacing
+    on1 = (d1 < half_lw) | (d1 > spacing - half_lw)
+    mask1 = gray_sm < (tone_thr1 + 6)
+    h_scale1 = 1.0 - 0.80 * (1.0 - 14.0 / 255.0)
+    result_f[on1 & mask1] = np.clip(result_f[on1 & mask1] * h_scale1, 0, 255)
+
+    # Pass 2 – 135°: counter-hatch only in darker tones
+    tone_thr2 = max(30, tone_thr1 - 60)
+    angle2    = np.pi * 3 / 4
+    d2 = (-XX * np.sin(angle2) + YY * np.cos(angle2)) % spacing
+    on2 = (d2 < half_lw) | (d2 > spacing - half_lw)
+    mask2 = gray_sm < (tone_thr2 + 6)
+    h_scale2 = 1.0 - 0.72 * (1.0 - 14.0 / 255.0)
+    result_f[on2 & mask2] = np.clip(result_f[on2 & mask2] * h_scale2, 0, 255)
+
+    return result_f.astype(np.uint8)
 
 
 def render_tonal_shading(gray, edges, intensity, stroke):
-    """Tonal shading: smooth, blended tonal rendering"""
+    """Tonal pencil: vectorized S-curve tonal map + Gaussian pencil-blend + edge deepening"""
     h, w = gray.shape
-    edge_weight = (intensity / 11.0) * 0.7
-    gray_weight = 1.0 - (intensity / 11.0) * 0.5
-    
-    result = np.zeros((h, w), dtype=np.uint8)
-    for i in range(h):
-        for j in range(w):
-            e = edges[i, j]
-            g = gray[i, j]
-            blended = edge_weight * e + gray_weight * g * 0.5
-            v = 255 - min(255, int(blended))
-            result[i, j] = v
-    
-    # Smooth with gaussian blur for tonal effect
-    result = cv2.GaussianBlur(result, (5, 5), 1.5)
-    return result
+    # S-curve: pull shadows darker, lift highlights
+    g = gray.astype(np.float32) / 255.0
+    curved = np.where(g < 0.5,
+                      2.0 * g * g,
+                      1.0 - 2.0 * (1.0 - g) ** 2)
+    # Compress into pencil tonal range [30, 252]
+    tonal = (curved * 222.0 + 30.0).astype(np.float32)
+
+    # Gaussian blur for pencil-blend softness (radius scales with stroke)
+    blur_k = max(3, (round(2 + stroke * 0.55)) | 1)   # odd kernel, 3-9
+    sigma  = 0.8 + stroke * 0.18
+    blurred = cv2.GaussianBlur(tonal, (blur_k, blur_k), sigma)
+
+    # Edge deepening: smoothstep anti-aliased dark lines
+    edge_thr  = max(14, int(45 + (11 - intensity) * 11 - stroke * 2.0))
+    softness  = 5.0 + stroke * 1.0
+    e = edges.astype(np.float32)
+    result_f  = blurred.copy()
+    fully = e >= (edge_thr + softness)
+    band  = (e > edge_thr) & ~fully
+    result_f[fully] = np.minimum(result_f[fully], 25.0)
+    t_b = (e[band] - edge_thr) / softness
+    edge_dark = blurred[band] - (blurred[band] - 25.0) * t_b * t_b * (3.0 - 2.0 * t_b)
+    result_f[band] = np.clip(edge_dark, 25.0, 255.0)
+
+    return np.clip(result_f, 0, 255).astype(np.uint8)
 
 
 def apply_brush_effect(result, intensity, stroke, brush):
