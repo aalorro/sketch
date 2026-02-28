@@ -171,6 +171,7 @@
           </optgroup>
         </select>
       </label>
+      <button id="styleGridBtn" type="button" style="width:100%;padding:8px;background:#06b6d4;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;margin-top:-4px;margin-bottom:8px;">Style Grid</button>
 
       <label>Brush
         <select id="brush">
@@ -278,8 +279,17 @@
       <div class="buttons">
         <button id="downloadPng">Download PNG</button>
         <button id="downloadJpg">Download JPG</button>
+        <button id="downloadSvg">Download SVG</button>
         <button id="downloadZip">Download ZIP</button>
+        <button id="animateBtn">Animate (WebM)</button>
       </div>
+      <label style="font-size:13px;margin-top:4px;">Anim. duration
+        <select id="animDuration" style="width:100%;margin-top:4px;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:14px;">
+          <option value="2000">2 seconds</option>
+          <option value="3000" selected>3 seconds</option>
+          <option value="5000">5 seconds</option>
+        </select>
+      </label>
 
       <div class="progress-wrap" hidden>
         <div class="progress-bar" id="progressBar"><div id="progressFill"></div></div>
@@ -1249,4 +1259,14 @@
       });
     }
   </script>
+
+  <!-- Style Grid Modal -->
+  <div id="modal-grid" class="modal" style="display:none">
+    <div class="modal-content" style="max-width:920px;width:92vw;max-height:88vh;">
+      <button class="modal-close" type="button">&times;</button>
+      <h3 style="margin-top:0">Style Grid</h3>
+      <p id="gridStatus" style="font-size:13px;color:var(--muted);margin:0 0 12px">Click a style to apply it and close.</p>
+      <div id="gridContainer" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:12px;overflow-y:auto;max-height:65vh;"></div>
+    </div>
+  </div>
 
