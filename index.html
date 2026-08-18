@@ -102,6 +102,7 @@
       </div>
       <label>Load image <button type="button" class="info-btn" data-modal="modal-load">?</button><input id="file" type="file" accept="image/*" multiple></label>
       <div style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:4px;">or paste an image with Ctrl+V</div>
+      <button id="trySampleBtn" type="button" style="width:100%;padding:8px;background:linear-gradient(135deg,#10b981 0%,#3b82f6 100%);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;margin-bottom:4px;">🎲 Try Sample Image</button>
       <button id="webcamBtn" type="button" style="width:100%;padding:8px;background:#7c3aed;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;margin-bottom:4px;">📷 Capture from Webcam</button>
       <div id="fileInfo" style="display:none;margin-bottom:8px;padding:8px;border-radius:6px;font-size:12px;color:#333">
         <div id="fileCount"></div>
@@ -316,35 +317,38 @@
 
     </section>
 
-    <section class="preview" style="display:flex; flex-direction:row; gap:16px; align-items:stretch; justify-content:space-between; min-height:600px;">
-      <div style="flex:1; text-align:center; display:flex; flex-direction:column;">
-        <div style="font-size:13px; color:#888; margin-bottom:8px; font-weight:600;">Original</div>
-        <div style="position:relative; display:flex; flex:1; width:100%; min-height:400px; overflow:hidden; border-radius:4px; aspect-ratio:1;">
-          <img id="originalPlaceholder" src="img/panel1.png" alt="Original" style="display:block; width:100%; height:100%; object-fit:contain; border:1px solid var(--border); border-radius:4px;">
-          <canvas id="original" width="512" height="512" style="background:#fff;border:1px solid var(--border);display:none;width:100%;height:100%;border-radius:4px;position:absolute;top:0;left:0;object-fit:contain;"></canvas>
+    <section class="preview" style="display:flex; flex-direction:column; min-height:600px;">
+      <div style="display:flex; flex-direction:row; gap:16px; align-items:stretch; flex:1;">
+        <div style="flex:1; text-align:center; display:flex; flex-direction:column;">
+          <div style="font-size:13px; color:#888; margin-bottom:8px; font-weight:600;">Original</div>
+          <div style="position:relative; display:flex; flex:1; width:100%; min-height:400px; overflow:hidden; border-radius:4px; aspect-ratio:1;">
+            <img id="originalPlaceholder" src="img/panel1.png" alt="Original" style="display:block; width:100%; height:100%; object-fit:contain; border:1px solid var(--border); border-radius:4px;">
+            <canvas id="original" width="512" height="512" style="background:#fff;border:1px solid var(--border);display:none;width:100%;height:100%;border-radius:4px;position:absolute;top:0;left:0;object-fit:contain;"></canvas>
+          </div>
+        </div>
+        <div style="flex:1; text-align:center; display:flex; flex-direction:column;">
+          <div style="font-size:13px; color:#888; margin-bottom:8px; font-weight:600;">Rendered <button type="button" class="info-btn" data-modal="modal-pan">?</button></div>
+          <div id="previewContainer" style="position:relative; display:flex; flex:1; width:100%; min-height:400px; overflow:hidden; border:1px solid var(--border); border-radius:4px; aspect-ratio:1;">
+            <img id="renderedPlaceholder" src="img/panel2.png" alt="Rendered" style="display:block; width:100%; height:100%; object-fit:contain;">
+            <canvas id="preview" width="512" height="512" style="background:#fff;display:none;width:100%;height:100%;position:absolute;top:0;left:0;object-fit:contain;"></canvas>
+            <canvas id="compareCanvas" width="512" height="512" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;pointer-events:none;z-index:5;border-radius:4px;"></canvas>
+            <div id="compareHandle" style="display:none;position:absolute;top:0;left:50%;height:100%;width:4px;background:rgba(255,255,255,0.9);cursor:ew-resize;z-index:6;transform:translateX(-50%);box-shadow:0 0 6px rgba(0,0,0,0.5);">
+              <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.4);font-size:14px;user-select:none;">⇔</div>
+            </div>
+            <div id="progressPercent" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:48px; font-weight:bold; color:#0fff00; opacity:0; transition:opacity 0.2s ease; text-shadow:0 0 20px #0fff00, 0 0 40px #0fff00; pointer-events:none; display:none;">0%</div>
+          </div>
         </div>
       </div>
-      <div style="flex:1; text-align:center; display:flex; flex-direction:column;">
-        <div style="font-size:13px; color:#888; margin-bottom:8px; font-weight:600;">Rendered <button type="button" class="info-btn" data-modal="modal-pan">?</button></div>
-        <div id="previewContainer" style="position:relative; display:flex; flex:1; width:100%; min-height:400px; overflow:hidden; border:1px solid var(--border); border-radius:4px; aspect-ratio:1;">
-          <img id="renderedPlaceholder" src="img/panel2.png" alt="Rendered" style="display:block; width:100%; height:100%; object-fit:contain;">
-          <canvas id="preview" width="512" height="512" style="background:#fff;display:none;width:100%;height:100%;position:absolute;top:0;left:0;object-fit:contain;"></canvas>
-          <canvas id="compareCanvas" width="512" height="512" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;pointer-events:none;z-index:5;border-radius:4px;"></canvas>
-          <div id="compareHandle" style="display:none;position:absolute;top:0;left:50%;height:100%;width:4px;background:rgba(255,255,255,0.9);cursor:ew-resize;z-index:6;transform:translateX(-50%);box-shadow:0 0 6px rgba(0,0,0,0.5);">
-            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.4);font-size:14px;user-select:none;">⇔</div>
-          </div>
-          <div id="progressPercent" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:48px; font-weight:bold; color:#0fff00; opacity:0; transition:opacity 0.2s ease; text-shadow:0 0 20px #0fff00, 0 0 40px #0fff00; pointer-events:none; display:none;">0%</div>
-        </div>
-        <div style="margin-top:8px; width:100%; height:12px; background:#1a1a1a; border-radius:6px; overflow:hidden; visibility:hidden; opacity:0; transition:opacity 0.2s ease;" id="progressContainer">
-          <div style="height:100%; background:#0fff00; width:0%; transition:width 0.15s linear; box-shadow:0 0 20px #0fff00, 0 0 30px #0fff00, inset 0 0 20px rgba(15,255,0,0.8);" id="progressBar"></div>
-        </div>
-        <div style="margin-top:12px; display:flex; gap:8px; justify-content:center; align-items:center;">
-          <button id="zoomOut" type="button" style="padding:6px 12px; background:#06b6d4; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:14px;">−</button>
-          <span id="zoomLevel" style="min-width:60px; text-align:center; font-size:13px; color:#888; font-weight:600;">100%</span>
-          <button id="zoomIn" type="button" style="padding:6px 12px; background:#06b6d4; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:14px;">+</button>
-          <button id="zoomReset" type="button" style="padding:6px 12px; background:#7c3aed; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:14px;">Reset</button>
-          <button id="compareToggle" type="button" style="padding:6px 12px; background:#6b7280; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:14px;">Compare</button>
-        </div>
+      <div style="margin-top:8px; width:100%; height:12px; background:#1a1a1a; border-radius:6px; overflow:hidden; visibility:hidden; opacity:0; transition:opacity 0.2s ease;" id="progressContainer">
+        <div style="height:100%; background:#0fff00; width:0%; transition:width 0.15s linear; box-shadow:0 0 20px #0fff00, 0 0 30px #0fff00, inset 0 0 20px rgba(15,255,0,0.8);" id="progressBar"></div>
+      </div>
+      <div style="margin-top:12px; display:flex; gap:8px; justify-content:center; align-items:center;">
+        <button id="zoomOut" type="button" style="padding:6px 12px; background:#06b6d4; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:14px;">−</button>
+        <span id="zoomLevel" style="min-width:60px; text-align:center; font-size:13px; color:#888; font-weight:600;">100%</span>
+        <button id="zoomIn" type="button" style="padding:6px 12px; background:#06b6d4; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:14px;">+</button>
+        <button id="zoomReset" type="button" style="padding:6px 12px; background:#7c3aed; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:14px;">Reset</button>
+        <button id="compareToggle" type="button" style="padding:6px 12px; background:#6b7280; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:14px;">Compare</button>
+        <button id="surpriseMe" type="button" style="padding:6px 12px; background:linear-gradient(135deg,#f59e0b 0%,#ef4444 100%); color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:14px;">Surprise Me</button>
       </div>
     </section>
 
@@ -374,7 +378,7 @@
 
   <footer>
     <small>&copy; 2026 ArtMondo. All rights reserved. Sketchify is an open-source project licensed under MIT.</small>
-    <small style="display:block;margin-top:8px">Sketchify version 1.2.5</small>
+    <small style="display:block;margin-top:8px">Sketchify version 1.3.0</small>
     <small style="display:block;margin-top:12px">
       <a href="https://discord.gg/nqY5xSx6" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none;border-bottom:1px dotted;transition:all 0.2s;cursor:pointer">Join our Discord community 💬</a>
       <span style="margin:0 8px;opacity:0.5">•</span>
@@ -386,7 +390,7 @@
       <span style="margin:0 8px;opacity:0.5">•</span>
       <a href="#" onclick="document.getElementById('modal-privacy').style.display='flex'; return false;" style="color:inherit;text-decoration:none;border-bottom:1px dotted;transition:all 0.2s;cursor:pointer">Privacy Policy</a>
       <span style="margin:0 8px;opacity:0.5">•</span>
-      <a href="https://github.com/aalorro/sketch/releases/tag/v1.2.5" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none;border-bottom:1px dotted;transition:all 0.2s;cursor:pointer">Download Server 💾</a>
+      <a href="https://github.com/aalorro/sketch/releases/tag/v1.3.0" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none;border-bottom:1px dotted;transition:all 0.2s;cursor:pointer">Download Server 💾</a>
     </small>
   </footer>
 
@@ -882,6 +886,13 @@
       <button class="modal-close" type="button">&times;</button>
       <h3>📝 Changelog</h3>
 
+      <h4>Version 1.3.0 (August 18, 2026)</h4>
+      <ul>
+        <li><strong>Try Sample Image:</strong> New button loads a random sample image from the built-in gallery so you can explore styles without uploading a file</li>
+        <li><strong>Surprise Me:</strong> New button randomizes all rendering parameters (style, medium, brush, intensity, stroke, smoothing, texture, color settings) and re-renders instantly</li>
+        <li><strong>Aligned Preview Panels:</strong> Original and Rendered panels are now perfectly aligned side-by-side with shared zoom/compare controls centered below both</li>
+      </ul>
+
       <h4>Version 1.2.5 (February 28, 2026)</h4>
       <ul>
         <li><strong>Style Grid:</strong> New button below the Style selector opens a modal showing all 27 styles as live thumbnails rendered from your image — click any to apply</li>
@@ -927,7 +938,7 @@
       </ul>
 
       <h4>Future Updates</h4>
-      <p>Coming in v1.3.0:</p>
+      <p>Coming in v1.4.0:</p>
       <ul>
         <li>Advanced color modes (CMYK, grayscale)</li>
         <li>Layer export support (PSD/XCF)</li>

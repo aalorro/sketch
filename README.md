@@ -1,6 +1,6 @@
 # Sketchify — Image to Sketch (Static Web App)
 
-**By ArtMondo** | **Version 1.2.5**
+**By ArtMondo** | **Version 1.3.0**
 
 This repository contains a sophisticated, client-side web app that creates stunning sketch art from your photos in seconds — choose from 26+ artistic styles, preview changes in real-time, and batch-process multiple images. Fast, private, and completely free, with all processing happening directly in your browser.
 

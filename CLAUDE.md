@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Sketchify** (v1.2.4) is a client-side web app by ArtMondo that converts photos into artistic sketches. It runs entirely in the browser using Canvas API and WebGL, with an optional Python/Flask+OpenCV server for additional styles.
+**Sketchify** (v1.3.0) is a client-side web app by ArtMondo that converts photos into artistic sketches. It runs entirely in the browser using Canvas API and WebGL, with an optional Python/Flask+OpenCV server for additional styles.
 
 ## Running Locally
 

@@ -1087,6 +1087,56 @@
     }, 'image/png');
   });
 
+  // Try Sample Image button — loads a random image from public/
+  const sampleImages = ['public/algomodo-01.png','public/algomodo-02.png','public/algomodo-03.png','public/highlands.jpg','public/onelab.jpg'];
+  document.getElementById('trySampleBtn').addEventListener('click', ()=>{
+    const src = sampleImages[Math.floor(Math.random()*sampleImages.length)];
+    fetch(src).then(r=>r.blob()).then(blob=>{
+      const ext = src.split('.').pop();
+      const mime = ext === 'png' ? 'image/png' : 'image/jpeg';
+      const file = new File([blob], src.split('/').pop(), { type: mime });
+      currentFiles = [file];
+      currentImageIndex = 0;
+      panOffsetX = 0; panOffsetY = 0;
+      zoomLevel = 1.0;
+      currentRenderedImage = null;
+      updateZoomDisplay();
+      enableControls();
+      loadImageFromFile(file).then(img=>{
+        singleImage = img;
+        drawPreview();
+        updateImageNavDisplay();
+      }).catch(err=>console.error('Sample load failed:', err));
+      updateFileInfo();
+    }).catch(err=>console.error('Failed to fetch sample image:', err));
+  });
+
+  // Surprise Me — randomize all rendering parameters and re-render
+  function randomChoice(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+  function randomInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+  document.getElementById('surpriseMe').addEventListener('click', ()=>{
+    const styleEl = document.getElementById('style');
+    const opts = Array.from(styleEl.options).map(o=>o.value);
+    styleEl.value = randomChoice(opts);
+
+    document.getElementById('artStyle').value = randomChoice(['pencil','ink','marker','pen','pastel']);
+    document.getElementById('brush').value = randomChoice(['line','hatch','crosshatch','charcoal','inkWash']);
+    document.getElementById('intensity').value = randomInt(1,10);
+    document.getElementById('stroke').value = randomInt(1,10);
+    document.getElementById('smoothing').value = (Math.random()*10).toFixed(1);
+    document.getElementById('skipHatching').checked = Math.random() > 0.5;
+    document.getElementById('colorize').checked = Math.random() > 0.7;
+    document.getElementById('invert').checked = Math.random() > 0.85;
+    document.getElementById('contrast').value = (0.5 + Math.random()*1.5).toFixed(1);
+    document.getElementById('saturation').value = (0.3 + Math.random()*1.7).toFixed(1);
+    document.getElementById('hueShift').value = Math.floor(Math.random()*73)*5; // 0-360 step 5
+    document.getElementById('textureType').value = randomChoice(['none','paper','canvas','rough','film']);
+    document.getElementById('textureOpacity').value = (Math.random()*10).toFixed(1);
+
+    // Trigger re-render if an image is loaded
+    if(singleImage) drawPreview();
+  });
+
   // Stop stream if user closes modal via Escape key
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && document.getElementById('modal-webcam').style.display !== 'none') {
