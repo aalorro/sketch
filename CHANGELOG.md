@@ -2,6 +2,19 @@
 
 All notable changes to Sketchify are documented in this file.
 
+## [1.3.0] - 2026-08-18
+
+### Added
+- **Try Sample Image:** New button loads a random image from the built-in `public/` gallery (5 images) so users can explore styles without uploading a file
+- **Surprise Me:** New button randomizes all rendering parameters (style, medium, brush, intensity, stroke, smoothing, skip hatching, colorize, invert, contrast, saturation, hue shift, texture type & opacity) and re-renders instantly
+- **Aligned Preview Panels:** Original and Rendered panels are now perfectly top-aligned side-by-side; progress bar and zoom/compare/surprise controls are shared below both panels
+
+### Changed
+- Preview section layout refactored from two independent columns to a unified column layout with shared bottom controls
+- Future roadmap items moved to v1.4.0
+
+---
+
 ## [1.2.5] - 2026-02-28
 
 ### Added
