@@ -180,6 +180,9 @@ export interface RenderRequest {
   intensity: number;    // 1-10, maps to tone quantization levels
   stroke: number;       // 1-10, maps to FDoG line width + nib scale
   tier?: QualityTier;   // omit to auto-detect
+  contrast?: number;    // 0-2, default 1.0 (pivot around 18% grey)
+  saturation?: number;  // 0-2, default 1.0
+  hueShift?: number;    // 0-360 degrees, default 0
 }
 
 // ── Medium Definition (preset + metadata) ────────────────────────────────────

@@ -22,6 +22,9 @@ import {
   aspectSelect,
   originalPlaceholder,
   renderedPlaceholder,
+  contrastInput,
+  saturationInput,
+  hueShiftInput,
 } from './dom';
 import {
   singleImage,
@@ -209,6 +212,9 @@ export async function drawPreviewV2(): Promise<void> {
     seed: seed || Date.now(),
     intensity,
     stroke,
+    contrast: parseFloat(contrastInput.value) || 1.0,
+    saturation: parseFloat(saturationInput.value) || 1.0,
+    hueShift: parseFloat(hueShiftInput.value) || 0,
   };
 
   // ── Run the GPU pipeline ───────────────────────────────────────────────

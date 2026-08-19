@@ -167,8 +167,10 @@ void main() {
       pigmentColor = pigmentColor + vec3(valOffset);
     }
 
-    // KM coefficients — use provided K/S (from palette match or medium default)
-    vec3 pigmentK = vec3(uKmK_R, uKmK_G, uKmK_B);
+    // KM coefficients — derive per-pixel K from source color so image colors
+    // come through. Darker source channels absorb more (-log gives higher K).
+    vec3 pixelK = -log(max(pigmentColor, vec3(0.02)));
+    vec3 pigmentK = pixelK * vec3(uKmK_R, uKmK_G, uKmK_B);
     vec3 pigmentS = vec3(uKmS_R, uKmS_G, uKmS_B);
 
     // Paper K/S: white paper has near-zero K and high S
@@ -184,15 +186,11 @@ void main() {
     // Modulate by paper base color
     resolvedColor = baseColor * reflectance;
   } else {
-    // Opaque model: direct coverage blend (pastel, crayon)
+    // Opaque model: direct coverage blend (marker, crayon, pastel)
     float opacity = clamp(effectiveDensity / max(uMaxDensity, 0.001), 0.0, 1.0);
 
-    // Wax resist: existing wax layer reduces further deposition
-    if (uWaxResist > 0.0) {
-      opacity *= exp(-uWaxResist * effectiveDensity);
-    }
-
-    vec3 pigmentColor = source.rgb * exp(-absorption * 0.5);
+    // Use source color directly — opaque pigments show their color
+    vec3 pigmentColor = source.rgb;
     resolvedColor = mix(baseColor, pigmentColor, opacity);
   }
 

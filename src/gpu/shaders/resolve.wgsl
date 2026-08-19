@@ -181,8 +181,11 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
       pigment_color = pigment_color + vec3<f32>(val_offset);
     }
 
-    // KM coefficients — use provided K/S (from palette match or medium default)
-    let pigment_k = vec3<f32>(params.kmK_R, params.kmK_G, params.kmK_B);
+    // KM coefficients — derive per-pixel K from source color so image colors
+    // come through. Darker source channels absorb more (-log gives higher K).
+    // Medium K coefficients scale the per-pixel absorption.
+    let pixel_k = -log(max(pigment_color, vec3<f32>(0.02)));
+    let pigment_k = pixel_k * vec3<f32>(params.kmK_R, params.kmK_G, params.kmK_B);
     let pigment_s = vec3<f32>(params.kmS_R, params.kmS_G, params.kmS_B);
 
     // Paper K/S: white paper has near-zero K and high S
@@ -198,15 +201,11 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     // Modulate by paper base color
     resolved_color = base_color * reflectance;
   } else {
-    // Opaque model: direct coverage blend (pastel, crayon)
-    var opacity = clamp(effective_density / max(params.maxDensity, 0.001), 0.0, 1.0);
+    // Opaque model: direct coverage blend (marker, crayon, pastel)
+    let opacity = clamp(effective_density / max(params.maxDensity, 0.001), 0.0, 1.0);
 
-    // Wax resist: existing wax layer reduces further deposition
-    if (params.waxResist > 0.0) {
-      opacity *= exp(-params.waxResist * effective_density);
-    }
-
-    let pigment_color = source.rgb * exp(-absorption * 0.5);
+    // Use source color directly — opaque pigments show their color
+    let pigment_color = source.rgb;
     resolved_color = mix(base_color, pigment_color, opacity);
   }
 
