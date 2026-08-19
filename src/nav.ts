@@ -15,7 +15,6 @@ import {
   setPanOffsetY,
   setZoomLevel,
   setCurrentRenderedImage,
-  renderingEngine,
 } from './state';
 
 /**
@@ -120,7 +119,6 @@ export function generateThumbnails(): void {
 let _drawPreview: () => void = () => {};
 let _updateFileInfo: () => void = () => {};
 let _setSingleImage: (img: HTMLImageElement | null) => void = () => {};
-let _renderCurrentImageWithOpenCV: () => void = () => {};
 
 /**
  * Delete an image from the file list.
@@ -180,11 +178,6 @@ export function selectImage(index: number): void {
       _setSingleImage(img);
       _drawPreview();
       updateImageNavDisplay();
-
-      // If OpenCV rendering is enabled, immediately render with server
-      if (renderingEngine === 'opencv') {
-        _renderCurrentImageWithOpenCV();
-      }
     })
     .catch((err) => console.error('Failed to load image', err));
 }
@@ -197,10 +190,8 @@ export function initNav(deps: {
   drawPreview: () => void;
   updateFileInfo: () => void;
   setSingleImage: (img: HTMLImageElement | null) => void;
-  renderCurrentImageWithOpenCV: () => void;
 }): void {
   _drawPreview = deps.drawPreview;
   _updateFileInfo = deps.updateFileInfo;
   _setSingleImage = deps.setSingleImage;
-  _renderCurrentImageWithOpenCV = deps.renderCurrentImageWithOpenCV;
 }

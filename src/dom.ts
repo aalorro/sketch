@@ -71,18 +71,8 @@ export const savePresetBtn = $<HTMLButtonElement>('savePreset');
 export const loadPresetBtn = $<HTMLButtonElement>('loadPreset');
 export const deletePresetBtn = $<HTMLButtonElement>('deletePreset');
 
-// ── Controls: WebGL / Server ────────────────────────────────────────────────
+// ── Controls: WebGL ─────────────────────────────────────────────────────────
 export const webglStatus = $<HTMLElement>('webglStatus');
-export const useServerCheckbox = $<HTMLInputElement>('useServer');
-export const serverUrlInput = $<HTMLInputElement>('serverUrl');
-export const forceServerLabel = $<HTMLLabelElement>('forceServerLabel');
-export const forceServerCheckbox = $<HTMLInputElement>('forceServer');
-
-// ── Rendering Engine Switch ─────────────────────────────────────────────────
-export const renderingEngineSwitch = $<HTMLDivElement>('renderingEngineSwitch');
-export const canvasLabel = $<HTMLLabelElement>('canvasLabel');
-export const opencvLabel = $<HTMLLabelElement>('opencvLabel');
-export const renderingEngineInput = $<HTMLInputElement>('renderingEngineInput');
 
 // ── ML Endpoint (optional, may not exist in HTML) ───────────────────────────
 export const useMLCheckbox = document.getElementById('useML') as HTMLInputElement | null;
@@ -146,7 +136,6 @@ export const modalPan = $<HTMLDivElement>('modal-pan');
 export const modalOutputFilename = $<HTMLDivElement>('modal-outputfilename');
 export const modalPresets = $<HTMLDivElement>('modal-presets');
 export const modalGpu = $<HTMLDivElement>('modal-gpu');
-export const modalServer = $<HTMLDivElement>('modal-server');
 export const modalGenerate = $<HTMLDivElement>('modal-generate');
 export const modalInstructions = $<HTMLDivElement>('modal-instructions');
 export const modalDonate = $<HTMLDivElement>('modal-donate');

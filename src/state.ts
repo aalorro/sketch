@@ -12,8 +12,6 @@ import {
   smoothingInput,
   brushSelect,
   useWebGLCheckbox,
-  useServerCheckbox,
-  serverUrlInput,
   outputNameInput,
   skipHatchingCheckbox,
   contrastInput,
@@ -87,16 +85,10 @@ export function setPanStartY(y: number): void {
   panStartY = y;
 }
 
-/** Store the rendered image (server or canvas) to preserve during zoom/pan */
+/** Store the rendered image to preserve during zoom/pan */
 export let currentRenderedImage: HTMLImageElement | null = null;
 export function setCurrentRenderedImage(img: HTMLImageElement | null): void {
   currentRenderedImage = img;
-}
-
-/** 'canvas' or 'opencv' - controls which renderer is used */
-export let renderingEngine: 'canvas' | 'opencv' = 'canvas';
-export function setRenderingEngine(engine: 'canvas' | 'opencv'): void {
-  renderingEngine = engine;
 }
 
 /** Before/after comparison slider active */
@@ -124,12 +116,6 @@ export const textureCache: Record<string, HTMLCanvasElement> = {};
 export let gridGeneration = 0;
 export function incrementGridGeneration(): number {
   return ++gridGeneration;
-}
-
-/** User can manually override the auto-disable on mobile */
-export let forceServerOverride = false;
-export function setForceServerOverride(v: boolean): void {
-  forceServerOverride = v;
 }
 
 /** Keep a single image loaded for preview when batch processing */
@@ -163,8 +149,6 @@ export function captureState(): AppState {
     smoothing: smoothingInput.value,
     brush: brushSelect.value,
     useWebGL: useWebGLCheckbox.checked,
-    useServer: useServerCheckbox.checked,
-    serverUrl: serverUrlInput.value,
     outputName: outputNameInput.value,
     skipHatching: skipHatchingCheckbox.checked,
     contrast: contrastInput.value,

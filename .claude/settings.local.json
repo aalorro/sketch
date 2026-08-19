@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(python:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vite:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(ls:*)"
     ]
   }
 }

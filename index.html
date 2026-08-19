@@ -198,6 +198,8 @@
       <label style="white-space: nowrap; display: inline-flex; align-items: center;"><input id="colorize" type="checkbox"> <span style="white-space: nowrap;">Colorize (add color to sketch) <button type="button" class="info-btn" data-modal="modal-colorize">?</button></span></label>
 
       <label style="white-space: nowrap; display: inline-flex; align-items: center;"><input id="invert" type="checkbox"> <span style="white-space: nowrap;">Invert shading (black ↔ white) <button type="button" class="info-btn" data-modal="modal-invert">?</button></span></label>
+      <label style="white-space: nowrap; display: inline-flex; align-items: center;"><input id="useWebGL" type="checkbox" checked> <span style="white-space: nowrap;">Enable WebGPU <button type="button" class="info-btn" data-modal="modal-gpu">?</button></span></label>
+      <small id="webglStatus" style="display:none;color:green">✓ GPU accelerated</small>
 
       <label>Contrast <input id="contrast" type="range" min="0" max="2" step="0.1" value="1"></label>
       <label>Saturation <input id="saturation" type="range" min="0" max="2" step="0.1" value="1"></label>
@@ -258,23 +260,6 @@
         <button id="loadPreset" type="button" style="width:100%;margin-top:4px">Load Preset</button>
       </fieldset>
 
-      <label style="white-space: nowrap; display: inline-flex; align-items: center;"><input id="useWebGL" type="checkbox"> <span style="white-space: nowrap;">Use GPU (WebGL experimental) <button type="button" class="info-btn" data-modal="modal-gpu">?</button></span></label>
-      <small id="webglStatus" style="display:none;color:green">✓ GPU accelerated</small>
-      <label><input id="useServer" type="checkbox"> Use server style-transfer (requires running server) <button type="button" class="info-btn" data-modal="modal-server">?</button></label>
-      <label>Server API URL <input id="serverUrl" type="text" value="http://localhost:5001/api/style-transfer-advanced" placeholder="https://example.com/api/style-transfer"></label>
-      <label id="forceServerLabel" style="display:none; background:rgba(251,191,36,0.1); padding:8px 12px; border-radius:6px; border:1px solid rgba(251,191,36,0.3); cursor:pointer; margin-top:8px;">
-        <input id="forceServer" type="checkbox"> <strong>⚡ Advanced: Force Enable Server Mode</strong> <span style="font-size:12px; color:#888;">(for desktop use)</span>
-      </label>
-
-      <div style="margin:12px 0;padding:12px;background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.2);border-radius:8px">
-        <div style="font-size:14px;font-weight:600;margin-bottom:10px;color:var(--text)">Rendering Engine</div>
-        <div id="renderingEngineSwitch" style="display:flex;align-items:center;justify-content:space-between;background:var(--border);padding:2px;border-radius:20px;position:relative;height:40px;width:100%;cursor:pointer;transition:all 0.3s">
-          <label id="canvasLabel" style="flex:1;padding:8px;text-align:center;font-weight:600;font-size:14px;color:white;background:#10b981;border-radius:18px;z-index:1;transition:all 0.3s;margin:0;cursor:pointer;user-select:none">Browser</label>
-          <label id="opencvLabel" style="flex:1;padding:8px;text-align:center;font-weight:600;font-size:14px;color:var(--muted);background:transparent;z-index:1;transition:all 0.3s;margin:0;cursor:pointer;user-select:none">Server</label>
-          <input id="renderingEngineInput" type="checkbox" style="display:none">
-        </div>
-        <small style="display:block;margin-top:8px;color:var(--muted);font-size:12px">Server: Instant refresh on parameter changes. Browser: Traditional generate.</small>
-      </div>
 
       <label>Generate <button type="button" class="info-btn" data-modal="modal-generate">?</button></label>
 
@@ -518,48 +503,10 @@
   <div id="modal-gpu" class="modal" style="display:none">
     <div class="modal-content">
       <button class="modal-close" type="button">&times;</button>
-      <h3>Use GPU (WebGL)</h3>
-      <p>Enables GPU-accelerated edge detection using WebGL for faster real-time previews on large images.</p>
-      <p><strong>Benefits:</strong> Significantly faster processing on devices with modern GPUs.</p>
-      <p><strong>Fallback:</strong> If GPU is unavailable or unsupported, processing automatically falls back to CPU.</p>
-      <p><strong>Note:</strong> This is experimental and may have different results on some browsers.</p>
-    </div>
-  </div>
-
-  <div id="modal-server" class="modal" style="display:none">
-    <div class="modal-content">
-      <button class="modal-close" type="button">&times;</button>
-      <h3>Use Server Style-Transfer</h3>
-      <p>Sends images to a Flask/Python server for advanced processing (OpenCV-based rendering).</p>
-      
-      <p><strong>⚠️ Important:</strong> You need <strong>TWO servers running simultaneously:</strong></p>
-      <ul style="padding-left: 20px;">
-        <li><strong>Web Server (port 8000):</strong> Serves the Sketchify interface</li>
-        <li><strong>Flask Server (port 5001):</strong> Processes images with OpenCV</li>
-      </ul>
-      
-      <p><strong>Quick Setup (5 minutes):</strong></p>
-      <ol>
-        <li><strong>Terminal 1 - Start Web Server</strong>
-          <pre style="background:#f5f5f5;padding:8px;border-radius:4px;margin:4px 0;"><code>python -m http.server 8000</code></pre>
-        </li>
-        <li><strong>Terminal 2 - Start Flask Server</strong>
-          <pre style="background:#f5f5f5;padding:8px;border-radius:4px;margin:4px 0;"><code>python server_advanced.py</code></pre>
-        </li>
-        <li><strong>Browser:</strong> Navigate to <code>http://localhost:8000</code></li>
-        <li><strong>Enable this checkbox</strong> and verify URL is <code>http://localhost:5001/api/style-transfer-advanced</code></li>
-        <li><strong>Click Generate</strong> to process with server</li>
-      </ol>
-      
-      <p><strong>Default server URLs:</strong></p>
-      <ul style="padding-left: 20px;">
-        <li><code>http://localhost:5001/api/style-transfer-advanced</code> (Advanced, recommended)</li>
-        <li><code>http://localhost:5000/api/style-transfer</code> (Basic Pillow server)</li>
-      </ul>
-      
-      <p><strong>For more details:</strong> See <a href="https://github.com/yourusername/sketch/blob/main/QUICK_START.md" target="_blank">QUICK_START.md</a> or <a href="https://github.com/yourusername/sketch/blob/main/README.md" target="_blank">README.md</a></p>
-      
-      <p><strong>Privacy note:</strong> Images are sent to the server for processing. Only use with servers you trust or run locally.</p>
+      <h3>Enable WebGPU</h3>
+      <p>Enables GPU-accelerated image processing using WebGPU compute shaders for faster real-time previews.</p>
+      <p><strong>Benefits:</strong> Significantly faster Sobel, grayscale, color adjustments, smoothing, and texture blending.</p>
+      <p><strong>Fallback:</strong> Automatically falls back to WebGL2 if WebGPU is unavailable, then to CPU.</p>
     </div>
   </div>
 

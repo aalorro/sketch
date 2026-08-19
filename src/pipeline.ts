@@ -359,7 +359,7 @@ export function drawPreview(): void {
   const octx = original.getContext('2d')!;
   octx.clearRect(0, 0, canvasW, canvasH);
 
-  // If we have a stored rendered image (from server or canvas), use that with zoom/pan
+  // If we have a stored rendered image, use that with zoom/pan
   if (currentRenderedImage) {
     const ctx = preview.getContext('2d')!;
     ctx.clearRect(0, 0, canvasW, canvasH);

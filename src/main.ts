@@ -55,8 +55,6 @@ import {
   seedInput,
   useMLCheckbox,
   mlUrlInput,
-  serverUrlInput,
-  useServerCheckbox,
 } from './dom';
 
 import {
@@ -73,9 +71,7 @@ import {
   setPanOffsetX,
   panOffsetY,
   setPanOffsetY,
-  currentRenderedImage,
   setCurrentRenderedImage,
-  renderingEngine,
   singleImage,
   setSingleImage,
   undoStack,
@@ -100,8 +96,6 @@ import {
   randomChoice,
   randomInt,
   ALL_STYLES,
-  CANVAS_ONLY_STYLES,
-  isMobile,
 } from './utils';
 
 import { drawPreview, applySketchTransform, registerStyle } from './pipeline';
@@ -114,13 +108,6 @@ import {
   initNav,
 } from './nav';
 import { initWebcam } from './webcam';
-import {
-  updateRenderingEngineToggle,
-  updateStyleMenu,
-  updateSwitchUI,
-  renderCurrentImageWithOpenCV,
-  initServer,
-} from './server';
 import { initExport, downloadAllZip, downloadDataURL } from './export';
 
 // Register all 28 styles + default
@@ -248,8 +235,6 @@ async function processFile(
 ): Promise<Blob> {
   const useML = useMLCheckbox ? useMLCheckbox.checked : false;
   const mlUrl = mlUrlInput ? mlUrlInput.value.trim() : '';
-  const useServer = useServerCheckbox.checked;
-  const serverUrl = serverUrlInput.value.trim();
 
   if (useML && mlUrl) {
     const fd = new FormData();
@@ -269,29 +254,6 @@ async function processFile(
     fd.append('hueShift', hueShiftInput.value);
     const resp = await fetch(mlUrl, { method: 'POST', body: fd });
     if (!resp.ok) throw new Error('ML error ' + resp.status);
-    return await resp.blob();
-  }
-
-  if (useServer && serverUrl) {
-    const fd = new FormData();
-    fd.append('file', file);
-    fd.append('artStyle', artStyleSelect.value);
-    fd.append('style', styleSelect.value);
-    fd.append('brush', brushSelect.value);
-    fd.append('seed', String(getSeed()));
-    fd.append('intensity', intensityInput.value);
-    fd.append('stroke', strokeInput.value);
-    fd.append('smoothing', smoothingInput.value);
-    fd.append('skipHatching', String(skipHatchingCheckbox.checked));
-    fd.append('colorize', String(colorizeCheckbox.checked));
-    fd.append('invert', String((document.getElementById('invert') as HTMLInputElement).checked));
-    fd.append('contrast', contrastInput.value);
-    fd.append('saturation', saturationInput.value);
-    fd.append('hueShift', hueShiftInput.value);
-    fd.append('resolution', resolutionSelect.value);
-    fd.append('aspect', aspectSelect.value);
-    const resp = await fetch(serverUrl, { method: 'POST', body: fd });
-    if (!resp.ok) throw new Error('Server error ' + resp.status);
     return await resp.blob();
   }
 
@@ -353,26 +315,11 @@ async function openStyleGrid(): Promise<void> {
 
   gridContainer.innerHTML = '';
   const THUMB = 150;
-  const isServer = renderingEngine === 'opencv';
-  const styles = isServer
-    ? ALL_STYLES.filter((s) => !CANVAS_ONLY_STYLES.has(s.value))
-    : ALL_STYLES;
+  const styles = ALL_STYLES;
 
   const origStyle = styleSelect.value;
   const origZoom = zoomLevel;
   setZoomLevel(1.0);
-
-  let thumbFile: File | null = null;
-  if (isServer) {
-    const offC = document.createElement('canvas');
-    offC.width = 512;
-    offC.height = 512;
-    const offCtx = offC.getContext('2d')!;
-    const fit = fitCropRect(singleImage.width, singleImage.height, 512, 512);
-    offCtx.drawImage(singleImage, fit.sx, fit.sy, fit.sw, fit.sh, 0, 0, 512, 512);
-    const blob = await new Promise<Blob>((r) => offC.toBlob((b) => r(b!), 'image/png'));
-    thumbFile = new File([blob], 'thumb.png', { type: 'image/png' });
-  }
 
   for (let i = 0; i < styles.length; i++) {
     if (gridGeneration !== gen) break;
@@ -402,60 +349,15 @@ async function openStyleGrid(): Promise<void> {
 
     const thumbCtx = thumb.getContext('2d')!;
 
-    if (isServer) {
-      thumbCtx.fillStyle = '#e5e7eb';
-      thumbCtx.fillRect(0, 0, THUMB, THUMB);
-      thumbCtx.fillStyle = '#9ca3af';
-      thumbCtx.font = '11px sans-serif';
-      thumbCtx.textAlign = 'center';
-      thumbCtx.textBaseline = 'middle';
-      thumbCtx.fillText('rendering…', THUMB / 2, THUMB / 2);
-
-      try {
-        const sUrl = serverUrlInput.value.trim();
-        const fd = new FormData();
-        fd.append('file', thumbFile!);
-        fd.append('artStyle', artStyleSelect.value);
-        fd.append('style', s.value);
-        fd.append('brush', brushSelect.value);
-        fd.append('seed', String(getSeed()));
-        fd.append('intensity', intensityInput.value);
-        fd.append('stroke', strokeInput.value);
-        fd.append('smoothing', smoothingInput.value);
-        fd.append('skipHatching', String(skipHatchingCheckbox.checked));
-        fd.append('colorize', String(colorizeCheckbox.checked));
-        fd.append('invert', String((document.getElementById('invert') as HTMLInputElement).checked));
-        fd.append('contrast', contrastInput.value);
-        fd.append('saturation', saturationInput.value);
-        fd.append('hueShift', hueShiftInput.value);
-        fd.append('resolution', '512');
-        fd.append('aspect', '1:1');
-        const resp = await fetch(sUrl, { method: 'POST', body: fd });
-        if (!resp.ok) throw new Error('Server error ' + resp.status);
-        const resultBlob = await resp.blob();
-        const img = await loadImageFromFile(new File([resultBlob], 'r.png'));
-        thumbCtx.drawImage(img, 0, 0, THUMB, THUMB);
-      } catch (err) {
-        thumbCtx.clearRect(0, 0, THUMB, THUMB);
-        const fit = fitCropRect(singleImage.width, singleImage.height, THUMB, THUMB);
-        thumbCtx.drawImage(singleImage, fit.sx, fit.sy, fit.sw, fit.sh, 0, 0, THUMB, THUMB);
-        console.warn('Grid server render failed for', s.value, err);
-      }
-    } else {
-      const fit = fitCropRect(singleImage.width, singleImage.height, THUMB, THUMB);
-      thumbCtx.drawImage(singleImage, fit.sx, fit.sy, fit.sw, fit.sh, 0, 0, THUMB, THUMB);
-      styleSelect.value = s.value;
-      applySketchTransform(thumbCtx, THUMB, THUMB);
-    }
+    const fit = fitCropRect(singleImage.width, singleImage.height, THUMB, THUMB);
+    thumbCtx.drawImage(singleImage, fit.sx, fit.sy, fit.sw, fit.sh, 0, 0, THUMB, THUMB);
+    styleSelect.value = s.value;
+    applySketchTransform(thumbCtx, THUMB, THUMB);
 
     card.addEventListener('click', () => {
       styleSelect.value = s.value;
       pushUndo();
-      if (renderingEngine === 'opencv') {
-        renderCurrentImageWithOpenCV();
-      } else {
-        drawPreview();
-      }
+      drawPreview();
       modalGrid.style.display = 'none';
     });
 
@@ -513,13 +415,6 @@ initNav({
   drawPreview,
   updateFileInfo,
   setSingleImage,
-  renderCurrentImageWithOpenCV,
-});
-
-initServer({
-  drawPreview,
-  processFile,
-  loadImageFromFile,
 });
 
 initCompare(drawPreview);
@@ -553,9 +448,7 @@ generateBtn.addEventListener('click', () => {
 aspectSelect.addEventListener('change', () => {
   pushUndo();
   setCurrentRenderedImage(null);
-  if (renderingEngine === 'opencv' && currentFiles.length) {
-    renderCurrentImageWithOpenCV();
-  } else if (currentFiles.length) {
+  if (currentFiles.length) {
     drawPreview();
   }
 });
@@ -563,9 +456,7 @@ aspectSelect.addEventListener('change', () => {
 resolutionSelect.addEventListener('change', () => {
   pushUndo();
   setCurrentRenderedImage(null);
-  if (renderingEngine === 'opencv' && currentFiles.length) {
-    renderCurrentImageWithOpenCV();
-  } else if (currentFiles.length) {
+  if (currentFiles.length) {
     drawPreview();
   }
   if (fourKWarning) {
@@ -613,7 +504,7 @@ resolutionSelect.addEventListener('change', () => {
     });
 });
 
-// Parameter change → clearAndRedraw (live preview in OpenCV mode)
+// Parameter change → clearAndRedraw (live preview)
 const parameterControls = [
   'artStyle',
   'style',
@@ -634,8 +525,8 @@ const parameterControls = [
 parameterControls.forEach((id) => {
   const el = document.getElementById(id);
   if (el) {
-    el.addEventListener('change', () => clearAndRedraw(drawPreview, renderCurrentImageWithOpenCV));
-    el.addEventListener('input', () => clearAndRedraw(drawPreview, renderCurrentImageWithOpenCV));
+    el.addEventListener('change', () => clearAndRedraw(drawPreview));
+    el.addEventListener('input', () => clearAndRedraw(drawPreview));
   }
 });
 
@@ -808,11 +699,9 @@ resetAllBtn.addEventListener('click', () => {
   aspectSelect.value = '1:1';
   outputNameInput.value = '';
   updateOutputNamePlaceholder();
-  useWebGLCheckbox.checked = false;
+  useWebGLCheckbox.checked = true;
   if (useMLCheckbox) useMLCheckbox.checked = false;
   if (mlUrlInput) mlUrlInput.value = 'https://api.example.com/ml-sketch';
-  useServerCheckbox.checked = false;
-  serverUrlInput.value = 'http://localhost:5001/api/style-transfer-advanced';
   updateZoomDisplay();
 
   const notif = document.createElement('div');

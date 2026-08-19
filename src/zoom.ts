@@ -22,7 +22,6 @@ import {
   setPanStartY,
   currentFiles,
   singleImage,
-  renderingEngine,
   currentRenderedImage,
   setCurrentRenderedImage,
 } from './state';
@@ -34,19 +33,10 @@ export function updateZoomDisplay(): void {
 
 /**
  * Clear stored rendered image and re-preview when parameters change.
- * If in OpenCV mode, re-renders via server; otherwise clears stored image
- * and redraws via canvas.
  */
-export function clearAndRedraw(
-  drawPreview: () => void,
-  renderCurrentImageWithOpenCV: () => void
-): void {
-  if (renderingEngine === 'opencv') {
-    renderCurrentImageWithOpenCV();
-  } else {
-    setCurrentRenderedImage(null);
-    if (currentFiles.length && singleImage) drawPreview();
-  }
+export function clearAndRedraw(drawPreview: () => void): void {
+  setCurrentRenderedImage(null);
+  if (currentFiles.length && singleImage) drawPreview();
 }
 
 /**

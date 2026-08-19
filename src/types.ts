@@ -10,8 +10,6 @@ export interface AppState {
   smoothing: string;
   brush: string;
   useWebGL: boolean;
-  useServer: boolean;
-  serverUrl: string;
   outputName: string;
   skipHatching: boolean;
   contrast: string;

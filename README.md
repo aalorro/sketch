@@ -2,7 +2,7 @@
 
 **By ArtMondo** | **Version 2.0.0**
 
-This repository contains a sophisticated, client-side web app that creates stunning sketch art from your photos in seconds — choose from 26+ artistic styles, preview changes in real-time, and batch-process multiple images. Fast, private, and completely free, with all processing happening directly in your browser.
+This repository contains a sophisticated, client-side web app that creates stunning sketch art from your photos in seconds — choose from 28 artistic styles, preview changes in real-time, and batch-process multiple images. Fast, private, and completely free, with all processing happening directly in your browser.
 
 ## Features
 
@@ -18,37 +18,35 @@ How to use
 
 Notes & features overview
 - **Modern UI design:** Elegant purple-cyan gradient header, intuitive controls with smooth interactions, and professional visual hierarchy for a premium user experience.
-- **Core rendering:** 26+ unique sketch styles (contour, blind contour, gesture, hatching, cross-hatching, stippling, tonal shading, charcoal, ink wash, comic, cartoon, etching, etc.) for distinct visual results.
+- **Core rendering:** 28 unique sketch styles (contour, blind contour, gesture, hatching, cross-hatching, stippling, tonal shading, charcoal, ink wash, comic, cartoon, etching, etc.) for distinct visual results.
 - **Medium control:** Pencil (light + grain), Ink (dark + crisp), Marker (soft edges), Pen (professional crisp) — affects stroke appearance on all styles.
 - **Brush effects:** Line, Hatch, Cross-hatch, Charcoal, Ink Wash — adds textures or patterns on top of the chosen style.
-- **GPU acceleration:** Optional WebGL-based Sobel edge detection for faster real-time preview on large images.
-- **Server integration:** Optional integration with local or remote servers for custom processing (Flask examples included).
-- **External ML service:** Optional hook to send images to custom ML endpoints for advanced style transfer.
-- **All processing:** Defaults to client-side Canvas operations with no external dependencies — privacy-friendly, offline-capable.
+- **GPU acceleration:** WebGPU/WebGL2-based Sobel edge detection, grayscale, color adjustments, smoothing, invert, and texture blending for faster real-time preview.
+- **All processing:** Runs entirely client-side with no external dependencies — privacy-friendly, offline-capable.
 - **Multi-image workflow:** Upload multiple images and browse with Prev/Next buttons to preview and adjust settings for each one before batch processing.
 
 Implemented features
 
-**Sketch styles (26+):**
+**Sketch styles (28):**
 - Clean line styles: Contour drawing, Blind contour, Gesture sketching, Line art, Cross-contour
 - Shading-driven: Hatching, Cross-hatching, Scribble, Stippling, Tonal pencil
 - Expressive/painterly: Charcoal, Dry brush, Ink wash
-- Stylized/design: Comic/manga, Cartoon style, Fashion sketch, Urban sketch, Architectural
+- Stylized/design: Comic/manga, Cartoon style, Squiggle, Fashion sketch, Urban sketch, Architectural
 - Classic fine-art: Academic figure, Etching/engraving
 - Modern/experimental: Minimalist one-line, Glitch/distorted, Mixed-media
 - Retro/Vintage: Retro pen & ink, Graphite portrait, Oil painting, Watercolor
 
 **Medium & Brush controls:**
-- Medium (Art Style): Pencil, Ink, Marker, Pen — each applies distinct tone/texture
-- Brush types: Line, Hatch, Cross-hatch, Charcoal, Ink Wash — adds patterns or effects to any style
+- Medium (Art Style): Pencil, Ink, Marker, Pen, Crayon, Colored Pencil — each applies distinct tone/texture
+- Brush types: None, Line, Hatch, Cross-hatch, Charcoal, Ink Wash — adds patterns or effects to any style
 - Intensity slider (1-10): Controls edge detection threshold and effect strength
 - Stroke slider (1-10): Controls line width, pattern density, and effect intensity
 - Skip hatching toggle: Removes decorative patterns for clean line sketches
 
 **Image processing & rendering:**
 - Real-time preview as you adjust settings
-- Sobel edge detection (CPU-based, with optional WebGL GPU acceleration)
-- 26+ unique style-specific rendering algorithms
+- Sobel edge detection with GPU acceleration (WebGPU → WebGL2 → CPU fallback)
+- 28 unique style-specific rendering algorithms
 - Resolution options: 512px, 1024px, 2048px
 - Aspect ratio options: 1:1, 3:4, 4:3, 16:9, 9:16
 
@@ -70,28 +68,42 @@ Implemented features
 - Side-by-side preview: View original and rendered images simultaneously
 - **Before/After comparison slider:** Click Compare on the rendered panel to overlay a draggable divider that reveals the original photo beneath the sketch — mouse and touch friendly
 - **Clipboard paste:** Press Ctrl+V anywhere on the page to load an image directly from the clipboard
-- **Webcam capture:** Click "📷 Capture from Webcam" to open a live camera feed — capture a frame, retake if needed, then load it directly into Sketchify
-- **Style Grid:** "Style Grid" button opens a modal with styles rendered as live thumbnails from the current image — click any to instantly apply. In browser mode all 27 styles are shown (canvas-rendered); in server mode only the 20 server-supported styles are shown (server-rendered)
+- **Webcam capture:** Click "Capture from Webcam" to open a live camera feed — capture a frame, retake if needed, then load it directly into Sketchify
+- **Style Grid:** "Style Grid" button opens a modal with all 28 styles rendered as live thumbnails from the current image — click any to instantly apply
+- **Try Sample Image:** Load a random image from the built-in gallery to explore styles without uploading
+- **Surprise Me:** Randomize all rendering parameters and re-render instantly
 - Responsive layout: Works on desktop and adjusts for smaller screens
 
 **Advanced options:**
-- GPU acceleration toggle: Enable/disable WebGL-based Sobel for faster processing
-- External ML service: POST to custom ML endpoints for advanced transformations
-- Server integration: Optional local/remote Flask server for custom processing
+- GPU acceleration toggle: Enable/disable WebGPU/WebGL2 for faster processing
 - Reproducibility: Seed input for deterministic random effects
 - Preset management: Save and load custom configuration presets locally (stored in browser localStorage)
 - **Texture overlay:** Apply procedurally generated paper grain, canvas weave, rough paper, or film grain textures over any sketch style using multiply blending; opacity-controlled and included in exports
 
 **Optimizations:**
 - Sequential batch processing to limit peak memory usage
-- GPU fallback to CPU if WebGL unavailable or disabled
+- GPU fallback chain: WebGPU → WebGL2 → CPU
 - Disabled UI controls during processing to prevent conflicts
 - Efficient canvas operations and minimal memory footprint
 
-To deploy on GitHub Pages
-1. Create a new GitHub repo and push this folder.
-2. In the repo Settings → Pages, enable Pages from the `main` branch (root) or `gh-pages` branch.
-3. Visit the published URL.
+## Local Development
+
+```bash
+npm install        # first time only
+npm run dev        # starts Vite on http://localhost:8080
+```
+
+### Production build
+```bash
+npm run build      # outputs to dist/
+npm run preview    # preview the production build
+```
+
+### Deploy on GitHub Pages
+1. Run `npm run build` to generate the `dist/` folder.
+2. Push `dist/` contents to `master` or `gh-pages` branch.
+3. In repo Settings → Pages, enable Pages from that branch.
+4. Visit the published URL.
 
 Keyboard Shortcuts
 | Shortcut | Action |
@@ -100,86 +112,6 @@ Keyboard Shortcuts
 | `Ctrl+Shift+Z` or `Ctrl+Y` | Redo |
 | `Ctrl+V` | Paste image from clipboard |
 | — | Styles update preview in real-time (no Generate needed) |
-
-
-Server API (optional)
-- The UI exposes a `Use server style-transfer` toggle and `Server API URL` field. When enabled, the app will POST the uploaded file and parameters to the provided endpoint and expect an image blob in the response.
-- The server API should accept multipart form-data with fields: `file`, `artStyle`, `style`, `brush`, `seed`, `intensity`, `stroke`, `skipHatching` and respond with a processed image (PNG/JPEG).
-
-## Local Development Setup (Recommended for Testing)
-
-To run Sketchify locally with server-side processing, you need **two servers running simultaneously**:
-
-### Prerequisites
-- **Python 3.8+** installed
-- Virtual environment: `python -m venv .venv` then activate it
-- Dependencies: `pip install -r requirements.txt`
-
-### Quick Start (Windows)
-
-**Terminal 1 - Start Web Server (serves UI)**
-```powershell
-python -m http.server 8000
-```
-Shows: `Serving HTTP on 0.0.0.0 port 8000`
-
-**Terminal 2 - Start Flask Server (processes images)**
-```powershell
-python server_advanced.py
-```
-Shows: `Running on http://127.0.0.1:5001`
-
-**Browser - Open Sketchify**
-```
-http://localhost:8000
-```
-
-### How It Works
-```
-Browser (http://localhost:8000)
-    ↓
-Web Server (port 8000) - serves HTML/JS/CSS
-    ↓ (when clicking Generate)
-Flask Server (port 5001) - processes images with OpenCV
-```
-
-### Using the Web App
-1. Upload an image to `http://localhost:8000`
-2. Check **"Use server style-transfer"** checkbox
-3. Verify URL: `http://localhost:5001/api/style-transfer-advanced`
-4. Click **Generate** to process with backend
-
-### macOS/Linux
-```bash
-# Terminal 1
-python3 -m http.server 8000
-
-# Terminal 2
-python3 server_advanced.py
-```
-
-### Troubleshooting
-- **Connection refused:** Make sure BOTH terminal windows have a running server
-- **Port already in use:** `Get-Process python | Stop-Process -Force` (Windows) or `pkill -f python` (macOS/Linux)
-- **Blank page:** Navigate to `http://localhost:8000`, not 5001
-- **Server not responding:** Check Flask terminal for error messages
-
----
-
-## Server Options
-
-### Basic Server (Pillow)
-File: `server.py` — Port: 5000
-- Lightweight, simple Pillow-based processing
-- For basic testing only
-
-### Advanced Server (OpenCV) ⭐ **Recommended**
-File: `server_advanced.py` — Port: 5001
-- Professional-quality OpenCV + NumPy rendering
-- 18+ stylization algorithms
-- Full parameter support (Medium, Intensity, Stroke, etc.)
-- Includes CORS headers for browser compatibility
-- **Use this for local development**
 
 Preset Management (Local Storage)
 - **What it is:** Save and load your custom configuration presets (all settings, sliders, etc.) locally in your browser using localStorage. No cloud required — everything stays on your device.
@@ -198,11 +130,9 @@ Preset Management (Local Storage)
   3. Confirm the deletion — the preset is removed from localStorage
 - **Storage:** Presets are stored in your browser's localStorage and persist across sessions. Clearing your browser data will delete saved presets.
 - **Preset naming:** Preset names are automatically sanitized (spaces/special chars converted to underscores) for safe storage.
-- **Example workflow:** Save "pencil-light-sketch", "ink-bold-style", "marker-soft-sketch", and quickly switch between them while exploring the same image.
 
 Security & performance
-- **Default behavior:** All sketch processing runs in your browser — no data leaves your device unless you explicitly enable server or ML options.
-- **For large images:** Enable the WebGL option for faster preview, or use a server-side model to offload computation.
+- **Default behavior:** All sketch processing runs in your browser — no data leaves your device.
+- **GPU support:** WebGPU acceleration on supported browsers (Chrome 113+, Edge 113+), with automatic WebGL2 fallback for broader compatibility.
 - **Browser memory:** Batch processing is sequential to limit peak memory usage when processing many large images.
-- **GPU support:** WebGL acceleration is available on most modern browsers (Chrome, Firefox, Edge). Safari may require enabling WebGL in settings.
-- **Offline capability:** The app works entirely offline by default — no internet connection required for basic use.
+- **Offline capability:** The app works entirely offline — no internet connection required.
