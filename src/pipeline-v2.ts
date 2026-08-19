@@ -50,13 +50,24 @@ let pipelineInitPromise: Promise<MediumPipeline | null> | null = null;
 async function getPipeline(): Promise<MediumPipeline | null> {
   if (pipeline) return pipeline;
   if (!pipelineInitPromise) {
-    pipelineInitPromise = MediumPipeline.create().then(p => {
-      pipeline = p;
-      return p;
-    });
+    pipelineInitPromise = MediumPipeline.create()
+      .then(p => {
+        pipeline = p;
+        return p;
+      })
+      .catch(err => {
+        console.error('[pipeline-v2] Pipeline creation failed:', err);
+        // Reset so next attempt can retry
+        pipelineInitPromise = null;
+        return null;
+      });
   }
   return pipelineInitPromise;
 }
+
+// ── Render guard — prevent overlapping async renders ──────────────────────────
+
+let renderGeneration = 0;
 
 // ── Default mappings ────────────────────────────────────────────────────────
 
@@ -99,12 +110,16 @@ function resolveFinish(): FinishLevel {
 /**
  * Physics engine entry point — replaces drawPreview() when engine='physics'.
  *
- * Runs the GPU medium pipeline (passes 0-4 for Phase 1) and displays
- * the result on the preview canvas. Reuses the same canvas sizing,
- * zoom/pan, texture overlay, and compare overlay as the classic pipeline.
+ * Runs the GPU medium pipeline (passes 0-10) and displays the result on the
+ * preview canvas. Reuses the same canvas sizing, zoom/pan, texture overlay,
+ * and compare overlay as the classic pipeline.
  */
 export async function drawPreviewV2(): Promise<void> {
   if (!singleImage) return;
+
+  // Increment generation — if a newer call starts while we're awaiting,
+  // this call will bail out before writing to the canvas.
+  const gen = ++renderGeneration;
 
   // ── Hide placeholders, show canvases ────────────────────────────────────
 
@@ -174,7 +189,7 @@ export async function drawPreviewV2(): Promise<void> {
 
   const ctx = preview.getContext('2d')!;
   ctx.clearRect(0, 0, canvasW, canvasH);
-  ctx.drawImage(singleImage, sx, sy, sw, sh, panOffsetX, panOffsetY, canvasW, canvasH);
+  ctx.drawImage(singleImage, sx, sy, sw, sh, 0, 0, canvasW, canvasH);
 
   // Get source ImageData for the pipeline
   const sourceData = ctx.getImageData(0, 0, canvasW, canvasH);
@@ -198,19 +213,24 @@ export async function drawPreviewV2(): Promise<void> {
 
   // ── Run the GPU pipeline ───────────────────────────────────────────────
 
-  const pipe = await getPipeline();
-  if (!pipe) {
-    // No GPU available — fall back to a simple CPU edge detection
-    console.warn('[pipeline-v2] No GPU pipeline available, showing source image');
-    // Leave the source image on the preview canvas as-is
-    applyZoomTransform(ctx, canvasW, canvasH);
-    applyTextureOverlay(ctx, canvasW, canvasH);
-    drawCompareOverlay();
-    return;
-  }
-
   try {
+    const pipe = await getPipeline();
+
+    // Bail if a newer render started while we were waiting
+    if (gen !== renderGeneration) return;
+
+    if (!pipe) {
+      console.warn('[pipeline-v2] No GPU pipeline available, showing source image');
+      applyZoomTransform(ctx, canvasW, canvasH);
+      applyTextureOverlay(ctx, canvasW, canvasH);
+      drawCompareOverlay();
+      return;
+    }
+
     const result = await pipe.render(request);
+
+    // Bail if a newer render started while we were rendering
+    if (gen !== renderGeneration) return;
 
     // ── Display result ─────────────────────────────────────────────────
 
@@ -225,8 +245,10 @@ export async function drawPreviewV2(): Promise<void> {
   } catch (err) {
     console.error('[pipeline-v2] Render failed:', err);
     // On error, leave source image visible
-    applyZoomTransform(ctx, canvasW, canvasH);
-    applyTextureOverlay(ctx, canvasW, canvasH);
-    drawCompareOverlay();
+    if (gen === renderGeneration) {
+      applyZoomTransform(ctx, canvasW, canvasH);
+      applyTextureOverlay(ctx, canvasW, canvasH);
+      drawCompareOverlay();
+    }
   }
 }

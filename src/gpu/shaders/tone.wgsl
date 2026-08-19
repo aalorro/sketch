@@ -12,7 +12,7 @@
 //   inputTex — texture_2d<f32> (linear RGBA from ingest pass)
 //
 // Output:
-//   texture_storage_2d<r16float, write> — quantized luminance in [0, 1]
+//   texture_storage_2d<r32float, write> — quantized luminance in [0, 1]
 
 struct Params {
   width: u32,
@@ -26,7 +26,7 @@ struct Params {
 }
 
 @group(0) @binding(0) var inputTex: texture_2d<f32>;
-@group(0) @binding(1) var output: texture_storage_2d<r16float, write>;
+@group(0) @binding(1) var output: texture_storage_2d<r32float, write>;
 @group(0) @binding(2) var<uniform> params: Params;
 
 // ----- PCG32 hash (copy-pasted from pcg.wgsl — WGSL has no includes) -----

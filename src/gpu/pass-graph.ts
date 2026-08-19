@@ -174,7 +174,7 @@ export class PassGraph {
 
     graph.addSlot({
       id: 'structure_rg16f',
-      format: 'rg16f',
+      format: 'rg32f',
       scale: 1.0,
       producedBy: 'structure',
       consumedBy: ['etf'],
@@ -182,7 +182,7 @@ export class PassGraph {
 
     graph.addSlot({
       id: 'etf_rg16f',
-      format: 'rg16f',
+      format: 'rg32f',
       scale: 1.0,
       producedBy: 'etf',
       consumedBy: ['edges'],
@@ -190,7 +190,7 @@ export class PassGraph {
 
     graph.addSlot({
       id: 'tone_r16f',
-      format: 'r16f',
+      format: 'r32f',
       scale: 1.0,
       producedBy: 'tone',
       consumedBy: ['edges'],
@@ -198,7 +198,7 @@ export class PassGraph {
 
     graph.addSlot({
       id: 'edges_r16f',
-      format: 'r16f',
+      format: 'r32f',
       scale: 1.0,
       producedBy: 'edges',
       consumedBy: [],
@@ -292,7 +292,7 @@ export class PassGraph {
 
     graph.addSlot({
       id: 'structure_rg16f',
-      format: 'rg16f',
+      format: 'rg32f',
       scale: 1.0,
       producedBy: 'structure',
       consumedBy: ['etf'],
@@ -300,7 +300,7 @@ export class PassGraph {
 
     graph.addSlot({
       id: 'etf_rg16f',
-      format: 'rg16f',
+      format: 'rg32f',
       scale: 1.0,
       producedBy: 'etf',
       consumedBy: ['edges', 'integrate'],
@@ -308,7 +308,7 @@ export class PassGraph {
 
     graph.addSlot({
       id: 'tone_r16f',
-      format: 'r16f',
+      format: 'r32f',
       scale: 1.0,
       producedBy: 'tone',
       consumedBy: ['edges', 'seed', 'resolve'],
@@ -316,7 +316,7 @@ export class PassGraph {
 
     graph.addSlot({
       id: 'edges_r16f',
-      format: 'r16f',
+      format: 'r32f',
       scale: 1.0,
       producedBy: 'edges',
       consumedBy: [],
@@ -325,7 +325,7 @@ export class PassGraph {
     // Substrate heightmap (persistent, regenerated when substrate changes)
     graph.addSlot({
       id: 'substrate_r16f',
-      format: 'r16f',
+      format: 'r32f',
       scale: 1.0,
       producedBy: 'seed',
       consumedBy: ['resolve'],
@@ -334,7 +334,7 @@ export class PassGraph {
     // Seed buffer placeholder for graph ordering
     graph.addSlot({
       id: 'seeds_r16f',
-      format: 'r16f',
+      format: 'r32f',
       scale: 1.0,
       producedBy: 'seed',
       consumedBy: ['integrate'],
@@ -343,7 +343,7 @@ export class PassGraph {
     // Stroke vertices placeholder for graph ordering
     graph.addSlot({
       id: 'strokes_r16f',
-      format: 'r16f',
+      format: 'r32f',
       scale: 1.0,
       producedBy: 'integrate',
       consumedBy: ['deposit'],
@@ -352,7 +352,7 @@ export class PassGraph {
     // Density accumulation from deposit pass
     graph.addSlot({
       id: 'density_r16f',
-      format: 'r16f',
+      format: 'r32f',
       scale: 1.0,
       producedBy: 'deposit',
       consumedBy: ['resolve'],

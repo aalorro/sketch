@@ -145,7 +145,8 @@ export const redoStack: AppState[] = [];
 
 /** Capture the current value of all controls into an AppState snapshot */
 export function captureState(): AppState {
-  const engineEl = document.getElementById('engineSelect') as HTMLSelectElement | null;
+  const engineEl = document.getElementById('engineToggle') as HTMLElement | null;
+  const activeBtn = engineEl?.querySelector('.engine-btn.active') as HTMLElement | null;
   return {
     artStyle: artStyleSelect.value,
     style: styleSelect.value,
@@ -164,7 +165,7 @@ export function captureState(): AppState {
     colorize: colorizeCheckbox.checked,
     textureType: textureTypeSelect.value,
     textureOpacity: textureOpacityInput.value,
-    engine: engineEl?.value ?? 'classic',
+    engine: activeBtn?.dataset.engine ?? 'classic',
   };
 }
 

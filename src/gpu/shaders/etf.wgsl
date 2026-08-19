@@ -26,7 +26,7 @@ struct Params {
 
 @group(0) @binding(0) var structureTex: texture_2d<f32>;   // Jxx, Jxy, Jyy, luminance
 @group(0) @binding(1) var prevETF: texture_2d<f32>;        // previous iteration ETF
-@group(0) @binding(2) var output: texture_storage_2d<rg16float, write>;
+@group(0) @binding(2) var output: texture_storage_2d<rg32float, write>;
 @group(0) @binding(3) var<uniform> params: Params;
 
 // Clamp-to-edge boundary handling

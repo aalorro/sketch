@@ -75,7 +75,7 @@ export const deletePresetBtn = $<HTMLButtonElement>('deletePreset');
 export const webglStatus = $<HTMLElement>('webglStatus');
 
 // ── Controls: Physics Engine ────────────────────────────────────────────────
-export const engineToggle = document.getElementById('engineSelect') as HTMLSelectElement | null;
+export const engineToggle = document.getElementById('engineToggle') as HTMLElement | null;
 export const mediumSelect = document.getElementById('mediumSelect') as HTMLSelectElement | null;
 export const substrateSelect = document.getElementById('substrateSelect') as HTMLSelectElement | null;
 export const techniqueSelect = document.getElementById('techniqueSelect') as HTMLSelectElement | null;
