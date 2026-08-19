@@ -37,23 +37,7 @@ python server.py
 
 ### Python environment setup
 ```bash
-pip install -r requirements.txt                   # basic (Flask, CORS)
-pip install -r server-package/requirements.txt    # full (OpenCV, NumPy)
-```
-
-### Standalone server package
-```bash
-# Windows
-server-package/run.bat
-
-# macOS/Linux
-chmod +x server-package/run.sh && server-package/run.sh
-```
-
-### Manual tests
-```bash
-python test_ml_endpoint.py
-python test_post.py
+pip install -r requirements.txt    # Flask, CORS, OpenCV, NumPy
 ```
 
 ## Architecture
@@ -76,7 +60,6 @@ TypeScript + Vite, vanilla (no framework). GPU acceleration via WebGPU (WGSL com
 - `jszip.min.js` — ZIP export library (vendor)
 - `server_advanced.py` — production Flask+OpenCV server (Port 5001, 18+ styles)
 - `server.py` — basic Flask+Pillow server (Port 5000)
-- `server-package/` — self-contained deployable server package
 
 ### Rendering pipeline
 
@@ -117,9 +100,7 @@ Returns: PNG blob
 | Target | How |
 |--------|-----|
 | GitHub Pages | `npm run build`, push `dist/` to `master`, enable Pages |
-| Heroku/PaaS | `Procfile` runs `gunicorn server_advanced:app` |
 | Local dev | `npm run dev` + `python server_advanced.py` |
-| Server package | `server-package/run.bat` or `run.sh` |
 
 ## Branches
 

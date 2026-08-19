@@ -101,7 +101,6 @@ Keyboard Shortcuts
 | `Ctrl+V` | Paste image from clipboard |
 | — | Styles update preview in real-time (no Generate needed) |
 
-For detailed guidance on advanced settings, see [SETTINGS_GUIDE.md](SETTINGS_GUIDE.md).
 
 Server API (optional)
 - The UI exposes a `Use server style-transfer` toggle and `Server API URL` field. When enabled, the app will POST the uploaded file and parameters to the provided endpoint and expect an image blob in the response.
@@ -181,32 +180,6 @@ File: `server_advanced.py` — Port: 5001
 - Full parameter support (Medium, Intensity, Stroke, etc.)
 - Includes CORS headers for browser compatibility
 - **Use this for local development**
-
-### Standalone Package
-Folder: `server-package/`
-- Self-contained with all dependencies
-- Easy to share or deploy
-- Includes batch/shell launchers
-
-Example note: OpenCV builds can be large; if you plan to use an ML model, consider deploying on a GPU-enabled server and calling it from the UI.
-
-External ML Service Integration (optional)
-- The UI also exposes `Use external ML service` toggle and `ML URL` field for integration with custom endpoints.
-- When enabled, images are POSTed to your custom ML endpoint instead of using the server option.
-- Useful for deploying proprietary ML models, style transfer networks, or advanced rendering services.
-- Your endpoint should accept the same form-data as the server API and return a processed image blob.
-- **Privacy note:** Using an external ML service will upload your images to that service — use only with trusted endpoints.
-
-Prompt Field
-- **When it works:** The Prompt field is an **optional** parameter that is only sent to external services (server or ML endpoint) when you enable either `Use server style-transfer` or `Use external ML service`.
-- **When it doesn't work:** The Prompt field has **no effect** during client-side processing (the default mode). If you're using only the built-in sketch styles, the Prompt field will be ignored.
-- **How to use it:** 
-  1. Enable either `Use server style-transfer` or `Use external ML service`
-  2. Enter a prompt like *"dramatic cross-hatching"* or *"watercolor wash"*
-  3. Upload an image and click Generate
-  4. The prompt will be sent to your server/ML endpoint for processing
-- **Example:** If you have a custom server that uses prompts for guided image-to-image style transfer, set the Prompt field to describe the desired visual style and let your server use it to enhance the result.
-- **Note:** Your server/ML endpoint must be configured to read and use the `prompt` field from the request for this to have any effect.
 
 Preset Management (Local Storage)
 - **What it is:** Save and load your custom configuration presets (all settings, sliders, etc.) locally in your browser using localStorage. No cloud required — everything stays on your device.
