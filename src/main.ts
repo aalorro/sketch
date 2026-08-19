@@ -483,6 +483,37 @@ if (engineToggle) {
   }
 });
 
+// Physics preset buttons
+document.querySelectorAll('.physics-preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const preset = (btn as HTMLElement).dataset.preset;
+    const ms = document.getElementById('mediumSelect') as HTMLSelectElement;
+    const ss = document.getElementById('substrateSelect') as HTMLSelectElement;
+    const ts = document.getElementById('techniqueSelect') as HTMLSelectElement;
+    const fs = document.getElementById('finishSelect') as HTMLSelectElement;
+    if (!ms || !ss || !ts || !fs) return;
+
+    switch (preset) {
+      case 'pencil-sketch':
+        ms.value = 'pencil'; ss.value = 'cold-press'; ts.value = 'hatching'; fs.value = 'study';
+        break;
+      case 'ink-drawing':
+        ms.value = 'ink-line'; ss.value = 'hot-press'; ts.value = 'contour'; fs.value = 'finished';
+        break;
+      case 'charcoal-study':
+        ms.value = 'charcoal'; ss.value = 'rough'; ts.value = 'broad-side'; fs.value = 'gesture';
+        break;
+      case 'watercolor':
+        ms.value = 'watercolor'; ss.value = 'cold-press'; ts.value = 'contour'; fs.value = 'finished';
+        break;
+    }
+
+    pushUndo();
+    setCurrentRenderedImage(null);
+    drawPreviewV2();
+  });
+});
+
 // ── Generate button ─────────────────────────────────────────────────────────
 
 generateBtn.addEventListener('click', () => {

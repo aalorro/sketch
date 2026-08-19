@@ -211,53 +211,68 @@
 
       <!-- Physics Engine Controls (hidden when classic) -->
       <div id="physicsControls" style="display:none">
-        <label>Medium
-          <select id="mediumSelect">
-            <option value="pencil">Pencil (Graphite)</option>
-            <option value="charcoal">Charcoal</option>
-            <option value="pen">Pen</option>
-            <option value="ink-line">Ink Line</option>
-            <option value="ink-wash">Ink Wash</option>
-            <option value="colored-pencil">Colored Pencil</option>
-            <option value="marker">Marker</option>
-            <option value="crayon">Crayon</option>
-            <option value="pastel">Pastel</option>
-            <option value="conte">Conté</option>
-            <option value="watercolor">Watercolor</option>
-          </select>
-        </label>
-        <label>Substrate
-          <select id="substrateSelect">
-            <option value="cold-press">Cold Press</option>
-            <option value="hot-press">Hot Press</option>
-            <option value="rough">Rough</option>
-            <option value="newsprint">Newsprint</option>
-            <option value="bristol-vellum">Bristol Vellum</option>
-            <option value="toned-tan">Toned Tan</option>
-            <option value="toned-grey">Toned Grey</option>
-            <option value="kraft">Kraft</option>
-            <option value="black">Black</option>
-          </select>
-        </label>
-        <label>Technique
-          <select id="techniqueSelect">
-            <option value="hatching">Hatching</option>
-            <option value="cross-hatching">Cross-Hatching</option>
-            <option value="contour">Contour</option>
-            <option value="stipple">Stipple</option>
-            <option value="broad-side">Broad Side</option>
-            <option value="scribble">Scribble</option>
-            <option value="continuous-line">Continuous Line</option>
-            <option value="scratchboard">Scratchboard</option>
-          </select>
-        </label>
-        <label>Finish
-          <select id="finishSelect">
-            <option value="study">Study</option>
-            <option value="gesture">Gesture</option>
-            <option value="finished">Finished</option>
-          </select>
-        </label>
+        <small style="color:var(--muted);display:block;margin-bottom:8px">Physics-based medium simulation with substrate interaction</small>
+        <div style="display:flex;gap:4px;margin:8px 0">
+          <button type="button" class="physics-preset-btn" data-preset="pencil-sketch" style="flex:1;padding:6px;font-size:12px;border:1px solid var(--border);border-radius:4px;background:var(--bg);cursor:pointer">Pencil</button>
+          <button type="button" class="physics-preset-btn" data-preset="ink-drawing" style="flex:1;padding:6px;font-size:12px;border:1px solid var(--border);border-radius:4px;background:var(--bg);cursor:pointer">Ink</button>
+          <button type="button" class="physics-preset-btn" data-preset="charcoal-study" style="flex:1;padding:6px;font-size:12px;border:1px solid var(--border);border-radius:4px;background:var(--bg);cursor:pointer">Charcoal</button>
+          <button type="button" class="physics-preset-btn" data-preset="watercolor" style="flex:1;padding:6px;font-size:12px;border:1px solid var(--border);border-radius:4px;background:var(--bg);cursor:pointer">Watercolor</button>
+        </div>
+        <div style="border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:6px">
+          <label>Medium
+            <select id="mediumSelect">
+              <option value="pencil">Pencil (Graphite)</option>
+              <option value="charcoal">Charcoal</option>
+              <option value="pen">Pen</option>
+              <option value="ink-line">Ink Line</option>
+              <option value="ink-wash">Ink Wash</option>
+              <option value="colored-pencil">Colored Pencil</option>
+              <option value="marker">Marker</option>
+              <option value="crayon">Crayon</option>
+              <option value="pastel">Pastel</option>
+              <option value="conte">Conté</option>
+              <option value="watercolor">Watercolor</option>
+            </select>
+          </label>
+        </div>
+        <div style="border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:6px">
+          <label>Substrate
+            <select id="substrateSelect">
+              <option value="cold-press">Cold Press</option>
+              <option value="hot-press">Hot Press</option>
+              <option value="rough">Rough</option>
+              <option value="newsprint">Newsprint</option>
+              <option value="bristol-vellum">Bristol Vellum</option>
+              <option value="toned-tan">Toned Tan</option>
+              <option value="toned-grey">Toned Grey</option>
+              <option value="kraft">Kraft</option>
+              <option value="black">Black</option>
+            </select>
+          </label>
+        </div>
+        <div style="border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:6px">
+          <label>Technique
+            <select id="techniqueSelect">
+              <option value="hatching">Hatching</option>
+              <option value="cross-hatching">Cross-Hatching</option>
+              <option value="contour">Contour</option>
+              <option value="stipple">Stipple</option>
+              <option value="broad-side">Broad Side</option>
+              <option value="scribble">Scribble</option>
+              <option value="continuous-line">Continuous Line</option>
+              <option value="scratchboard">Scratchboard</option>
+            </select>
+          </label>
+        </div>
+        <div style="border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:6px">
+          <label>Finish
+            <select id="finishSelect">
+              <option value="study">Study</option>
+              <option value="gesture">Gesture</option>
+              <option value="finished">Finished</option>
+            </select>
+          </label>
+        </div>
       </div>
 
       <!-- Shared controls (visible in both engines) -->

@@ -50,6 +50,7 @@ import substrateWGSL from './shaders/substrate.wgsl?raw';
 import resolveWGSL from './shaders/resolve.wgsl?raw';
 import wetWGSL from './shaders/wet.wgsl?raw';
 import presentWGSL from './shaders/present.wgsl?raw';
+import faceDetectWGSL from './shaders/face-detect.wgsl?raw';
 
 // -- GLSL shader imports (Vite ?raw) ------------------------------------------
 import fullscreenVert from './glsl/fullscreen.vert?raw';
@@ -62,6 +63,7 @@ import substrateFrag from './glsl/substrate.frag?raw';
 import resolveFrag from './glsl/resolve.frag?raw';
 import wetFrag from './glsl/wet.frag?raw';
 import presentFrag from './glsl/present.frag?raw';
+import faceDetectFrag from './glsl/face-detect.frag?raw';
 
 // -- Result type --------------------------------------------------------------
 
@@ -169,6 +171,7 @@ export class MediumPipeline {
           pipeline.getOrCreateComputePipeline('resolve', resolveWGSL);
           pipeline.getOrCreateComputePipeline('wet', wetWGSL);
           pipeline.getOrCreateComputePipeline('present', presentWGSL);
+          pipeline.getOrCreateComputePipeline('face-detect', faceDetectWGSL);
 
           console.log(`[MediumPipeline] WebGPU ready (tier: ${tier})`);
           return pipeline;
@@ -307,6 +310,13 @@ export class MediumPipeline {
             'uTexture', 'uGamma', 'uExposure', 'uContrast',
           ],
         },
+        {
+          name: 'face-detect',
+          frag: faceDetectFrag,
+          uniforms: [
+            'uSourceTex', 'uSensitivity',
+          ],
+        },
       ];
 
       for (const def of shaderDefs) {
@@ -356,17 +366,47 @@ export class MediumPipeline {
     const substrate = getSubstrateParams(request.substrate);
     const technique = getTechniqueParams(request.technique);
 
+    // -- Apply finish level modifiers ----------------------------------------
+    // strokeMultiplier is reserved for future stroke synthesis (passes 5-7)
+    let _strokeMultiplier = 1.0;
+    let detailMultiplier = 1.0;
+    let wetMultiplier = 1.0;
+
+    switch (request.finish) {
+      case 'gesture':
+        _strokeMultiplier = 0.4;  // fewer strokes, looser
+        detailMultiplier = 0.5;   // less ETF refinement, coarser tone
+        wetMultiplier = 1.5;      // more bleed for expressive feel
+        break;
+      case 'study':
+        _strokeMultiplier = 0.7;
+        detailMultiplier = 0.8;
+        wetMultiplier = 1.0;
+        break;
+      case 'finished':
+        _strokeMultiplier = 1.0;
+        detailMultiplier = 1.0;
+        wetMultiplier = 1.0;
+        break;
+    }
+
     // -- Map RenderRequest parameters to per-pass parameters ----------------
     const exposure = 1.0;
-    const bilateralRadius = settings.bilateralRadius;       // 3-7
-    const toneLevels = 4 + (request.intensity - 1);         // 4-13
+    let bilateralRadius = settings.bilateralRadius;         // 3-7
+    let toneLevels = 4 + (request.intensity - 1);           // 4-13
     const sigmaRange = 0.08;
-    const etfIterations = settings.etfIterations;           // 1-3
+    let etfIterations = settings.etfIterations;             // 1-3
     const fdogSigma1 = 0.5 + request.stroke * 0.3;         // 0.8-3.5
     const fdogSigma2 = fdogSigma1 * 1.6;
     const fdogTau = 0.99;
     const fdogPhi = 2.0;
-    const fdogSamples = settings.fdogSamples;               // 5-15
+    let fdogSamples = settings.fdogSamples;                 // 5-15
+
+    // Apply finish-level detail multipliers
+    toneLevels = Math.round(toneLevels * detailMultiplier);
+    etfIterations = Math.max(1, Math.round(etfIterations * detailMultiplier));
+    fdogSamples = Math.max(3, Math.round(fdogSamples * detailMultiplier));
+    bilateralRadius = Math.max(1, Math.round(bilateralRadius * detailMultiplier));
 
     // -- Resize textures if dimensions changed ------------------------------
     if (w !== this.width || h !== this.height) {
@@ -384,6 +424,7 @@ export class MediumPipeline {
         exposure, bilateralRadius, toneLevels, sigmaRange,
         etfIterations, fdogSigma1, fdogSigma2, fdogTau, fdogPhi, fdogSamples,
         medium, substrate, technique, request.seed,
+        wetMultiplier,
         timings,
       );
     } else {
@@ -392,6 +433,7 @@ export class MediumPipeline {
         exposure, bilateralRadius, toneLevels, sigmaRange,
         etfIterations, fdogSigma1, fdogSigma2, fdogTau, fdogPhi, fdogSamples,
         medium, substrate, technique, request.seed,
+        wetMultiplier,
         timings,
       );
     }
@@ -470,6 +512,7 @@ export class MediumPipeline {
       this.texturePool.allocate('resolved_rgba16f', w, h, 'rgba16f');
       this.texturePool.allocate('wet_ping_rgba16f', w, h, 'rgba16f');
       this.texturePool.allocate('final_rgba8', w, h, 'rgba8');
+      this.texturePool.allocate('detail_budget_r16f', w, h, 'r16f');
 
     } else if (this.backend === 'webgl2' && this.glTexturePool) {
       for (const slot of requiredSlots) {
@@ -485,6 +528,7 @@ export class MediumPipeline {
       this.glTexturePool.allocate('resolved_rgba16f', w, h, 'rgba16f');
       this.glTexturePool.allocate('wet_ping_rgba16f', w, h, 'rgba16f');
       this.glTexturePool.allocate('final_rgba8', w, h, 'rgba8');
+      this.glTexturePool.allocate('detail_budget_r16f', w, h, 'r16f');
     }
   }
 
@@ -579,6 +623,7 @@ export class MediumPipeline {
     substrate: SubstrateParams,
     _technique: TechniqueParams,
     seed: number,
+    wetMultiplier: number,
     timings: Record<string, number>,
   ): Promise<ImageData> {
     const wgX = Math.ceil(w / 8);
@@ -591,6 +636,13 @@ export class MediumPipeline {
     let t = performance.now();
     await this.gpuPassIngest(inputBytes, w, h, exposure, wgX, wgY);
     timings['ingest'] = performance.now() - t;
+
+    // -- Face detect: skin-color detail budget mask -----------------------
+    // TODO: Future phases could use detail_budget_r16f to modulate seedDensity
+    // or strokeLength. For now, the mask is computed but not consumed downstream.
+    t = performance.now();
+    await this.gpuPassFaceDetect(w, h, 0.5, wgX16, wgY16);
+    timings['face-detect'] = performance.now() - t;
 
     // -- Pass 1: Scharr gradient + structure tensor -----------------------
     t = performance.now();
@@ -635,7 +687,8 @@ export class MediumPipeline {
     if (medium.wetness > 0) {
       t = performance.now();
       const wetIterations = this.tierSettings.wetIterations;
-      await this.gpuPassWet(w, h, medium, seed, wetIterations, wgX16, wgY16);
+      const scaledBleedRadius = medium.bleedRadius * wetMultiplier;
+      await this.gpuPassWet(w, h, medium, scaledBleedRadius, seed, wetIterations, wgX16, wgY16);
       timings['wet'] = performance.now() - t;
     }
 
@@ -710,6 +763,52 @@ export class MediumPipeline {
     await this.dispatchCompute('ingest', pipeline, bindGroup, wgX, wgY);
 
     inputBuffer.destroy();
+    uniformBuffer.destroy();
+  }
+
+  // -- Face Detect (WebGPU): Skin-color detail budget mask ----------------
+
+  /**
+   * Compute a detail budget mask based on skin-color detection.
+   * Face regions receive a 50% detail boost (output value 1.5 vs 1.0).
+   * The mask is written to detail_budget_r16f.
+   *
+   * TODO: Future phases could consume this mask to modulate seedDensity
+   * or strokeLength in the seed/integrate passes.
+   */
+  private async gpuPassFaceDetect(
+    w: number, h: number,
+    sensitivity: number,
+    wgX: number, wgY: number,
+  ): Promise<void> {
+    const device = this.device!;
+    const pool = this.texturePool!;
+    const { pipeline, bindGroupLayout } =
+      this.getOrCreateComputePipeline('face-detect', faceDetectWGSL);
+
+    // FaceDetectUniforms: { width u32, height u32, sensitivity f32, _pad u32 }
+    const paramsData = new ArrayBuffer(16);
+    const pv = new DataView(paramsData);
+    pv.setUint32(0, w, true);
+    pv.setUint32(4, h, true);
+    pv.setFloat32(8, sensitivity, true);
+    pv.setUint32(12, 0, true);
+    const uniformBuffer = this.createUniformBuffer('face-detect-params', paramsData);
+
+    const inputEntry = pool.get('linear_rgba16f')!;
+    const outputEntry = pool.get('detail_budget_r16f')!;
+
+    const bindGroup = device.createBindGroup({
+      label: 'face-detect-bg',
+      layout: bindGroupLayout,
+      entries: [
+        { binding: 0, resource: inputEntry.view },
+        { binding: 1, resource: outputEntry.view },
+        { binding: 2, resource: { buffer: uniformBuffer } },
+      ],
+    });
+
+    await this.dispatchCompute('face-detect', pipeline, bindGroup, wgX, wgY);
     uniformBuffer.destroy();
   }
 
@@ -1132,6 +1231,7 @@ export class MediumPipeline {
   private async gpuPassWet(
     w: number, h: number,
     medium: MediumParams,
+    scaledBleedRadius: number,
     seed: number,
     iterations: number,
     wgX: number, wgY: number,
@@ -1155,7 +1255,7 @@ export class MediumPipeline {
       const paramsData = new ArrayBuffer(32);
       const pv = new DataView(paramsData);
       pv.setFloat32(0, medium.wetness, true);
-      pv.setFloat32(4, medium.bleedRadius, true);
+      pv.setFloat32(4, scaledBleedRadius, true);
       pv.setFloat32(8, medium.edgeDarkening, true);
       pv.setFloat32(12, medium.backrun, true);
       pv.setUint32(16, w, true);
@@ -1556,6 +1656,7 @@ export class MediumPipeline {
     substrate: SubstrateParams,
     _technique: TechniqueParams,
     seed: number,
+    wetMultiplier: number,
     timings: Record<string, number>,
   ): Promise<ImageData> {
     const gl = this.gl!;
@@ -1570,6 +1671,13 @@ export class MediumPipeline {
     let t = performance.now();
     this.gl2PassIngest(sourceTexture, w, h, exposure);
     timings['ingest'] = performance.now() - t;
+
+    // -- Face detect: skin-color detail budget mask -----------------------
+    // TODO: Future phases could use detail_budget_r16f to modulate seedDensity
+    // or strokeLength. For now, the mask is computed but not consumed downstream.
+    t = performance.now();
+    this.glPassFaceDetect(w, h, 0.5);
+    timings['face-detect'] = performance.now() - t;
 
     // -- Pass 1: Scharr ---------------------------------------------------
     t = performance.now();
@@ -1611,7 +1719,8 @@ export class MediumPipeline {
     if (medium.wetness > 0) {
       t = performance.now();
       const wetIterations = Math.min(this.tierSettings.wetIterations, 4);
-      this.glPassWet(w, h, medium, seed, wetIterations);
+      const scaledBleedRadius = medium.bleedRadius * wetMultiplier;
+      this.glPassWet(w, h, medium, scaledBleedRadius, seed, wetIterations);
       timings['wet'] = performance.now() - t;
     }
 
@@ -1661,6 +1770,48 @@ export class MediumPipeline {
     if (expLoc) gl.uniform1f(expLoc, exposure);
 
     this.drawFullscreenTriangle();
+  }
+
+  // -- Face Detect (GL): Skin-color detail budget mask --------------------
+
+  /**
+   * GL implementation of the face-detection detail budget mask.
+   * Same algorithm as the WGSL version: YCbCr skin-color test with
+   * 5x5 box blur, output to detail_budget_r16f.
+   *
+   * TODO: Future phases could consume this mask to modulate seedDensity
+   * or strokeLength in the seed/integrate passes.
+   */
+  private glPassFaceDetect(
+    w: number, h: number,
+    sensitivity: number,
+  ): void {
+    const gl = this.gl!;
+    const pool = this.glTexturePool!;
+    const { program, uniforms } = this.getOrCreateGLProgram(
+      'face-detect', faceDetectFrag, ['uSourceTex', 'uSensitivity'],
+    );
+
+    const sourceEntry = pool.get('linear_rgba16f')!;
+    const outEntry = pool.get('detail_budget_r16f')!;
+
+    gl.useProgram(program);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, outEntry.fbo);
+    gl.viewport(0, 0, w, h);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, sourceEntry.texture);
+    const texLoc = uniforms.get('uSourceTex');
+    if (texLoc) gl.uniform1i(texLoc, 0);
+
+    const sensLoc = uniforms.get('uSensitivity');
+    if (sensLoc) gl.uniform1f(sensLoc, sensitivity);
+
+    this.drawFullscreenTriangle();
+
+    // Unbind
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, null);
   }
 
   // -- Pass 1 (GL): Scharr ------------------------------------------------
@@ -2074,6 +2225,7 @@ export class MediumPipeline {
   private glPassWet(
     w: number, h: number,
     medium: MediumParams,
+    scaledBleedRadius: number,
     seed: number,
     iterations: number,
   ): void {
@@ -2106,7 +2258,7 @@ export class MediumPipeline {
       if (wLoc) gl.uniform1f(wLoc, medium.wetness);
 
       const brLoc = uniforms.get('uBleedRadius');
-      if (brLoc) gl.uniform1f(brLoc, medium.bleedRadius);
+      if (brLoc) gl.uniform1f(brLoc, scaledBleedRadius);
 
       const edLoc = uniforms.get('uEdgeDarkening');
       if (edLoc) gl.uniform1f(edLoc, medium.edgeDarkening);
