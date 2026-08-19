@@ -118,6 +118,17 @@
         <div id="imageThumbnailContainer" style="display:flex;gap:8px;overflow-y:auto;flex-direction:column;min-height:60px;max-height:300px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:4px"></div>
       </div>
 
+      <!-- Engine Toggle -->
+      <fieldset style="border:1px solid var(--border);border-radius:8px;padding:10px;margin:8px 0">
+        <legend style="font-weight:600;font-size:13px;padding:0 6px">Rendering Engine</legend>
+        <select id="engineSelect" style="width:100%">
+          <option value="classic" selected>Classic (28 Styles)</option>
+          <option value="physics">Physics (Medium Simulation)</option>
+        </select>
+      </fieldset>
+
+      <!-- Classic Engine Controls -->
+      <div id="classicControls">
       <label>Medium
         <select id="artStyle">
           <option value="pencil">Pencil</option>
@@ -159,7 +170,7 @@
             <option value="urban">Urban sketching</option>
             <option value="architectural">Architectural sketch</option>
           </optgroup>
-          <optgroup label="Classic fine-art “old master” vibes">
+          <optgroup label="Classic fine-art &ldquo;old master&rdquo; vibes">
             <option value="academic">Academic figure sketch</option>
             <option value="etching">Etching / engraving style</option>
           </optgroup>
@@ -189,10 +200,6 @@
         </select>
       </label>
 
-      <label>Intensity <input id="intensity" type="range" min="1" max="10" value="6"></label>
-      <label>Stroke <input id="stroke" type="range" min="1" max="10" value="3"></label>
-      <label><span style="white-space: nowrap;">Smoothing <button type="button" class="info-btn" data-modal="modal-smoothing">?</button></span> <input id="smoothing" type="range" min="0" max="10" step="0.5" value="0" title="Smooth out edge lines and hatching"></label>
-
       <label style="white-space: nowrap; display: inline-flex; align-items: center;"><input id="skipHatching" type="checkbox" checked> <span style="white-space: nowrap;">Skip hatching (clean edges only) <button type="button" class="info-btn" data-modal="modal-skiphatching">?</button></span></label>
 
       <label style="white-space: nowrap; display: inline-flex; align-items: center;"><input id="colorize" type="checkbox"> <span style="white-space: nowrap;">Colorize (add color to sketch) <button type="button" class="info-btn" data-modal="modal-colorize">?</button></span></label>
@@ -200,6 +207,63 @@
       <label style="white-space: nowrap; display: inline-flex; align-items: center;"><input id="invert" type="checkbox"> <span style="white-space: nowrap;">Invert shading (black ↔ white) <button type="button" class="info-btn" data-modal="modal-invert">?</button></span></label>
       <label style="white-space: nowrap; display: inline-flex; align-items: center;"><input id="useWebGL" type="checkbox" checked> <span style="white-space: nowrap;">Enable WebGPU <button type="button" class="info-btn" data-modal="modal-gpu">?</button></span></label>
       <small id="webglStatus" style="display:none;color:green">✓ GPU accelerated</small>
+      </div><!-- /classicControls -->
+
+      <!-- Physics Engine Controls (hidden when classic) -->
+      <div id="physicsControls" style="display:none">
+        <label>Medium
+          <select id="mediumSelect">
+            <option value="pencil">Pencil (Graphite)</option>
+            <option value="charcoal">Charcoal</option>
+            <option value="pen">Pen</option>
+            <option value="ink-line">Ink Line</option>
+            <option value="ink-wash">Ink Wash</option>
+            <option value="colored-pencil">Colored Pencil</option>
+            <option value="marker">Marker</option>
+            <option value="crayon">Crayon</option>
+            <option value="pastel">Pastel</option>
+            <option value="conte">Conté</option>
+            <option value="watercolor">Watercolor</option>
+          </select>
+        </label>
+        <label>Substrate
+          <select id="substrateSelect">
+            <option value="cold-press">Cold Press</option>
+            <option value="hot-press">Hot Press</option>
+            <option value="rough">Rough</option>
+            <option value="newsprint">Newsprint</option>
+            <option value="bristol-vellum">Bristol Vellum</option>
+            <option value="toned-tan">Toned Tan</option>
+            <option value="toned-grey">Toned Grey</option>
+            <option value="kraft">Kraft</option>
+            <option value="black">Black</option>
+          </select>
+        </label>
+        <label>Technique
+          <select id="techniqueSelect">
+            <option value="hatching">Hatching</option>
+            <option value="cross-hatching">Cross-Hatching</option>
+            <option value="contour">Contour</option>
+            <option value="stipple">Stipple</option>
+            <option value="broad-side">Broad Side</option>
+            <option value="scribble">Scribble</option>
+            <option value="continuous-line">Continuous Line</option>
+            <option value="scratchboard">Scratchboard</option>
+          </select>
+        </label>
+        <label>Finish
+          <select id="finishSelect">
+            <option value="study">Study</option>
+            <option value="gesture">Gesture</option>
+            <option value="finished">Finished</option>
+          </select>
+        </label>
+      </div>
+
+      <!-- Shared controls (visible in both engines) -->
+      <label>Intensity <input id="intensity" type="range" min="1" max="10" value="6"></label>
+      <label>Stroke <input id="stroke" type="range" min="1" max="10" value="3"></label>
+      <label><span style="white-space: nowrap;">Smoothing <button type="button" class="info-btn" data-modal="modal-smoothing">?</button></span> <input id="smoothing" type="range" min="0" max="10" step="0.5" value="0" title="Smooth out edge lines and hatching"></label>
 
       <label>Contrast <input id="contrast" type="range" min="0" max="2" step="0.1" value="1"></label>
       <label>Saturation <input id="saturation" type="range" min="0" max="2" step="0.1" value="1"></label>

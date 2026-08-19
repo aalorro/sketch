@@ -18,6 +18,7 @@ export interface AppState {
   colorize: boolean;
   textureType: string;
   textureOpacity: string;
+  engine: string;
 }
 
 export interface RenderParams {
