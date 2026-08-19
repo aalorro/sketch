@@ -129,17 +129,25 @@
 
       <!-- Classic Engine Controls -->
       <div id="classicControls">
-      <label>Medium
-        <select id="artStyle">
-          <option value="pencil">Pencil</option>
-          <option value="ink">Ink</option>
-          <option value="marker">Marker</option>
-          <option value="pen">Pen</option>
-          <option value="pastel">Pastel</option>
-          <option value="crayon">Crayon</option>
-          <option value="coloredpencil">Colored Pencil</option>
-        </select>
-      </label>
+      <label style="margin-bottom:4px">Medium</label>
+      <div id="artStyleGroup" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px">
+        <button type="button" class="medium-btn active" data-value="pencil">Pencil</button>
+        <button type="button" class="medium-btn" data-value="ink">Ink</button>
+        <button type="button" class="medium-btn" data-value="marker">Marker</button>
+        <button type="button" class="medium-btn" data-value="pen">Pen</button>
+        <button type="button" class="medium-btn" data-value="pastel">Pastel</button>
+        <button type="button" class="medium-btn" data-value="crayon">Crayon</button>
+        <button type="button" class="medium-btn" data-value="coloredpencil">Colored Pencil</button>
+      </div>
+      <select id="artStyle" style="display:none">
+        <option value="pencil">Pencil</option>
+        <option value="ink">Ink</option>
+        <option value="marker">Marker</option>
+        <option value="pen">Pen</option>
+        <option value="pastel">Pastel</option>
+        <option value="crayon">Crayon</option>
+        <option value="coloredpencil">Colored Pencil</option>
+      </select>
 
       <label>Style
         <select id="style">
@@ -211,32 +219,37 @@
 
       <!-- Physics Engine Controls (hidden when classic) -->
       <div id="physicsControls" style="display:none">
-        <small style="color:var(--muted);display:block;margin-bottom:8px">Physics-based medium simulation with substrate interaction</small>
-        <div style="display:flex;gap:4px;margin:8px 0">
-          <button type="button" class="physics-preset-btn" data-preset="pencil-sketch" style="flex:1;padding:6px;font-size:12px;border:1px solid var(--border);border-radius:4px;background:var(--bg);cursor:pointer">Pencil</button>
-          <button type="button" class="physics-preset-btn" data-preset="ink-drawing" style="flex:1;padding:6px;font-size:12px;border:1px solid var(--border);border-radius:4px;background:var(--bg);cursor:pointer">Ink</button>
-          <button type="button" class="physics-preset-btn" data-preset="charcoal-study" style="flex:1;padding:6px;font-size:12px;border:1px solid var(--border);border-radius:4px;background:var(--bg);cursor:pointer">Charcoal</button>
-          <button type="button" class="physics-preset-btn" data-preset="watercolor" style="flex:1;padding:6px;font-size:12px;border:1px solid var(--border);border-radius:4px;background:var(--bg);cursor:pointer">Watercolor</button>
+        <div style="border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:6px">
+          <label style="margin-bottom:4px">Medium <button type="button" class="info-btn" data-modal="modal-physics-medium">?</button></label>
+          <div id="mediumGroup" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">
+            <button type="button" class="medium-btn active" data-value="pencil">Pencil</button>
+            <button type="button" class="medium-btn" data-value="charcoal">Charcoal</button>
+            <button type="button" class="medium-btn" data-value="pen">Pen</button>
+            <button type="button" class="medium-btn" data-value="ink-line">Ink Line</button>
+            <button type="button" class="medium-btn" data-value="ink-wash">Ink Wash</button>
+            <button type="button" class="medium-btn" data-value="colored-pencil">Colored Pencil</button>
+            <button type="button" class="medium-btn" data-value="marker">Marker</button>
+            <button type="button" class="medium-btn" data-value="crayon">Crayon</button>
+            <button type="button" class="medium-btn" data-value="pastel">Pastel</button>
+            <button type="button" class="medium-btn" data-value="conte">Conte</button>
+            <button type="button" class="medium-btn" data-value="watercolor">Watercolor</button>
+          </div>
+          <select id="mediumSelect" style="display:none">
+            <option value="pencil">Pencil (Graphite)</option>
+            <option value="charcoal">Charcoal</option>
+            <option value="pen">Pen</option>
+            <option value="ink-line">Ink Line</option>
+            <option value="ink-wash">Ink Wash</option>
+            <option value="colored-pencil">Colored Pencil</option>
+            <option value="marker">Marker</option>
+            <option value="crayon">Crayon</option>
+            <option value="pastel">Pastel</option>
+            <option value="conte">Conté</option>
+            <option value="watercolor">Watercolor</option>
+          </select>
         </div>
         <div style="border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:6px">
-          <label>Medium
-            <select id="mediumSelect">
-              <option value="pencil">Pencil (Graphite)</option>
-              <option value="charcoal">Charcoal</option>
-              <option value="pen">Pen</option>
-              <option value="ink-line">Ink Line</option>
-              <option value="ink-wash">Ink Wash</option>
-              <option value="colored-pencil">Colored Pencil</option>
-              <option value="marker">Marker</option>
-              <option value="crayon">Crayon</option>
-              <option value="pastel">Pastel</option>
-              <option value="conte">Conté</option>
-              <option value="watercolor">Watercolor</option>
-            </select>
-          </label>
-        </div>
-        <div style="border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:6px">
-          <label>Substrate
+          <label>Substrate <button type="button" class="info-btn" data-modal="modal-physics-substrate">?</button>
             <select id="substrateSelect">
               <option value="cold-press">Cold Press</option>
               <option value="hot-press">Hot Press</option>
@@ -251,7 +264,7 @@
           </label>
         </div>
         <div style="border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:6px">
-          <label>Technique
+          <label>Technique <button type="button" class="info-btn" data-modal="modal-physics-technique">?</button>
             <select id="techniqueSelect">
               <option value="hatching">Hatching</option>
               <option value="cross-hatching">Cross-Hatching</option>
@@ -265,7 +278,7 @@
           </label>
         </div>
         <div style="border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:6px">
-          <label>Finish
+          <label>Finish <button type="button" class="info-btn" data-modal="modal-physics-finish">?</button>
             <select id="finishSelect">
               <option value="study">Study</option>
               <option value="gesture">Gesture</option>
@@ -446,7 +459,7 @@
 
   <footer>
     <small>&copy; 2026 ArtMondo. All rights reserved. Sketchify is an open-source project licensed under MIT.</small>
-    <small style="display:block;margin-top:8px">Sketchify version 2.0.0</small>
+    <small style="display:block;margin-top:8px">Sketchify version 2.1.0</small>
     <small style="display:block;margin-top:12px">
       <a href="https://discord.gg/nqY5xSx6" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none;border-bottom:1px dotted;transition:all 0.2s;cursor:pointer">Join our Discord community 💬</a>
       <span style="margin:0 8px;opacity:0.5">•</span>
@@ -458,7 +471,7 @@
       <span style="margin:0 8px;opacity:0.5">•</span>
       <a href="#" onclick="document.getElementById('modal-privacy').style.display='flex'; return false;" style="color:inherit;text-decoration:none;border-bottom:1px dotted;transition:all 0.2s;cursor:pointer">Privacy Policy</a>
       <span style="margin:0 8px;opacity:0.5">•</span>
-      <a href="https://github.com/aalorro/sketch/releases/tag/v2.0.0" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none;border-bottom:1px dotted;transition:all 0.2s;cursor:pointer">Download Server 💾</a>
+      <a href="https://github.com/aalorro/sketch/releases/tag/v2.1.0" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none;border-bottom:1px dotted;transition:all 0.2s;cursor:pointer">Download Server 💾</a>
     </small>
   </footer>
 
@@ -606,104 +619,172 @@
     </div>
   </div>
 
+  <!-- Physics Engine Parameter Modals -->
+  <div id="modal-physics-medium" class="modal" style="display:none">
+    <div class="modal-content">
+      <button class="modal-close" type="button">&times;</button>
+      <h3>Medium</h3>
+      <p>The drawing tool that determines how pigment is deposited onto the paper surface.</p>
+      <ul>
+        <li><strong>Pencil:</strong> Fine graphite marks with warm tint and subtle grain</li>
+        <li><strong>Charcoal:</strong> Soft, dark marks with heavy tooth interaction</li>
+        <li><strong>Pen:</strong> Crisp, uniform dark lines — technical pen or ballpoint</li>
+        <li><strong>Ink Line:</strong> Wet India ink lines with slight bleed</li>
+        <li><strong>Ink Wash:</strong> Diluted ink washes with soft tonal gradations</li>
+        <li><strong>Colored Pencil:</strong> Vivid layered colored strokes with diagonal hatching</li>
+        <li><strong>Marker:</strong> Bold, opaque felt-tip strokes with streaky banding</li>
+        <li><strong>Crayon:</strong> Waxy, saturated color with paper tooth showing through</li>
+        <li><strong>Pastel:</strong> Soft, chalky color with smeared edges and heavy grain</li>
+        <li><strong>Conté:</strong> Hard chalk stick — between charcoal and pastel</li>
+        <li><strong>Watercolor:</strong> Transparent pigment washes with color mixing</li>
+      </ul>
+    </div>
+  </div>
+
+  <div id="modal-physics-substrate" class="modal" style="display:none">
+    <div class="modal-content">
+      <button class="modal-close" type="button">&times;</button>
+      <h3>Substrate</h3>
+      <p>The paper or surface you're drawing on. Affects texture, pigment absorption, and overall tone.</p>
+      <ul>
+        <li><strong>Cold Press:</strong> Medium texture, versatile all-rounder — good for most media</li>
+        <li><strong>Hot Press:</strong> Very smooth, minimal texture — best for pen, ink, fine detail</li>
+        <li><strong>Rough:</strong> Heavy irregular texture — catches pigment on peaks, ideal for charcoal and pastel</li>
+        <li><strong>Newsprint:</strong> Thin, absorbent, yellowed stock with visible grain</li>
+        <li><strong>Bristol Vellum:</strong> Smooth dense board — resists bleed, great for marker and technical work</li>
+        <li><strong>Toned Tan:</strong> Warm mid-tone ground for highlight and shadow drawing</li>
+        <li><strong>Toned Grey:</strong> Neutral mid-value ground</li>
+        <li><strong>Kraft:</strong> Brown unbleached paper with visible fibers</li>
+        <li><strong>Black:</strong> Dark paper — marks appear as lighter strokes on dark ground</li>
+      </ul>
+    </div>
+  </div>
+
+  <div id="modal-physics-technique" class="modal" style="display:none">
+    <div class="modal-content">
+      <button class="modal-close" type="button">&times;</button>
+      <h3>Technique</h3>
+      <p>The mark-making method used to build up tonal values in the sketch.</p>
+      <ul>
+        <li><strong>Hatching:</strong> Parallel lines — closer spacing = darker tone</li>
+        <li><strong>Cross-Hatching:</strong> Overlapping sets of parallel lines at angles</li>
+        <li><strong>Contour:</strong> Lines that follow the form and edges of the subject</li>
+        <li><strong>Stipple:</strong> Dots of varying density — pointillist effect</li>
+        <li><strong>Broad Side:</strong> Wide, flat strokes like using the side of a pencil</li>
+        <li><strong>Scribble:</strong> Loose, energetic circular marks</li>
+        <li><strong>Continuous Line:</strong> Single unbroken flowing line</li>
+        <li><strong>Scratchboard:</strong> Light marks scratched into dark ground (inverted look)</li>
+      </ul>
+    </div>
+  </div>
+
+  <div id="modal-physics-finish" class="modal" style="display:none">
+    <div class="modal-content">
+      <button class="modal-close" type="button">&times;</button>
+      <h3>Finish</h3>
+      <p>Controls how refined and complete the sketch appears.</p>
+      <ul>
+        <li><strong>Study:</strong> A working sketch — balanced detail, natural stopping point</li>
+        <li><strong>Gesture:</strong> Quick, loose, and energetic — captures movement and form with minimal marks</li>
+        <li><strong>Finished:</strong> Fully rendered — maximum detail, smooth tonal gradations, polished appearance</li>
+      </ul>
+    </div>
+  </div>
+
   <!-- Instructions Modal -->
   <div id="modal-instructions" class="modal" style="display:none">
     <div class="modal-content" style="max-height:80vh;overflow-y:auto;max-width:700px">
       <button class="modal-close" type="button">&times;</button>
       <h3>Instructions & Guide</h3>
-      
+
       <h4>Getting Started</h4>
       <ol>
-        <li><strong>Upload Images:</strong> Click "Load image" and select one or more image files (JPG, PNG, etc.)</li>
-        <li><strong>Real-time Preview:</strong> Changes update instantly in the preview panel</li>
-        <li><strong>Adjust Settings:</strong> Fine-tune Intensity, Stroke, Smoothing, and other controls</li>
-        <li><strong>Download Results:</strong> Download as PNG or JPG</li>
+        <li><strong>Upload Images:</strong> Click "Load image" and select one or more image files (JPG, PNG, etc.), paste from clipboard (Ctrl+V), or capture from webcam</li>
+        <li><strong>Choose Engine:</strong> Switch between <strong>Classic</strong> (CPU canvas) and <strong>Physics</strong> (GPU-accelerated) rendering engines</li>
+        <li><strong>Pick a Style:</strong> Select from 28 sketch styles, or use Style Grid to preview all at once</li>
+        <li><strong>Adjust Settings:</strong> Fine-tune medium, intensity, stroke, and other controls</li>
+        <li><strong>Download Results:</strong> Export as PNG, JPG, SVG, WebM animation, or batch ZIP</li>
       </ol>
 
-      <h4>Rendering Modes</h4>
+      <h4>Rendering Engines</h4>
       <ul>
-        <li><strong>Browser Mode:</strong> Real-time canvas rendering. See changes instantly as you adjust sliders. Works offline but limited by your device's performance.</li>
-        <li><strong>Server Mode:</strong> Server-side rendering for all 25+ styles with advanced effects. Instantly re-renders when you change settings. Best for seeing the full effect of each style.</li>
+        <li><strong>Classic Engine:</strong> CPU-based Canvas 2D rendering. 28 sketch styles with 7 mediums (Pencil, Ink, Marker, Pen, Pastel, Crayon, Colored Pencil) and 6 brush effects. Fast, reliable, works on all devices.</li>
+        <li><strong>Physics Engine:</strong> GPU-accelerated rendering via WebGPU/WebGL2 compute shaders. Simulates real art physics — pigment density, paper tooth occlusion, Beer-Lambert transmittance, Kubelka-Munk color mixing, and surface sheen. 11 mediums, 9 substrates, 8 techniques, and 3 finish levels.</li>
+      </ul>
+
+      <h4>Classic Engine Controls</h4>
+      <ul>
+        <li><strong>Style:</strong> 28 sketch styles — Contour, Hatching, Charcoal, Comic, Ink Wash, Stippling, and more</li>
+        <li><strong>Medium:</strong> Drawing tool character — Pencil (warm graphite), Ink (wet bleed, blue-black), Marker (bold warm streaks), Pen (crisp thin lines), Pastel (vivid chalky smear), Crayon (saturated waxy color), Colored Pencil (vivid layered strokes)</li>
+        <li><strong>Brush:</strong> Texture overlay — None, Line, Hatch, Cross-hatch, Charcoal, Stipple</li>
+        <li><strong>Colorize:</strong> Adds original photo colors to the sketch. Crayon, Pastel, and Colored Pencil include color automatically</li>
+      </ul>
+
+      <h4>Physics Engine Controls</h4>
+      <ul>
+        <li><strong>Medium:</strong> 11 drawing tools — each has unique pigment deposition, opacity, and color model. Click the <strong>?</strong> icon next to each parameter for details</li>
+        <li><strong>Substrate:</strong> Paper surface — affects texture, tooth, color, and absorbency. Ranges from smooth Hot Press to heavy Rough, plus toned and dark papers</li>
+        <li><strong>Technique:</strong> Mark-making method — Hatching, Cross-Hatching, Contour, Stipple, Broad Side, Scribble, Continuous Line, Scratchboard</li>
+        <li><strong>Finish:</strong> Refinement level — Gesture (quick, loose), Study (balanced), Finished (fully rendered)</li>
+      </ul>
+
+      <h4>Shared Controls</h4>
+      <ul>
+        <li><strong>Intensity (1-10):</strong> Edge detection strength and detail level</li>
+        <li><strong>Stroke (1-10):</strong> Line width and pattern density</li>
+        <li><strong>Smoothing (0-10):</strong> Gaussian blur to soften harsh lines and hatching</li>
+        <li><strong>Contrast (0-2):</strong> Tonal range adjustment</li>
+        <li><strong>Saturation (0-2):</strong> Color intensity (when colorized)</li>
+        <li><strong>Hue Shift (0-360):</strong> Rotates colors when Colorize is enabled</li>
+        <li><strong>Invert:</strong> Swap light and dark — white lines on dark ground</li>
+        <li><strong>Skip Hatching:</strong> Clean edges only, no decorative patterns</li>
+        <li><strong>WebGPU:</strong> Enable GPU acceleration for edge detection and post-processing</li>
       </ul>
 
       <h4>Key Features</h4>
       <ul>
-        <li><strong>27+ Sketch Styles:</strong> Contour, Hatching, Charcoal, Comic, Ink Wash, Stippling, and more</li>
-        <li><strong>Style Grid:</strong> Click "Style Grid" below the Style selector to preview all 27 styles as live thumbnails — click any to apply instantly</li>
-        <li><strong>Medium Control:</strong> Choose Pencil, Ink, Marker, or Pen to affect stroke appearance</li>
-        <li><strong>Brush Effects:</strong> Add texture with Line, Hatch, Cross-hatch, or Charcoal effects</li>
-        <li><strong>Real-time Preview:</strong> See changes instantly as you adjust controls</li>
-        <li><strong>Multi-image Support:</strong> Upload multiple images and navigate between them with Prev/Next buttons</li>
-        <li><strong>Zoom & Pan:</strong> Zoom into details and pan around the preview</li>
-        <li><strong>Before/After Compare:</strong> Click "Compare" on the rendered panel to overlay a draggable divider revealing the original photo beneath the sketch — drag left/right to compare</li>
-        <li><strong>Texture Overlay:</strong> Apply paper grain, canvas weave, rough paper, or film grain textures over any sketch using the Texture selector and Texture opacity slider</li>
-        <li><strong>Webcam Capture:</strong> Click "📷 Capture from Webcam" to open a live camera feed — capture a frame, retake if needed, then click Use Photo to load it into Sketchify</li>
-        <li><strong>Batch Processing:</strong> Process all images at once and download as ZIP</li>
+        <li><strong>Style Grid:</strong> Preview all 28 styles as live thumbnails — click any to apply</li>
+        <li><strong>Before/After Compare:</strong> Draggable divider revealing original photo beneath sketch</li>
+        <li><strong>Texture Overlay:</strong> Paper grain, canvas weave, rough paper, or film grain</li>
+        <li><strong>Webcam Capture:</strong> Live camera feed — capture, retake, use</li>
+        <li><strong>Multi-image:</strong> Upload multiple images, navigate with Prev/Next or thumbnails</li>
+        <li><strong>Zoom & Pan:</strong> Zoom into details and drag to reposition</li>
+        <li><strong>Undo/Redo:</strong> 50-level history stack (Ctrl+Z / Ctrl+Y)</li>
+        <li><strong>Presets:</strong> Save and load your favorite settings</li>
+        <li><strong>Surprise Me:</strong> Randomize all settings for unexpected results</li>
       </ul>
 
-      <h4>Controls Explained</h4>
+      <h4>Export Options</h4>
       <ul>
-        <li><strong>Intensity (1-10):</strong> Controls edge detection strength and detail level</li>
-        <li><strong>Stroke (1-10):</strong> Adjusts line width and pattern density</li>
-        <li><strong>Smoothing (0-10):</strong> Applies Gaussian blur to soften harsh lines</li>
-        <li><strong>Contrast (-50 to +50):</strong> Increases or decreases tonal range</li>
-        <li><strong>Saturation (-100 to +100):</strong> Adjusts color intensity (in Colorize mode)</li>
-        <li><strong>Hue Shift (0-359):</strong> Rotates the color wheel when Colorize is enabled</li>
-        <li><strong>Colorize:</strong> Add color tints to your sketches</li>
-        <li><strong>Invert:</strong> Creates a photonegative effect (light becomes dark, dark becomes light)</li>
-        <li><strong>Skip Hatching:</strong> Remove decorative patterns for clean lines</li>
-        <li><strong>Texture:</strong> Choose a procedural texture type (paper grain, canvas weave, rough paper, film grain) applied over the sketch using multiply blending</li>
-        <li><strong>Texture opacity:</strong> Controls how strongly the texture is blended (0 = off, 10 = full strength)</li>
-        <li><strong>Resolution:</strong> Choose from 512px up to 4K (4096px). Higher = more detail but slower processing. Server mode shows progress percentage.</li>
-        <li><strong>Aspect Ratio:</strong> Set output dimensions (1:1, 16:9, 3:4, etc.)</li>
+        <li><strong>PNG:</strong> Lossless, best for line-based sketches</li>
+        <li><strong>JPG:</strong> Compressed, smaller file size</li>
+        <li><strong>SVG:</strong> True vector paths — scalable to any size</li>
+        <li><strong>ZIP:</strong> Bundle all processed images</li>
+        <li><strong>Animate (WebM):</strong> Pixel-dissolve reveal animation (2s / 3s / 5s)</li>
+        <li><strong>Resolution:</strong> 512px up to 4K (4096px)</li>
+        <li><strong>Aspect Ratio:</strong> 1:1, 16:9, 3:4, and more</li>
       </ul>
-
-      <h4>Quick Actions</h4>
-      <ul>
-        <li><strong>Reset Button:</strong> Clears all settings and returns to defaults instantly</li>
-        <li><strong>Zoom Controls:</strong> Use − / + / Reset buttons to zoom and pan in the preview</li>
-        <li><strong>Thumbnail Navigation:</strong> Click thumbnail to jump to that image, or use Prev/Next</li>
-        <li><strong>Delete Image:</strong> Remove an image from the batch by clicking the X on its thumbnail</li>
-      </ul>
-
-      <h4>Processing & Export</h4>
-      <ul>
-        <li><strong>PNG Download:</strong> Lossless format, best for line-based sketches</li>
-        <li><strong>JPG Download:</strong> Compressed format, smaller file size</li>
-        <li><strong>SVG Download:</strong> True vector paths — scalable to any size. Requires an internet connection on first use to load the vectorization library.</li>
-        <li><strong>ZIP Download:</strong> Bundle all processed images into one file</li>
-        <li><strong>Animate (WebM):</strong> Export a pixel-dissolve reveal animation as a .webm video. Select duration (2s / 3s / 5s) then click Animate. Chrome, Firefox, or Edge required.</li>
-        <li><strong>Custom Filename:</strong> Set a custom prefix for downloaded files</li>
-        <li><strong>Progress Indicator:</strong> See rendering progress as a percentage overlay (Server mode)</li>
-      </ul>
-
-      <h4>Tips & Tricks</h4>
-      <ul>
-        <li>Use high-quality source images for best results</li>
-        <li>Use Style Grid to quickly audition all styles before committing to one</li>
-        <li>Experiment with different mediums and brush types on the same image</li>
-        <li>In Browser mode, use Smoothing to reduce noise from edge detection</li>
-        <li>Try Invert for creating unique negative-style sketches</li>
-        <li>Zoom in to check fine details before downloading</li>
-        <li>Use Undo/Redo (Ctrl+Z / Ctrl+Y) to experiment freely</li>
-        <li>SVG export works best on high-contrast sketches (Contour, Line Art, Etching)</li>
-        <li>Use Webcam Capture to sketch yourself or objects in real time — no file needed</li>
-      </ul>
-
-      <h4>Browser Mode vs Server Mode</h4>
-      <p><strong>Browser Mode:</strong> ✅ Works offline · ✅ Real-time · ⚠️ Limited styles · ⚠️ Depends on device power</p>
-      <p><strong>Server Mode:</strong> ✅ All 25+ styles · ✅ Advanced effects · ✅ Progress feedback · ⚠️ Requires internet</p>
 
       <h4>Keyboard Shortcuts</h4>
       <ul>
         <li><strong>Ctrl+Z:</strong> Undo</li>
-        <li><strong>Ctrl+Y or Ctrl+Shift+Z:</strong> Redo</li>
+        <li><strong>Ctrl+Y / Ctrl+Shift+Z:</strong> Redo</li>
         <li><strong>Ctrl+V:</strong> Paste image from clipboard</li>
-        <li><strong>Delete key:</strong> Remove selected thumbnail image</li>
+        <li><strong>Delete:</strong> Remove selected thumbnail image</li>
+      </ul>
+
+      <h4>Tips</h4>
+      <ul>
+        <li>Use Style Grid to quickly audition all styles before committing</li>
+        <li>Physics engine gives the most realistic results — try different substrate + medium combinations</li>
+        <li>Crayon, Pastel, and Colored Pencil automatically include color — no need to toggle Colorize</li>
+        <li>Dark substrates (Black, Kraft, Toned Grey) work best with lighter mediums</li>
+        <li>SVG export works best on high-contrast sketches (Contour, Line Art, Etching)</li>
+        <li>Zoom in to check fine details before downloading</li>
       </ul>
 
       <h4>Need Help?</h4>
-      <p>💬 Questions or feedback? Scroll down to the contact form at the bottom of this page!</p>
+      <p>Join our Discord community or scroll down to the contact form for questions and feedback.</p>
     </div>
   </div>
 
@@ -915,6 +996,16 @@
     <div class="modal-content" style="max-height:80vh;overflow-y:auto;max-width:700px">
       <button class="modal-close" type="button">&times;</button>
       <h3>📝 Changelog</h3>
+
+      <h4>Version 2.1.0 (August 19, 2026)</h4>
+      <ul>
+        <li><strong>Physics Engine Mediums:</strong> Fixed washed-out/invisible rendering for marker, crayon, pastel, watercolor, and charcoal — depositRate now properly passed to GPU shaders</li>
+        <li><strong>Classic Engine Mediums:</strong> Differentiated all 7 mediums — ink (wet bleed), marker (warm streaks), pen (crisp thin lines), pastel (vivid chalky color), crayon (saturated waxy color), colored pencil (vivid layered strokes)</li>
+        <li><strong>Color Preservation:</strong> Crayon, pastel, and colored pencil now pull colors from original photo with saturation boost instead of monochrome rendering</li>
+        <li><strong>Dark Substrate Support:</strong> Black and dark paper substrates now use screen blending so marks appear as lighter strokes instead of disappearing</li>
+        <li><strong>Medium Buttons:</strong> Replaced dropdown selects with button groups for both Classic and Physics engine medium selection</li>
+        <li><strong>Info Tooltips:</strong> Added info icons on all Physics engine parameters (Medium, Substrate, Technique, Finish) with detailed descriptions</li>
+      </ul>
 
       <h4>Version 2.0.0 (August 19, 2026)</h4>
       <ul>

@@ -47,7 +47,7 @@ struct ResolveUniforms {
   kmS_R: f32,              // scattering S
   kmS_G: f32,
   kmS_B: f32,
-  _pad2: f32,
+  depositRate: f32,
   _pad3: f32,
 };
 
@@ -152,61 +152,58 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   // Clamp to maximum density (pigment saturation)
   effective_density = min(effective_density, params.maxDensity);
 
-  // ---- 2. Color from density (Beer-Lambert transmittance) ----
+  // ---- 2. Color from density ----
   let absorption = vec3<f32>(params.absorptionR, params.absorptionG, params.absorptionB);
   let base_color = vec3<f32>(params.baseColorR, params.baseColorG, params.baseColorB);
   var resolved_color: vec3<f32>;
 
+  // Dark substrate detection: smoothly blend from multiply to screen/additive
+  let base_lum = dot(base_color, vec3<f32>(0.299, 0.587, 0.114));
+  let dark_blend = smoothstep(0.5, 0.15, base_lum); // 0 for light paper, 1 for dark paper
+
   if (params.colorModel == 0u) {
-    // Multiply model: pigment absorbs light passing through paper
-    // T = exp(-density * absorption) — Beer-Lambert law
+    // Multiply model: Beer-Lambert transmittance
     let transmittance = exp(-effective_density * absorption);
-    resolved_color = base_color * transmittance;
+    let multiply_result = base_color * transmittance;
+    // Screen mode for dark paper: marks add light
+    let screen_result = base_color + (vec3<f32>(1.0) - base_color) * (vec3<f32>(1.0) - transmittance);
+    resolved_color = mix(multiply_result, screen_result, dark_blend);
   } else if (params.colorModel == 1u) {
     // Kubelka-Munk physical color mixing
-    // Source color determines pigment K/S (from palette or derived from absorption)
     var pigment_color = source.rgb;
 
-    // Apply hue jitter (subtle color variation per pixel, seeded by position)
     if (params.hueJitter > 0.0) {
       let jitter_seed = pcg_hash(u32(x) * 1973u + u32(y) * 9277u + 2654435761u);
       let jitter_angle = (pcg_float(jitter_seed) - 0.5) * params.hueJitter * 6.2832;
       pigment_color = hue_rotate(pigment_color, jitter_angle);
     }
 
-    // Value jitter (lightness variation)
     if (params.valueJitter > 0.0) {
       let val_seed = pcg_hash(u32(x) * 3571u + u32(y) * 7919u + 1234567u);
       let val_offset = (pcg_float(val_seed) - 0.5) * params.valueJitter;
       pigment_color = pigment_color + vec3<f32>(val_offset);
     }
 
-    // KM coefficients — use provided K/S (from palette match or medium default)
-    let pigment_k = vec3<f32>(params.kmK_R, params.kmK_G, params.kmK_B);
+    let pixel_k = -log(max(pigment_color, vec3<f32>(0.02)));
+    let pigment_k = pixel_k * vec3<f32>(params.kmK_R, params.kmK_G, params.kmK_B);
     let pigment_s = vec3<f32>(params.kmS_R, params.kmS_G, params.kmS_B);
 
-    // Paper K/S: white paper has near-zero K and high S
     let paper_k = vec3<f32>(0.01, 0.01, 0.01);
     let paper_s = vec3<f32>(2.0, 2.0, 2.0);
 
-    // Concentration proportional to effective density (pigment layering)
-    let concentration = effective_density / max(params.maxDensity, 0.001);
-
-    // KM reflectance
+    let concentration = clamp(effective_density / max(params.maxDensity, 0.001) * (1.0 + params.depositRate * 0.5), 0.0, 4.0);
     let reflectance = km_mix_layer(paper_k, paper_s, pigment_k, pigment_s, concentration);
 
-    // Modulate by paper base color
-    resolved_color = base_color * reflectance;
+    let multiply_result = base_color * reflectance;
+    // Screen mode for dark paper: pigment color shows through
+    let screen_result = base_color + (vec3<f32>(1.0) - base_color) * reflectance * concentration * 0.5;
+    resolved_color = mix(multiply_result, screen_result, dark_blend);
   } else {
-    // Opaque model: direct coverage blend (pastel, crayon)
-    var opacity = clamp(effective_density / max(params.maxDensity, 0.001), 0.0, 1.0);
+    // Opaque model: direct coverage blend (marker, crayon, pastel)
+    let raw_opacity = effective_density / max(params.maxDensity, 0.001);
+    let opacity = clamp(raw_opacity * (1.0 + params.depositRate * 3.0), 0.0, 1.0);
 
-    // Wax resist: existing wax layer reduces further deposition
-    if (params.waxResist > 0.0) {
-      opacity *= exp(-params.waxResist * effective_density);
-    }
-
-    let pigment_color = source.rgb * exp(-absorption * 0.5);
+    let pigment_color = source.rgb;
     resolved_color = mix(base_color, pigment_color, opacity);
   }
 

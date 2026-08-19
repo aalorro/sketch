@@ -426,6 +426,11 @@ export class MediumPipeline {
     // intensity=10 → gamma=1.75 (heavy, dark)
     const densityGamma = 0.4 + (request.intensity - 1) * 0.15;
 
+    // -- Post-processing parameters (contrast / saturation / hue shift) -----
+    const contrast = request.contrast ?? 1.0;
+    const saturation = request.saturation ?? 1.0;
+    const hueShiftRad = (request.hueShift ?? 0) * Math.PI / 180;
+
     // -- Resize textures if dimensions changed ------------------------------
     if (w !== this.width || h !== this.height) {
       this.width = w;
@@ -443,6 +448,7 @@ export class MediumPipeline {
         etfIterations, fdogSigma1, fdogSigma2, fdogTau, fdogPhi, fdogSamples,
         medium, substrate, technique, request.seed,
         wetMultiplier, densityGamma,
+        contrast, saturation, hueShiftRad,
         timings,
       );
     } else {
@@ -452,6 +458,7 @@ export class MediumPipeline {
         etfIterations, fdogSigma1, fdogSigma2, fdogTau, fdogPhi, fdogSamples,
         medium, substrate, technique, request.seed,
         wetMultiplier, densityGamma,
+        contrast, saturation, hueShiftRad,
         timings,
       );
     }
@@ -654,6 +661,9 @@ export class MediumPipeline {
     seed: number,
     wetMultiplier: number,
     densityGamma: number,
+    contrast: number,
+    saturation: number,
+    hueShiftRad: number,
     timings: Record<string, number>,
   ): Promise<ImageData> {
     const wgX = Math.ceil(w / 8);
@@ -720,7 +730,7 @@ export class MediumPipeline {
 
     // -- Pass 10: Present (tone curve + sRGB) -----------------------------
     t = performance.now();
-    await this.gpuPassPresent(w, h, wgX16, wgY16);
+    await this.gpuPassPresent(w, h, contrast, saturation, hueShiftRad, wgX16, wgY16);
     timings['present'] = performance.now() - t;
 
     // -- Read back --------------------------------------------------------
@@ -1240,7 +1250,7 @@ export class MediumPipeline {
     pv.setFloat32(92, kmS_R, true);
     pv.setFloat32(96, kmS_G, true);
     pv.setFloat32(100, kmS_B, true);
-    pv.setFloat32(104, 0.0, true);  // _pad2
+    pv.setFloat32(104, medium.depositRate, true);  // depositRate
     pv.setFloat32(108, 0.0, true);  // _pad3
     const uniformBuffer = this.createUniformBuffer('resolve-params', paramsData);
 
@@ -1358,6 +1368,7 @@ export class MediumPipeline {
 
   private async gpuPassPresent(
     w: number, h: number,
+    contrast: number, saturation: number, hueShiftRad: number,
     wgX: number, wgY: number,
   ): Promise<void> {
     const device = this.device!;
@@ -1366,16 +1377,16 @@ export class MediumPipeline {
       this.getOrCreateComputePipeline('present', presentWGSL);
 
     // PresentUniforms: { gamma f32, exposure f32, contrast f32,
-    //   width u32, height u32, _pad0 u32, _pad1 u32, _pad2 u32 }
+    //   saturation f32, hueShift f32, width u32, height u32, _pad0 u32 }
     const paramsData = new ArrayBuffer(32);
     const pv = new DataView(paramsData);
-    pv.setFloat32(0, 2.2, true);    // gamma (informational)
-    pv.setFloat32(4, 0.0, true);    // exposure (EV stops, 0 = no change)
-    pv.setFloat32(8, 1.0, true);    // contrast (1.0 = neutral)
-    pv.setUint32(12, w, true);
-    pv.setUint32(16, h, true);
-    pv.setUint32(20, 0, true);
-    pv.setUint32(24, 0, true);
+    pv.setFloat32(0, 2.2, true);           // gamma (informational)
+    pv.setFloat32(4, 0.0, true);           // exposure (EV stops, 0 = no change)
+    pv.setFloat32(8, contrast, true);      // contrast from UI
+    pv.setFloat32(12, saturation, true);   // saturation from UI
+    pv.setFloat32(16, hueShiftRad, true);  // hue shift in radians
+    pv.setUint32(20, w, true);
+    pv.setUint32(24, h, true);
     pv.setUint32(28, 0, true);
     const uniformBuffer = this.createUniformBuffer('present-params', paramsData);
 
@@ -1749,6 +1760,9 @@ export class MediumPipeline {
     seed: number,
     wetMultiplier: number,
     densityGamma: number,
+    contrast: number,
+    saturation: number,
+    hueShiftRad: number,
     timings: Record<string, number>,
   ): Promise<ImageData> {
     const gl = this.gl!;
@@ -1817,7 +1831,7 @@ export class MediumPipeline {
 
     // -- Pass 10: Present -------------------------------------------------
     t = performance.now();
-    this.glPassPresent(w, h);
+    this.glPassPresent(w, h, contrast, saturation, hueShiftRad);
     timings['present'] = performance.now() - t;
 
     // -- Read back --------------------------------------------------------
@@ -2192,7 +2206,8 @@ export class MediumPipeline {
        'uColorModel',
        'uPaletteSnap', 'uHueJitter', 'uValueJitter', 'uWaxResist',
        'uKmK_R', 'uKmK_G', 'uKmK_B',
-       'uKmS_R', 'uKmS_G', 'uKmS_B'],
+       'uKmS_R', 'uKmS_G', 'uKmS_B',
+       'uDepositRate'],
     );
 
     const densityEntry = pool.get('density_r16f')!;
@@ -2312,6 +2327,9 @@ export class MediumPipeline {
     const ksbLoc = uniforms.get('uKmS_B');
     if (ksbLoc) gl.uniform1f(ksbLoc, kmS_B);
 
+    const drLoc = uniforms.get('uDepositRate');
+    if (drLoc) gl.uniform1f(drLoc, medium.depositRate);
+
     this.drawFullscreenTriangle();
 
     // Unbind textures
@@ -2401,12 +2419,15 @@ export class MediumPipeline {
 
   // -- Pass 10 (GL): Present ----------------------------------------------
 
-  private glPassPresent(w: number, h: number): void {
+  private glPassPresent(
+    w: number, h: number,
+    contrast: number, saturation: number, hueShiftRad: number,
+  ): void {
     const gl = this.gl!;
     const pool = this.glTexturePool!;
     const { program, uniforms } = this.getOrCreateGLProgram(
       'present', presentFrag,
-      ['uTexture', 'uGamma', 'uExposure', 'uContrast'],
+      ['uTexture', 'uGamma', 'uExposure', 'uContrast', 'uSaturation', 'uHueShift'],
     );
 
     const resolvedEntry = pool.get('resolved_rgba16f')!;
@@ -2429,7 +2450,13 @@ export class MediumPipeline {
     if (eLoc) gl.uniform1f(eLoc, 0.0);
 
     const cLoc = uniforms.get('uContrast');
-    if (cLoc) gl.uniform1f(cLoc, 1.0);
+    if (cLoc) gl.uniform1f(cLoc, contrast);
+
+    const sLoc = uniforms.get('uSaturation');
+    if (sLoc) gl.uniform1f(sLoc, saturation);
+
+    const hLoc = uniforms.get('uHueShift');
+    if (hLoc) gl.uniform1f(hLoc, hueShiftRad);
 
     this.drawFullscreenTriangle();
 

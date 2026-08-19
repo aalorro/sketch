@@ -478,8 +478,51 @@ if (engineToggle) {
   });
 }
 
+// ── Medium button groups ─────────────────────────────────────────────────────
+
+function syncMediumButtons(groupId: string, value: string): void {
+  const group = document.getElementById(groupId);
+  if (!group) return;
+  group.querySelectorAll('.medium-btn').forEach(b => {
+    b.classList.toggle('active', (b as HTMLElement).dataset.value === value);
+  });
+}
+
+// Classic engine medium buttons
+const artStyleGroup = document.getElementById('artStyleGroup');
+if (artStyleGroup) {
+  artStyleGroup.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('.medium-btn') as HTMLElement | null;
+    if (!btn || !btn.dataset.value) return;
+    artStyleGroup.querySelectorAll('.medium-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    artStyleSelect.value = btn.dataset.value;
+    pushUndo();
+    setCurrentRenderedImage(null);
+    if (currentFiles.length) renderCurrent();
+  });
+}
+
+// Physics engine medium buttons
+const mediumGroup = document.getElementById('mediumGroup');
+if (mediumGroup) {
+  mediumGroup.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('.medium-btn') as HTMLElement | null;
+    if (!btn || !btn.dataset.value) return;
+    mediumGroup.querySelectorAll('.medium-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const ms = document.getElementById('mediumSelect') as HTMLSelectElement | null;
+    if (ms) ms.value = btn.dataset.value;
+    if (engine === 'physics' && currentFiles.length) {
+      pushUndo();
+      setCurrentRenderedImage(null);
+      drawPreviewV2();
+    }
+  });
+}
+
 // Wire physics-specific controls to trigger re-render
-['mediumSelect', 'substrateSelect', 'techniqueSelect', 'finishSelect'].forEach((id) => {
+['substrateSelect', 'techniqueSelect', 'finishSelect'].forEach((id) => {
   const el = document.getElementById(id);
   if (el) {
     el.addEventListener('change', () => {
@@ -490,37 +533,6 @@ if (engineToggle) {
       }
     });
   }
-});
-
-// Physics preset buttons
-document.querySelectorAll('.physics-preset-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const preset = (btn as HTMLElement).dataset.preset;
-    const ms = document.getElementById('mediumSelect') as HTMLSelectElement;
-    const ss = document.getElementById('substrateSelect') as HTMLSelectElement;
-    const ts = document.getElementById('techniqueSelect') as HTMLSelectElement;
-    const fs = document.getElementById('finishSelect') as HTMLSelectElement;
-    if (!ms || !ss || !ts || !fs) return;
-
-    switch (preset) {
-      case 'pencil-sketch':
-        ms.value = 'pencil'; ss.value = 'cold-press'; ts.value = 'hatching'; fs.value = 'study';
-        break;
-      case 'ink-drawing':
-        ms.value = 'ink-line'; ss.value = 'hot-press'; ts.value = 'contour'; fs.value = 'finished';
-        break;
-      case 'charcoal-study':
-        ms.value = 'charcoal'; ss.value = 'rough'; ts.value = 'broad-side'; fs.value = 'gesture';
-        break;
-      case 'watercolor':
-        ms.value = 'watercolor'; ss.value = 'cold-press'; ts.value = 'contour'; fs.value = 'finished';
-        break;
-    }
-
-    pushUndo();
-    setCurrentRenderedImage(null);
-    drawPreviewV2();
-  });
 });
 
 // ── Generate button ─────────────────────────────────────────────────────────
@@ -681,6 +693,7 @@ surpriseMeBtn.addEventListener('click', () => {
         el.value = randomChoice(vals);
       }
     }
+    syncMediumButtons('mediumGroup', (document.getElementById('mediumSelect') as HTMLSelectElement)?.value ?? 'pencil');
   } else {
     // Randomize classic-specific controls
     const opts = Array.from(styleSelect.options).map((o) => o.value);
@@ -707,6 +720,7 @@ surpriseMeBtn.addEventListener('click', () => {
     (document.getElementById('invert') as HTMLInputElement).checked = Math.random() > 0.85;
     textureTypeSelect.value = randomChoice(['none', 'paper', 'canvas', 'rough', 'film']);
     textureOpacityInput.value = (Math.random() * 10).toFixed(1);
+    syncMediumButtons('artStyleGroup', artStyleSelect.value);
   }
   // Shared controls (both engines)
   intensityInput.value = String(randomInt(1, 10));

@@ -10,11 +10,11 @@ struct PresentUniforms {
   gamma: f32,        // typically 2.2 (informational — actual curve uses IEC 61966)
   exposure: f32,     // EV adjustment, default 0.0 (no change)
   contrast: f32,     // 0..2, default 1.0 (pivot around 18% grey)
+  saturation: f32,   // 0..2, default 1.0 (mix with luminance)
+  hueShift: f32,     // radians, default 0.0
   width: u32,
   height: u32,
   _pad0: u32,
-  _pad1: u32,
-  _pad2: u32,
 };
 
 @group(0) @binding(0) var<uniform> params: PresentUniforms;
@@ -53,10 +53,22 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   // 0.18 is the perceptual middle grey in linear light
   color = mix(vec3<f32>(0.18), color, params.contrast);
 
+  // ---- 3. Saturation (mix with luminance) ----
+  let lum = dot(color, vec3<f32>(0.2126, 0.7152, 0.0722));
+  color = mix(vec3<f32>(lum), color, params.saturation);
+
+  // ---- 4. Hue shift (Rodrigues rotation around (1,1,1)/sqrt(3)) ----
+  if (params.hueShift != 0.0) {
+    let cosA = cos(params.hueShift);
+    let sinA = sin(params.hueShift);
+    let k = vec3<f32>(0.57735, 0.57735, 0.57735);
+    color = color * cosA + cross(k, color) * sinA + k * dot(k, color) * (1.0 - cosA);
+  }
+
   // Clamp to valid range (resolve output is already LDR [0,1])
   color = clamp(color, vec3<f32>(0.0), vec3<f32>(1.0));
 
-  // ---- 4. Linear → sRGB conversion (IEC 61966-2-1) ----
+  // ---- 5. Linear → sRGB conversion (IEC 61966-2-1) ----
   let srgb = vec3<f32>(
     linear_to_srgb(color.r),
     linear_to_srgb(color.g),

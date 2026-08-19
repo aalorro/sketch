@@ -63,6 +63,8 @@ uniform float uKmS_R;          // scattering S
 uniform float uKmS_G;
 uniform float uKmS_B;
 
+uniform float uDepositRate;    // pigment deposition rate (boosts opacity/concentration)
+
 // ----- PCG32 hash (matching WGSL version) -----
 uint pcgHash(uint v) {
   uint state = v * 747796405u + 2891336453u;
@@ -139,60 +141,58 @@ void main() {
   // Clamp to maximum density (pigment saturation)
   effectiveDensity = min(effectiveDensity, uMaxDensity);
 
-  // ---- 2. Color from density (Beer-Lambert transmittance) ----
+  // ---- 2. Color from density ----
   vec3 absorption = vec3(uAbsorptionR, uAbsorptionG, uAbsorptionB);
   vec3 baseColor = vec3(uBaseColorR, uBaseColorG, uBaseColorB);
   vec3 resolvedColor;
 
+  // Dark substrate detection: smoothly blend from multiply to screen/additive
+  float baseLum = dot(baseColor, vec3(0.299, 0.587, 0.114));
+  float darkBlend = smoothstep(0.5, 0.15, baseLum); // 0 for light paper, 1 for dark paper
+
   if (uColorModel == 0) {
-    // Multiply model: pigment absorbs light passing through paper
-    // T = exp(-density * absorption) -- Beer-Lambert law
+    // Multiply model: Beer-Lambert transmittance
     vec3 transmittance = exp(-effectiveDensity * absorption);
-    resolvedColor = baseColor * transmittance;
+    vec3 multiplyResult = baseColor * transmittance;
+    // Screen mode for dark paper: marks add light
+    vec3 screenResult = baseColor + (vec3(1.0) - baseColor) * (vec3(1.0) - transmittance);
+    resolvedColor = mix(multiplyResult, screenResult, darkBlend);
   } else if (uColorModel == 1) {
     // Kubelka-Munk physical color mixing
     vec3 pigmentColor = source.rgb;
 
-    // Apply hue jitter (subtle color variation per pixel, seeded by position)
     if (uHueJitter > 0.0) {
       uint jitterSeed = pcgHash(uint(coord.x) * 1973u + uint(coord.y) * 9277u + 2654435761u);
       float jitterAngle = (pcgFloat(jitterSeed) - 0.5) * uHueJitter * 6.2832;
       pigmentColor = hueRotate(pigmentColor, jitterAngle);
     }
 
-    // Value jitter (lightness variation)
     if (uValueJitter > 0.0) {
       uint valSeed = pcgHash(uint(coord.x) * 3571u + uint(coord.y) * 7919u + 1234567u);
       float valOffset = (pcgFloat(valSeed) - 0.5) * uValueJitter;
       pigmentColor = pigmentColor + vec3(valOffset);
     }
 
-    // KM coefficients — use provided K/S (from palette match or medium default)
-    vec3 pigmentK = vec3(uKmK_R, uKmK_G, uKmK_B);
+    vec3 pixelK = -log(max(pigmentColor, vec3(0.02)));
+    vec3 pigmentK = pixelK * vec3(uKmK_R, uKmK_G, uKmK_B);
     vec3 pigmentS = vec3(uKmS_R, uKmS_G, uKmS_B);
 
-    // Paper K/S: white paper has near-zero K and high S
     vec3 paperK = vec3(0.01, 0.01, 0.01);
     vec3 paperS = vec3(2.0, 2.0, 2.0);
 
-    // Concentration proportional to effective density (pigment layering)
-    float concentration = effectiveDensity / max(uMaxDensity, 0.001);
-
-    // KM reflectance
+    float concentration = clamp(effectiveDensity / max(uMaxDensity, 0.001) * (1.0 + uDepositRate * 0.5), 0.0, 4.0);
     vec3 reflectance = kmMixLayer(paperK, paperS, pigmentK, pigmentS, concentration);
 
-    // Modulate by paper base color
-    resolvedColor = baseColor * reflectance;
+    vec3 multiplyResult = baseColor * reflectance;
+    // Screen mode for dark paper: pigment color shows through
+    vec3 screenResult = baseColor + (vec3(1.0) - baseColor) * reflectance * concentration * 0.5;
+    resolvedColor = mix(multiplyResult, screenResult, darkBlend);
   } else {
-    // Opaque model: direct coverage blend (pastel, crayon)
-    float opacity = clamp(effectiveDensity / max(uMaxDensity, 0.001), 0.0, 1.0);
+    // Opaque model: direct coverage blend (marker, crayon, pastel)
+    float rawOpacity = effectiveDensity / max(uMaxDensity, 0.001);
+    float opacity = clamp(rawOpacity * (1.0 + uDepositRate * 3.0), 0.0, 1.0);
 
-    // Wax resist: existing wax layer reduces further deposition
-    if (uWaxResist > 0.0) {
-      opacity *= exp(-uWaxResist * effectiveDensity);
-    }
-
-    vec3 pigmentColor = source.rgb * exp(-absorption * 0.5);
+    vec3 pigmentColor = source.rgb;
     resolvedColor = mix(baseColor, pigmentColor, opacity);
   }
 
