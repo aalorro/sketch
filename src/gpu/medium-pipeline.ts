@@ -378,53 +378,125 @@ export class MediumPipeline {
     const substrate = getSubstrateParams(request.substrate);
     const technique = getTechniqueParams(request.technique);
 
-    // -- Apply finish level modifiers ----------------------------------------
-    // strokeMultiplier is reserved for future stroke synthesis (passes 5-7)
-    let _strokeMultiplier = 1.0;
-    let detailMultiplier = 1.0;
-    let wetMultiplier = 1.0;
-
-    switch (request.finish) {
-      case 'gesture':
-        _strokeMultiplier = 0.4;  // fewer strokes, looser
-        detailMultiplier = 0.5;   // less ETF refinement, coarser tone
-        wetMultiplier = 1.5;      // more bleed for expressive feel
-        break;
-      case 'study':
-        _strokeMultiplier = 0.7;
-        detailMultiplier = 0.8;
-        wetMultiplier = 1.0;
-        break;
-      case 'finished':
-        _strokeMultiplier = 1.0;
-        detailMultiplier = 1.0;
-        wetMultiplier = 1.0;
-        break;
-    }
-
     // -- Map RenderRequest parameters to per-pass parameters ----------------
     const exposure = 1.0;
     let bilateralRadius = settings.bilateralRadius;         // 3-7
     let toneLevels = 4 + (request.intensity - 1);           // 4-13
-    const sigmaRange = 0.08;
+    let sigmaRange = 0.08;
     let etfIterations = settings.etfIterations;             // 1-3
-    const fdogSigma1 = 0.5 + request.stroke * 0.3;         // 0.8-3.5
-    const fdogSigma2 = fdogSigma1 * 1.6;
-    const fdogTau = 0.99;
-    const fdogPhi = 2.0;
+    let fdogSigma1 = 0.5 + request.stroke * 0.3;           // 0.8-3.5
+    let fdogSigma2 = fdogSigma1 * 1.6;
+    let fdogTau = 0.99;
+    let fdogPhi = 2.0;
     let fdogSamples = settings.fdogSamples;                 // 5-15
+    let wetMultiplier = 1.0;
+    let densityGammaOffset = 0.0;
 
-    // Apply finish-level detail multipliers
-    toneLevels = Math.round(toneLevels * detailMultiplier);
-    etfIterations = Math.max(1, Math.round(etfIterations * detailMultiplier));
-    fdogSamples = Math.max(3, Math.round(fdogSamples * detailMultiplier));
-    bilateralRadius = Math.max(1, Math.round(bilateralRadius * detailMultiplier));
+    // -- Apply technique modifiers ------------------------------------------
+    // Each technique modulates existing pipeline params to create distinct
+    // visual character (stroke synthesis passes 5-7 are not yet implemented).
+    switch (request.technique) {
+      case 'hatching':
+        // Baseline — no modifications
+        break;
+      case 'cross-hatching':
+        // Denser marks, more tonal detail, tighter edges
+        bilateralRadius = Math.max(1, Math.round(bilateralRadius * 0.6));
+        toneLevels = Math.round(toneLevels * 1.4);
+        fdogSigma1 *= 0.8; fdogSigma2 = fdogSigma1 * 1.6;
+        fdogPhi = 2.5;
+        densityGammaOffset = 0.15;
+        break;
+      case 'contour':
+        // Smooth flowing lines, clean tonal areas, wider edges
+        bilateralRadius = Math.max(1, Math.round(bilateralRadius * 1.6));
+        toneLevels = Math.max(2, Math.round(toneLevels * 0.5));
+        fdogSigma1 *= 1.5; fdogSigma2 = fdogSigma1 * 1.6;
+        fdogPhi = 3.5;
+        densityGammaOffset = -0.15;
+        break;
+      case 'stipple':
+        // Grainy, dotted, many tonal steps, thin edges
+        bilateralRadius = Math.max(1, Math.round(bilateralRadius * 0.4));
+        toneLevels = Math.round(toneLevels * 2.0);
+        fdogSigma1 *= 0.5; fdogSigma2 = fdogSigma1 * 1.6;
+        fdogTau = 0.9;
+        fdogPhi = 1.0;
+        densityGammaOffset = 0.3;
+        sigmaRange = 0.04;
+        break;
+      case 'broad-side':
+        // Wide flat tonal coverage, very smooth, few levels
+        bilateralRadius = Math.max(1, Math.round(bilateralRadius * 2.0));
+        toneLevels = Math.max(2, Math.round(toneLevels * 0.4));
+        fdogSigma1 *= 2.0; fdogSigma2 = fdogSigma1 * 1.6;
+        fdogPhi = 2.0;
+        densityGammaOffset = 0.2;
+        sigmaRange = 0.12;
+        break;
+      case 'scribble':
+        // Rough, energetic, more edges visible, noisy
+        bilateralRadius = Math.max(1, Math.round(bilateralRadius * 0.5));
+        toneLevels = Math.round(toneLevels * 1.3);
+        fdogSigma1 *= 0.7; fdogSigma2 = fdogSigma1 * 1.6;
+        fdogTau = 0.85;
+        fdogPhi = 1.5;
+        densityGammaOffset = 0.1;
+        break;
+      case 'continuous-line':
+        // Thin clean flowing lines, near-binary, very smooth tones
+        bilateralRadius = Math.max(1, Math.round(bilateralRadius * 1.4));
+        toneLevels = Math.max(2, Math.round(toneLevels * 0.3));
+        fdogSigma1 *= 0.6; fdogSigma2 = fdogSigma1 * 1.4;
+        fdogTau = 0.995;
+        fdogPhi = 5.0;
+        densityGammaOffset = -0.2;
+        break;
+      case 'scratchboard':
+        // Dense high-contrast, many edges, heavy density
+        bilateralRadius = Math.max(1, Math.round(bilateralRadius * 0.7));
+        toneLevels = Math.round(toneLevels * 1.6);
+        fdogSigma1 *= 0.9; fdogSigma2 = fdogSigma1 * 1.6;
+        fdogTau = 0.92;
+        fdogPhi = 2.0;
+        densityGammaOffset = 0.4;
+        break;
+    }
+
+    // -- Apply finish level modifiers ----------------------------------------
+    switch (request.finish) {
+      case 'gesture':
+        // Very loose: heavy blur, few tones, coarse detail, expressive bleed
+        bilateralRadius = Math.max(1, Math.round(bilateralRadius * 1.8));
+        toneLevels = Math.max(2, Math.round(toneLevels * 0.4));
+        etfIterations = 1;
+        fdogSamples = Math.max(3, Math.round(fdogSamples * 0.4));
+        fdogSigma1 *= 1.6; fdogSigma2 = fdogSigma1 * 1.6;
+        fdogPhi = Math.max(1.0, fdogPhi * 0.6);
+        wetMultiplier = 1.8;
+        densityGammaOffset -= 0.2;
+        break;
+      case 'study':
+        // Balanced — slight softening
+        bilateralRadius = Math.max(1, Math.round(bilateralRadius * 0.9));
+        toneLevels = Math.round(toneLevels * 0.85);
+        etfIterations = Math.max(1, Math.round(etfIterations * 0.8));
+        fdogSamples = Math.max(3, Math.round(fdogSamples * 0.8));
+        break;
+      case 'finished':
+        // Polished: sharp detail, many tones, full refinement
+        toneLevels = Math.round(toneLevels * 1.3);
+        etfIterations = Math.max(1, etfIterations);
+        fdogPhi *= 1.3;
+        densityGammaOffset += 0.1;
+        break;
+    }
 
     // -- Density gamma from intensity (1-10) ---------------------------------
     // intensity=1 → gamma=0.4 (light, airy sketch)
     // intensity=5 → gamma=1.0 (linear)
     // intensity=10 → gamma=1.75 (heavy, dark)
-    const densityGamma = 0.4 + (request.intensity - 1) * 0.15;
+    const densityGamma = Math.max(0.2, 0.4 + (request.intensity - 1) * 0.15 + densityGammaOffset);
 
     // -- Post-processing parameters (contrast / saturation / hue shift) -----
     const contrast = request.contrast ?? 1.0;
