@@ -208,15 +208,17 @@ export function applySketchTransform(
   const seed = getSeed();
   const rand: RandFn = mulberry32(seed || Date.now());
 
-  let imgData = srcImageData || ctx.getImageData(0, 0, w, h);
-
-  // Store original color data for colorization
+  // Always capture original colors from the canvas (photo), not from srcImageData
+  // (which may be GPU Sobel edge data — grayscale, no color info)
+  const canvasData = ctx.getImageData(0, 0, w, h);
   const originalColors = new Uint8ClampedArray(w * h * 3);
   for (let i = 0; i < w * h; i++) {
-    originalColors[i * 3] = imgData.data[i * 4]; // R
-    originalColors[i * 3 + 1] = imgData.data[i * 4 + 1]; // G
-    originalColors[i * 3 + 2] = imgData.data[i * 4 + 2]; // B
+    originalColors[i * 3] = canvasData.data[i * 4]; // R
+    originalColors[i * 3 + 1] = canvasData.data[i * 4 + 1]; // G
+    originalColors[i * 3 + 2] = canvasData.data[i * 4 + 2]; // B
   }
+
+  let imgData = srcImageData || canvasData;
 
   const gray = new Uint8ClampedArray(w * h);
   for (let i = 0; i < w * h; i++) {
@@ -273,14 +275,15 @@ export function applySketchTransform(
   }
 
   // Apply Medium (artStyle) effects - includes line thickening and shading
-  applyMediumEffect(ctx, w, h, art);
+  applyMediumEffect(ctx, w, h, art, originalColors);
 
   // Apply Brush effects
   applyBrushEffect(ctx, w, h, brush, stroke, intensity, edges, rand);
 
   // Apply colorization if enabled (BEFORE color adjustments so sliders work on colored image)
+  // Skip for crayon/coloredpencil/pastel — they already colorize from originalColors in the medium step
   const colorize = colorizeCheckbox.checked;
-  if (colorize) {
+  if (colorize && art !== 'crayon' && art !== 'coloredpencil' && art !== 'pastel') {
     applyColorization(ctx, w, h, originalColors);
   }
 

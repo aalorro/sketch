@@ -186,7 +186,19 @@ export function restoreState(
       el.value = state[k] as string;
     }
   });
+  // Sync medium button groups with restored select values
+  syncMediumBtns('artStyleGroup', state.artStyle as string);
+  const msEl = document.getElementById('mediumSelect') as HTMLSelectElement | null;
+  if (msEl) syncMediumBtns('mediumGroup', msEl.value);
   if (currentFiles.length) drawPreview();
+}
+
+function syncMediumBtns(groupId: string, value: string): void {
+  const group = document.getElementById(groupId);
+  if (!group) return;
+  group.querySelectorAll('.medium-btn').forEach(b => {
+    b.classList.toggle('active', (b as HTMLElement).dataset.value === value);
+  });
 }
 
 /**

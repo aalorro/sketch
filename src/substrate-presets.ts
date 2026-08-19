@@ -126,7 +126,7 @@ const black: SubstrateParams = {
   grainFreq: [0.025, 0.025],
   fiberAmount: 0.15,
   fiberAngle: 0,
-  baseColor: [0.05, 0.05, 0.05],
+  baseColor: [0.005, 0.005, 0.005],
   absorbency: 0.3,
   sizing: 0.7,
 };

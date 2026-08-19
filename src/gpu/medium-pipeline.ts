@@ -1250,7 +1250,7 @@ export class MediumPipeline {
     pv.setFloat32(92, kmS_R, true);
     pv.setFloat32(96, kmS_G, true);
     pv.setFloat32(100, kmS_B, true);
-    pv.setFloat32(104, 0.0, true);  // _pad2
+    pv.setFloat32(104, medium.depositRate, true);  // depositRate
     pv.setFloat32(108, 0.0, true);  // _pad3
     const uniformBuffer = this.createUniformBuffer('resolve-params', paramsData);
 
@@ -2206,7 +2206,8 @@ export class MediumPipeline {
        'uColorModel',
        'uPaletteSnap', 'uHueJitter', 'uValueJitter', 'uWaxResist',
        'uKmK_R', 'uKmK_G', 'uKmK_B',
-       'uKmS_R', 'uKmS_G', 'uKmS_B'],
+       'uKmS_R', 'uKmS_G', 'uKmS_B',
+       'uDepositRate'],
     );
 
     const densityEntry = pool.get('density_r16f')!;
@@ -2325,6 +2326,9 @@ export class MediumPipeline {
 
     const ksbLoc = uniforms.get('uKmS_B');
     if (ksbLoc) gl.uniform1f(ksbLoc, kmS_B);
+
+    const drLoc = uniforms.get('uDepositRate');
+    if (drLoc) gl.uniform1f(drLoc, medium.depositRate);
 
     this.drawFullscreenTriangle();
 

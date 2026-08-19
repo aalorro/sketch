@@ -207,3 +207,7 @@ body.dark-mode .discord-button {
 .engine-btn{background:var(--bg);color:var(--muted)}
 .engine-btn.active{background:var(--primary);color:#fff}
 .engine-btn:hover:not(.active){background:var(--border)}
+
+.medium-btn{padding:6px 10px;font-size:12px;font-weight:500;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--muted);cursor:pointer;transition:background .15s,color .15s,border-color .15s}
+.medium-btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.medium-btn:hover:not(.active){background:var(--border)}

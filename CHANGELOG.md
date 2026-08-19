@@ -2,6 +2,26 @@
 
 All notable changes to Sketchify are documented in this file.
 
+## [2.1.0] - 2026-08-19
+
+### Added
+- Info tooltip icons on all Physics engine parameters (Medium, Substrate, Technique, Finish) with detailed descriptions
+- Medium button groups replacing dropdown selects for both Classic and Physics engines
+- Dark substrate support: screen blending for black/dark paper so marks appear as lighter strokes
+
+### Fixed
+- Physics engine: marker, crayon, pastel, watercolor, charcoal were washed out or invisible — depositRate was never passed to GPU resolve shaders
+- Classic engine: ink, marker, pen were visually identical — now each has distinct character (bleed, warmth, crispness)
+- Classic engine: pencil, pastel, crayon looked the same — now differentiated by grain, smear, color, and contrast
+- Crayon, pastel, and colored pencil now preserve original photo colors with saturation boost instead of monochrome
+- Colorize toggle no longer strips color from crayon, pastel, and colored pencil mediums
+
+### Changed
+- Removed duplicate "physics-based medium simulation" preset section
+- Black substrate baseColor darkened for true black appearance
+
+---
+
 ## [2.0.0] - 2026-08-19
 
 ### Changed

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Sketchify** (v2.0.0) is a client-side web app by ArtMondo that converts photos into artistic sketches. Built with TypeScript + Vite, using Canvas 2D for 28 sketch styles and WebGPU/WebGL2 for GPU-accelerated processing. All rendering runs in the browser.
+**Sketchify** (v2.1.0) is a client-side web app by ArtMondo that converts photos into artistic sketches. Built with TypeScript + Vite, using Canvas 2D for 28 sketch styles and WebGPU/WebGL2 for GPU-accelerated processing. All rendering runs in the browser.
 
 ## Running Locally
 
