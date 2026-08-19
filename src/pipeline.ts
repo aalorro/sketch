@@ -418,41 +418,38 @@ export function drawPreview(): void {
 
   // Draw and process to preview canvas
   const ctx = preview.getContext('2d')!;
-  ctx.clearRect(0, 0, canvasW, canvasH);
-  ctx.drawImage(
-    singleImage,
-    sx,
-    sy,
-    sw,
-    sh,
-    panOffsetX,
-    panOffsetY,
-    canvasW,
-    canvasH
-  );
 
   // Check if GPU acceleration is enabled
   const useWebGL = useWebGLCheckbox.checked;
   if (useWebGL) {
+    // Don't draw source to preview canvas — it causes a visible flash
+    // while the async GPU Sobel runs. Get ImageData from original canvas instead.
+    const imgData = octx.getImageData(0, 0, canvasW, canvasH);
+
     // Try new GPU renderer (WebGPU → WebGL2), fall back to legacy WebGL1 Sobel, then CPU
     getGPURenderer()
       .then(async (gpu) => {
         if (gpu) {
           try {
-            const imgData = ctx.getImageData(0, 0, canvasW, canvasH);
             const edgesImgData = await gpu.sobel(imgData);
             if (webglStatus) webglStatus.style.display = 'inline';
+            // Put source on canvas so applySketchTransform can capture originalColors
+            // (synchronous — no visible flash since sketch replaces it immediately)
+            ctx.putImageData(imgData, 0, 0);
             applySketchTransform(ctx, canvasW, canvasH, edgesImgData);
           } catch (err) {
             console.warn('GPU Sobel failed, falling back to CPU:', err);
             if (webglStatus) webglStatus.style.display = 'none';
+            ctx.putImageData(imgData, 0, 0);
             applySketchTransform(ctx, canvasW, canvasH);
           }
         } else if (createWebGLSobelFn) {
           // Legacy WebGL1 Sobel fallback
           try {
+            ctx.putImageData(imgData, 0, 0);
             const edgesImgData = await createWebGLSobelFn(preview, canvasW, canvasH);
             if (webglStatus) webglStatus.style.display = 'inline';
+            ctx.putImageData(imgData, 0, 0);
             applySketchTransform(ctx, canvasW, canvasH, edgesImgData);
           } catch (err) {
             console.warn('WebGL Sobel failed, falling back to CPU:', err);
@@ -461,15 +458,18 @@ export function drawPreview(): void {
           }
         } else {
           if (webglStatus) webglStatus.style.display = 'none';
+          ctx.putImageData(imgData, 0, 0);
           applySketchTransform(ctx, canvasW, canvasH);
         }
       })
       .catch(() => {
         if (webglStatus) webglStatus.style.display = 'none';
+        ctx.putImageData(imgData, 0, 0);
         applySketchTransform(ctx, canvasW, canvasH);
       });
   } else {
     if (webglStatus) webglStatus.style.display = 'none';
+    ctx.drawImage(singleImage, sx, sy, sw, sh, panOffsetX, panOffsetY, canvasW, canvasH);
     applySketchTransform(ctx, canvasW, canvasH);
   }
 }

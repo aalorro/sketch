@@ -188,14 +188,11 @@ export async function drawPreviewV2(): Promise<void> {
     return;
   }
 
-  // ── Fresh render: draw source image to preview canvas ──────────────────
+  // ── Fresh render: get source data from original canvas (don't flash
+  //    the source photo on the preview panel — it causes a visible lag) ──
 
   const ctx = preview.getContext('2d')!;
-  ctx.clearRect(0, 0, canvasW, canvasH);
-  ctx.drawImage(singleImage, sx, sy, sw, sh, 0, 0, canvasW, canvasH);
-
-  // Get source ImageData for the pipeline
-  const sourceData = ctx.getImageData(0, 0, canvasW, canvasH);
+  const sourceData = octx.getImageData(0, 0, canvasW, canvasH);
 
   // ── Build RenderRequest ────────────────────────────────────────────────
 
