@@ -2,6 +2,23 @@
 
 All notable changes to Sketchify are documented in this file.
 
+## [2.0.0] - 2026-08-19
+
+### Changed
+- **TypeScript + Vite:** Complete rewrite from vanilla JS IIFE (`script.js`, 4052 lines) to 64 modular TypeScript files in `src/` with Vite build system
+- **WebGPU Acceleration:** GPU-accelerated image processing via raw WebGPU compute shaders (WGSL) for Sobel, grayscale, color adjustments, smoothing, invert, and texture blending
+- **WebGL2 Fallback:** Automatic fallback to WebGL2 fragment shaders when WebGPU is unavailable; CPU as final fallback
+- **Code-Split GPU:** GPU renderer chunks (`webgpu-renderer`, `webgl2-renderer`) are lazy-loaded via dynamic import only when GPU acceleration is enabled
+- **Style Modules:** All 28 render functions extracted into individual TypeScript modules with typed `RenderParams` interface
+- **Dev Workflow:** `npm run dev` (Vite on port 8080) replaces `python -m http.server 8000`; Vite proxies `/api` to Flask server
+
+### Technical Details
+- 68 modules, 77KB main JS bundle (25KB gzipped), GPU chunks add 29KB (lazy-loaded)
+- Zero TypeScript strict-mode errors
+- All functionality preserved: 28 styles, 7 mediums, 6 brushes, compare slider, webcam, style grid, batch export, presets, undo/redo
+
+---
+
 ## [1.3.0] - 2026-08-18
 
 ### Added

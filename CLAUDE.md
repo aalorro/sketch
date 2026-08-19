@@ -4,106 +4,62 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Sketchify** (v1.3.0) is a client-side web app by ArtMondo that converts photos into artistic sketches. It runs entirely in the browser using Canvas API and WebGL, with an optional Python/Flask+OpenCV server for additional styles.
+**Sketchify** (v2.0.0) is a client-side web app by ArtMondo that converts photos into artistic sketches. Built with TypeScript + Vite, using Canvas 2D for 28 sketch styles and WebGPU/WebGL2 for GPU-accelerated processing. All rendering runs in the browser.
 
 ## Running Locally
 
-### Serve the frontend
+### Frontend (Vite dev server)
 ```bash
-python -m http.server 8000
-# Open http://localhost:8000
+npm install        # first time only
+npm run dev        # starts Vite on http://localhost:8080
 ```
 
-### Run the full local stack (frontend + server)
-Two terminals:
+### Production build
 ```bash
-# Terminal 1 - Frontend
-python -m http.server 8000
-
-# Terminal 2 - OpenCV processing server (recommended)
-python server_advanced.py
-# Runs on http://127.0.0.1:5001
-
-# Or basic Pillow server (limited styles)
-python server.py
-# Runs on http://127.0.0.1:5000
-```
-
-### Python environment setup
-```bash
-pip install -r requirements.txt                   # basic (Flask, CORS)
-pip install -r server-package/requirements.txt    # full (OpenCV, NumPy)
-```
-
-### Standalone server package
-```bash
-# Windows
-server-package/run.bat
-
-# macOS/Linux
-chmod +x server-package/run.sh && server-package/run.sh
-```
-
-### Manual tests
-```bash
-python test_ml_endpoint.py
-python test_post.py
+npm run build      # outputs to dist/
+npm run preview    # preview the production build
 ```
 
 ## Architecture
 
-This is a **static web app** — no build step, no bundler, no framework, no TypeScript.
+TypeScript + Vite, vanilla (no framework). GPU acceleration via WebGPU (WGSL compute shaders) with WebGL2 fallback.
 
 ### File layout
 - `index.html` — single-page UI
-- `script.js` (~105KB) — all client-side logic in one IIFE
+- `src/` — all TypeScript source modules (~68 files)
+  - `main.ts` — entry point, event wiring
+  - `types.ts` — core interfaces (AppState, RenderParams, StyleRenderFn)
+  - `state.ts` — global state, undo/redo, presets
+  - `dom.ts` — typed DOM element references
+  - `pipeline.ts` — render orchestration (drawPreview, applySketchTransform)
+  - `styles/` — 28 style render functions + registry
+  - `gpu/` — WebGPU/WebGL2 renderer with WGSL/GLSL shaders
+  - `medium.ts`, `brush.ts`, `color.ts`, `texture.ts`, `edge.ts` — processing
+  - `export.ts`, `webcam.ts`, `nav.ts`, `compare.ts`, `zoom.ts` — features
 - `styles.css` — CSS variables-based theming (dark mode support)
 - `jszip.min.js` — ZIP export library (vendor)
-- `server_advanced.py` — production Flask+OpenCV server (Port 5001, 18+ styles)
-- `server.py` — basic Flask+Pillow server (Port 5000)
-- `server-package/` — self-contained deployable server package with its own `requirements.txt`
 
 ### Rendering pipeline
 
-There are three rendering paths:
+Two rendering paths, with GPU acceleration:
 
-1. **Canvas API (default)** — 26+ styles, runs fully in-browser, no server required
-2. **WebGL (optional)** — GPU-accelerated Sobel edge detection; falls back to Canvas if unavailable
-3. **Flask/OpenCV server (optional)** — 18+ styles, enabled via UI toggle; POSTs image to `http://127.0.0.1:5001/api/style-transfer-advanced`
+1. **Canvas 2D + CPU (default)** — 28 styles, runs fully in-browser
+2. **WebGPU / WebGL2 (optional)** — GPU-accelerated Sobel, grayscale, color adjustments, smoothing, texture blend, invert; falls back WebGPU → WebGL2 → CPU
 
-Canvas-only styles (not available server-side): Line art, Cross-contour, Scribble, Photorealism, Graphite portrait, Oil painting, Watercolor.
+### Key concepts in `src/`
 
-### Key concepts in `script.js`
+- **Style rendering** — 28 styles in `src/styles/`, each a separate module with `RenderParams` interface
+- **GPU renderer** — `src/gpu/renderer.ts` factory → `webgpu-renderer.ts` or `webgl2-renderer.ts`; 6 WGSL compute shaders + 7 GLSL shaders
+- **Undo/Redo** — 50-item state stack in `state.ts`
+- **Batch processing** — sequential to cap peak memory; bundled as ZIP via jszip
+- **Presets** — saved/loaded from `localStorage`
 
-- **Style rendering** — each of the 26+ sketch styles is its own function operating on `ImageData`; styles accept parameters: `medium`, `brush`, `intensity` (1–10), `stroke` (1–10)
-- **Undo/Redo** — 50-item `ImageData` stack, triggered by Ctrl+Z / Ctrl+Y
-- **Batch processing** — sequential (not parallel) to cap peak memory; bundled as ZIP via jszip
-- **Presets** — saved/loaded from `localStorage`; no cloud dependency
-- **External ML endpoint** — optional custom URL; images POSTed with same form fields as the Flask server
-
-### Server API (`server_advanced.py`)
-
-```
-POST /api/style-transfer-advanced
-  file       - multipart image
-  artStyle   - medium (pencil | ink | marker | pen)
-  style      - style name
-  brush      - brush effect (line | hatch | cross-hatch | charcoal | ink wash)
-  stroke     - 1-10
-  intensity  - 1-10
-  seed       - random seed
-  prompt     - optional text prompt
-Returns: PNG blob
-```
-
-### Deployment targets
+### Deployment
 
 | Target | How |
 |--------|-----|
-| GitHub Pages | Push to `master`, enable Pages — serves frontend only |
-| Heroku/PaaS | `Procfile` runs `gunicorn server_advanced:app` |
-| Local full stack | `python -m http.server 8000` + `python server_advanced.py` |
-| Server package | `server-package/run.bat` or `run.sh` |
+| GitHub Pages | `npm run build`, push `dist/` to `master`, enable Pages |
+| Local dev | `npm run dev` |
 
 ## Branches
 
