@@ -130,6 +130,12 @@ export function setWebcamStream(stream: MediaStream | null): void {
   webcamStream = stream;
 }
 
+/** Rendering engine: 'classic' (style registry) or 'physics' (medium pipeline) */
+export let engine: 'classic' | 'physics' = 'classic';
+export function setEngine(e: 'classic' | 'physics'): void {
+  engine = e;
+}
+
 // ── Undo / Redo stacks ─────────────────────────────────────────────────────
 
 export const undoStack: AppState[] = [];
@@ -139,6 +145,7 @@ export const redoStack: AppState[] = [];
 
 /** Capture the current value of all controls into an AppState snapshot */
 export function captureState(): AppState {
+  const engineEl = document.getElementById('engineSelect') as HTMLSelectElement | null;
   return {
     artStyle: artStyleSelect.value,
     style: styleSelect.value,
@@ -157,6 +164,7 @@ export function captureState(): AppState {
     colorize: colorizeCheckbox.checked,
     textureType: textureTypeSelect.value,
     textureOpacity: textureOpacityInput.value,
+    engine: engineEl?.value ?? 'classic',
   };
 }
 

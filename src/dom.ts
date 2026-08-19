@@ -74,6 +74,13 @@ export const deletePresetBtn = $<HTMLButtonElement>('deletePreset');
 // ── Controls: WebGL ─────────────────────────────────────────────────────────
 export const webglStatus = $<HTMLElement>('webglStatus');
 
+// ── Controls: Physics Engine ────────────────────────────────────────────────
+export const engineToggle = document.getElementById('engineSelect') as HTMLSelectElement | null;
+export const mediumSelect = document.getElementById('mediumSelect') as HTMLSelectElement | null;
+export const substrateSelect = document.getElementById('substrateSelect') as HTMLSelectElement | null;
+export const techniqueSelect = document.getElementById('techniqueSelect') as HTMLSelectElement | null;
+export const finishSelect = document.getElementById('finishSelect') as HTMLSelectElement | null;
+
 // ── ML Endpoint (optional, may not exist in HTML) ───────────────────────────
 export const useMLCheckbox = document.getElementById('useML') as HTMLInputElement | null;
 export const mlUrlInput = document.getElementById('mlUrl') as HTMLInputElement | null;

@@ -55,6 +55,7 @@ import {
   seedInput,
   useMLCheckbox,
   mlUrlInput,
+  engineToggle,
 } from './dom';
 
 import {
@@ -87,6 +88,8 @@ import {
   updateOutputNamePlaceholder,
   gridGeneration,
   incrementGridGeneration,
+  engine,
+  setEngine,
 } from './state';
 
 import {
@@ -99,6 +102,7 @@ import {
 } from './utils';
 
 import { drawPreview, applySketchTransform, registerStyle } from './pipeline';
+import { drawPreviewV2 } from './pipeline-v2';
 import { applyTextureOverlay as applyTextureOverlayFn } from './texture';
 import { drawCompareOverlay, initCompare } from './compare';
 import { updateZoomDisplay, clearAndRedraw, initZoomAndPan } from './zoom';
@@ -114,6 +118,19 @@ import { initExport, downloadAllZip, downloadDataURL } from './export';
 import { styleRegistry } from './styles/index';
 for (const [name, fn] of styleRegistry) {
   registerStyle(name, fn);
+}
+
+/**
+ * Render helper — dispatches to the correct pipeline based on engine state.
+ * Use this instead of calling drawPreview() directly in event handlers
+ * that should respond to the engine toggle.
+ */
+function renderCurrent(): void {
+  if (engine === 'physics') {
+    drawPreviewV2();
+  } else {
+    drawPreview();
+  }
 }
 
 // ── Helper functions (local) ────────────────────────────────────────────────
@@ -397,7 +414,7 @@ document.addEventListener('paste', (e: ClipboardEvent) => {
   loadImageFromFile(file)
     .then((img) => {
       setSingleImage(img);
-      drawPreview();
+      renderCurrent();
       updateImageNavDisplay();
     })
     .catch((err) => console.error('Paste failed:', err));
@@ -431,6 +448,72 @@ initExport({
   hasCanvasContent,
 });
 
+// ── Engine toggle ────────────────────────────────────────────────────────────
+
+if (engineToggle) {
+  engineToggle.addEventListener('change', () => {
+    const newEngine = engineToggle!.value as 'classic' | 'physics';
+    setEngine(newEngine);
+
+    // Show/hide appropriate control panels
+    const classicControls = document.getElementById('classicControls');
+    const physicsControls = document.getElementById('physicsControls');
+    if (classicControls) classicControls.style.display = newEngine === 'classic' ? '' : 'none';
+    if (physicsControls) physicsControls.style.display = newEngine === 'physics' ? '' : 'none';
+
+    // Re-render with the selected engine
+    setCurrentRenderedImage(null);
+    if (currentFiles.length) {
+      renderCurrent();
+    }
+  });
+}
+
+// Wire physics-specific controls to trigger re-render
+['mediumSelect', 'substrateSelect', 'techniqueSelect', 'finishSelect'].forEach((id) => {
+  const el = document.getElementById(id);
+  if (el) {
+    el.addEventListener('change', () => {
+      if (engine === 'physics' && currentFiles.length) {
+        pushUndo();
+        setCurrentRenderedImage(null);
+        drawPreviewV2();
+      }
+    });
+  }
+});
+
+// Physics preset buttons
+document.querySelectorAll('.physics-preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const preset = (btn as HTMLElement).dataset.preset;
+    const ms = document.getElementById('mediumSelect') as HTMLSelectElement;
+    const ss = document.getElementById('substrateSelect') as HTMLSelectElement;
+    const ts = document.getElementById('techniqueSelect') as HTMLSelectElement;
+    const fs = document.getElementById('finishSelect') as HTMLSelectElement;
+    if (!ms || !ss || !ts || !fs) return;
+
+    switch (preset) {
+      case 'pencil-sketch':
+        ms.value = 'pencil'; ss.value = 'cold-press'; ts.value = 'hatching'; fs.value = 'study';
+        break;
+      case 'ink-drawing':
+        ms.value = 'ink-line'; ss.value = 'hot-press'; ts.value = 'contour'; fs.value = 'finished';
+        break;
+      case 'charcoal-study':
+        ms.value = 'charcoal'; ss.value = 'rough'; ts.value = 'broad-side'; fs.value = 'gesture';
+        break;
+      case 'watercolor':
+        ms.value = 'watercolor'; ss.value = 'cold-press'; ts.value = 'contour'; fs.value = 'finished';
+        break;
+    }
+
+    pushUndo();
+    setCurrentRenderedImage(null);
+    drawPreviewV2();
+  });
+});
+
 // ── Generate button ─────────────────────────────────────────────────────────
 
 generateBtn.addEventListener('click', () => {
@@ -449,7 +532,7 @@ aspectSelect.addEventListener('change', () => {
   pushUndo();
   setCurrentRenderedImage(null);
   if (currentFiles.length) {
-    drawPreview();
+    renderCurrent();
   }
 });
 
@@ -457,7 +540,7 @@ resolutionSelect.addEventListener('change', () => {
   pushUndo();
   setCurrentRenderedImage(null);
   if (currentFiles.length) {
-    drawPreview();
+    renderCurrent();
   }
   if (fourKWarning) {
     fourKWarning.style.display = resolutionSelect.value === '4096' ? 'block' : 'none';
@@ -483,7 +566,7 @@ resolutionSelect.addEventListener('change', () => {
   if (el)
     el.addEventListener('change', () => {
       pushUndo();
-      if (currentFiles.length) drawPreview();
+      if (currentFiles.length) renderCurrent();
     });
 });
 
@@ -500,7 +583,7 @@ resolutionSelect.addEventListener('change', () => {
   const el = document.getElementById(id);
   if (el)
     el.addEventListener('input', () => {
-      if (currentFiles.length) drawPreview();
+      if (currentFiles.length) renderCurrent();
     });
 });
 
@@ -525,8 +608,8 @@ const parameterControls = [
 parameterControls.forEach((id) => {
   const el = document.getElementById(id);
   if (el) {
-    el.addEventListener('change', () => clearAndRedraw(drawPreview));
-    el.addEventListener('input', () => clearAndRedraw(drawPreview));
+    el.addEventListener('change', () => clearAndRedraw(renderCurrent));
+    el.addEventListener('input', () => clearAndRedraw(renderCurrent));
   }
 });
 
@@ -566,7 +649,7 @@ trySampleBtn.addEventListener('click', () => {
       loadImageFromFile(file)
         .then((img) => {
           setSingleImage(img);
-          drawPreview();
+          renderCurrent();
           updateImageNavDisplay();
         })
         .catch((err) => console.error('Sample load failed:', err));
@@ -608,7 +691,7 @@ surpriseMeBtn.addEventListener('click', () => {
   hueShiftInput.value = String(Math.floor(Math.random() * 73) * 5);
   textureTypeSelect.value = randomChoice(['none', 'paper', 'canvas', 'rough', 'film']);
   textureOpacityInput.value = (Math.random() * 10).toFixed(1);
-  if (singleImage) drawPreview();
+  if (singleImage) renderCurrent();
 });
 
 // ── File input ──────────────────────────────────────────────────────────────
@@ -627,7 +710,7 @@ fileEl.addEventListener('change', (e) => {
     loadImageFromFile(currentFiles[0])
       .then((img) => {
         setSingleImage(img);
-        drawPreview();
+        renderCurrent();
         updateImageNavDisplay();
       })
       .catch((err) => console.error('Failed to load first image', err));
