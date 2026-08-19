@@ -37,7 +37,7 @@ export type PassId =
   | 'wet'        // 9: advection-diffusion (optional)
   | 'present';   // 10: paper relight, tone curve, sRGB out
 
-export type TextureFormat = 'rgba8' | 'rgba16f' | 'r16f' | 'rg16f' | 'r32uint';
+export type TextureFormat = 'rgba8' | 'rgba16f' | 'r16f' | 'rg16f' | 'r32f' | 'rg32f' | 'r32uint';
 
 export interface TextureSlot {
   id: string;

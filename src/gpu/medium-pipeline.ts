@@ -51,6 +51,7 @@ import resolveWGSL from './shaders/resolve.wgsl?raw';
 import wetWGSL from './shaders/wet.wgsl?raw';
 import presentWGSL from './shaders/present.wgsl?raw';
 import faceDetectWGSL from './shaders/face-detect.wgsl?raw';
+import densityWGSL from './shaders/density.wgsl?raw';
 
 // -- GLSL shader imports (Vite ?raw) ------------------------------------------
 import fullscreenVert from './glsl/fullscreen.vert?raw';
@@ -64,6 +65,7 @@ import resolveFrag from './glsl/resolve.frag?raw';
 import wetFrag from './glsl/wet.frag?raw';
 import presentFrag from './glsl/present.frag?raw';
 import faceDetectFrag from './glsl/face-detect.frag?raw';
+import densityFrag from './glsl/density.frag?raw';
 
 // -- Result type --------------------------------------------------------------
 
@@ -172,6 +174,7 @@ export class MediumPipeline {
           pipeline.getOrCreateComputePipeline('wet', wetWGSL);
           pipeline.getOrCreateComputePipeline('present', presentWGSL);
           pipeline.getOrCreateComputePipeline('face-detect', faceDetectWGSL);
+          pipeline.getOrCreateComputePipeline('density', densityWGSL);
 
           console.log(`[MediumPipeline] WebGPU ready (tier: ${tier})`);
           return pipeline;
@@ -317,6 +320,13 @@ export class MediumPipeline {
             'uSourceTex', 'uSensitivity',
           ],
         },
+        {
+          name: 'density',
+          frag: densityFrag,
+          uniforms: [
+            'uLinear', 'uDensityGamma',
+          ],
+        },
       ];
 
       for (const def of shaderDefs) {
@@ -356,6 +366,8 @@ export class MediumPipeline {
     const { source } = request;
     const w = source.width;
     const h = source.height;
+
+    console.log(`[MediumPipeline] render() ${w}x${h}, backend=${this.backend}, medium=${request.medium}`);
 
     // Resolve tier and settings
     const tier = request.tier ?? this.tier;
@@ -408,6 +420,12 @@ export class MediumPipeline {
     fdogSamples = Math.max(3, Math.round(fdogSamples * detailMultiplier));
     bilateralRadius = Math.max(1, Math.round(bilateralRadius * detailMultiplier));
 
+    // -- Density gamma from intensity (1-10) ---------------------------------
+    // intensity=1 → gamma=0.4 (light, airy sketch)
+    // intensity=5 → gamma=1.0 (linear)
+    // intensity=10 → gamma=1.75 (heavy, dark)
+    const densityGamma = 0.4 + (request.intensity - 1) * 0.15;
+
     // -- Resize textures if dimensions changed ------------------------------
     if (w !== this.width || h !== this.height) {
       this.width = w;
@@ -424,7 +442,7 @@ export class MediumPipeline {
         exposure, bilateralRadius, toneLevels, sigmaRange,
         etfIterations, fdogSigma1, fdogSigma2, fdogTau, fdogPhi, fdogSamples,
         medium, substrate, technique, request.seed,
-        wetMultiplier,
+        wetMultiplier, densityGamma,
         timings,
       );
     } else {
@@ -433,7 +451,7 @@ export class MediumPipeline {
         exposure, bilateralRadius, toneLevels, sigmaRange,
         etfIterations, fdogSigma1, fdogSigma2, fdogTau, fdogPhi, fdogSamples,
         medium, substrate, technique, request.seed,
-        wetMultiplier,
+        wetMultiplier, densityGamma,
         timings,
       );
     }
@@ -505,14 +523,14 @@ export class MediumPipeline {
       }
       // Extra slots for Phase 1
       this.texturePool.allocate('structure_rgba16f', w, h, 'rgba16f');
-      this.texturePool.allocate('etf_rg16f_prev', w, h, 'rg16f');
+      this.texturePool.allocate('etf_rg16f_prev', w, h, 'rg32f');
       // Phase 2+3 slots (allocated explicitly in case graph pruning drops them)
-      this.texturePool.allocate('substrate_r16f', w, h, 'r16f');
-      this.texturePool.allocate('density_r16f', w, h, 'r16f');
+      this.texturePool.allocate('substrate_r16f', w, h, 'r32f');
+      this.texturePool.allocate('density_r16f', w, h, 'r32f');
       this.texturePool.allocate('resolved_rgba16f', w, h, 'rgba16f');
       this.texturePool.allocate('wet_ping_rgba16f', w, h, 'rgba16f');
       this.texturePool.allocate('final_rgba8', w, h, 'rgba8');
-      this.texturePool.allocate('detail_budget_r16f', w, h, 'r16f');
+      this.texturePool.allocate('detail_budget_r16f', w, h, 'r32f');
 
     } else if (this.backend === 'webgl2' && this.glTexturePool) {
       for (const slot of requiredSlots) {
@@ -521,14 +539,14 @@ export class MediumPipeline {
         this.glTexturePool.allocate(slot.id, sw, sh, slot.format);
       }
       this.glTexturePool.allocate('structure_rgba16f', w, h, 'rgba16f');
-      this.glTexturePool.allocate('etf_rg16f_prev', w, h, 'rg16f');
+      this.glTexturePool.allocate('etf_rg16f_prev', w, h, 'rg32f');
       // Phase 2+3 slots
-      this.glTexturePool.allocate('substrate_r16f', w, h, 'r16f');
-      this.glTexturePool.allocate('density_r16f', w, h, 'r16f');
+      this.glTexturePool.allocate('substrate_r16f', w, h, 'r32f');
+      this.glTexturePool.allocate('density_r16f', w, h, 'r32f');
       this.glTexturePool.allocate('resolved_rgba16f', w, h, 'rgba16f');
       this.glTexturePool.allocate('wet_ping_rgba16f', w, h, 'rgba16f');
       this.glTexturePool.allocate('final_rgba8', w, h, 'rgba8');
-      this.glTexturePool.allocate('detail_budget_r16f', w, h, 'r16f');
+      this.glTexturePool.allocate('detail_budget_r16f', w, h, 'r32f');
     }
   }
 
@@ -551,6 +569,17 @@ export class MediumPipeline {
     const shaderModule = device.createShaderModule({
       label: `medium-${name}-shader`,
       code: wgslCode,
+    });
+
+    // Check for compilation errors asynchronously (log, don't block)
+    shaderModule.getCompilationInfo().then(info => {
+      for (const msg of info.messages) {
+        const level = msg.type === 'error' ? 'error' : 'warn';
+        console[level](
+          `[MediumPipeline] WGSL ${msg.type} in "${name}" ` +
+          `(line ${msg.lineNum}:${msg.linePos}): ${msg.message}`,
+        );
+      }
     });
 
     const pipeline = device.createComputePipeline({
@@ -624,6 +653,7 @@ export class MediumPipeline {
     _technique: TechniqueParams,
     seed: number,
     wetMultiplier: number,
+    densityGamma: number,
     timings: Record<string, number>,
   ): Promise<ImageData> {
     const wgX = Math.ceil(w / 8);
@@ -669,14 +699,10 @@ export class MediumPipeline {
     await this.gpuPassSubstrate(w, h, substrate, seed, wgX16, wgY16);
     timings['substrate'] = performance.now() - t;
 
-    // -- Passes 5-7: Seed / Integrate / Deposit ---------------------------
-    // TODO: Full stroke synthesis with storage buffers and atomics.
-    // For now, copy tone_r16f to density_r16f so field mediums (pencil,
-    // charcoal, pastel) work immediately and stroke mediums get a
-    // reasonable fallback using the quantized tone map as density.
+    // -- Density: continuous luminance-to-density conversion ---------------
     t = performance.now();
-    await this.gpuStubCopyToneToDensity(w, h);
-    timings['seed+integrate+deposit'] = performance.now() - t;
+    await this.gpuPassDensity(w, h, densityGamma, wgX16, wgY16);
+    timings['density'] = performance.now() - t;
 
     // -- Pass 8: Resolve (tooth + density + sheen) ------------------------
     t = performance.now();
@@ -881,7 +907,7 @@ export class MediumPipeline {
 
     // Zero both ETF textures so the shader initialises from the structure tensor
     // eigenvectors on the first iteration (it checks length(prev) < 0.001).
-    const bytesPerPixel = 4; // rg16float = 2 x f16 = 4 bytes
+    const bytesPerPixel = 8; // rg32float = 2 x f32 = 8 bytes
     const rowBytes = w * bytesPerPixel;
     const totalBytes = rowBytes * h;
 
@@ -1098,34 +1124,69 @@ export class MediumPipeline {
     uniformBuffer.destroy();
   }
 
-  // -- Passes 5-7 Stub (WebGPU): Copy tone to density ---------------------
+  // -- Density pass (WebGPU): Continuous luminance-to-density conversion ---
 
   /**
-   * Stub for passes 5-7 (seed, integrate, deposit).
-   * Copies tone_r16f to density_r16f so that the resolve pass has valid
-   * density input. The tone map (0 = dark, 1 = light) is inverted to
-   * density (0 = no pigment, high = dense pigment).
-   *
-   * TODO: Implement full stroke synthesis with storage buffers and atomics
-   * for proper seed placement, RK2 streamline integration, and nib SDF
-   * deposit. This stub provides a reasonable fallback for field mediums.
+   * Computes continuous pigment density from the original linear image.
+   * Uses BT.709 luminance with an intensity-controlled gamma curve,
+   * producing smooth density values for Beer-Lambert transmittance.
    */
-  private async gpuStubCopyToneToDensity(w: number, h: number): Promise<void> {
+  private async gpuPassDensity(
+    w: number, h: number,
+    densityGamma: number,
+    wgX: number, wgY: number,
+  ): Promise<void> {
     const device = this.device!;
     const pool = this.texturePool!;
+    const { pipeline } =
+      this.getOrCreateComputePipeline('density', densityWGSL);
 
-    const toneEntry = pool.get('tone_r16f')!;
+    // DensityUniforms: { densityGamma f32, width u32, height u32, _pad u32 }
+    const paramsData = new ArrayBuffer(16);
+    const pv = new DataView(paramsData);
+    pv.setFloat32(0, densityGamma, true);
+    pv.setUint32(4, w, true);
+    pv.setUint32(8, h, true);
+    pv.setUint32(12, 0, true);
+    const uniformBuffer = this.createUniformBuffer('density-params', paramsData);
+
+    const linearEntry = pool.get('linear_rgba16f')!;
     const densityEntry = pool.get('density_r16f')!;
 
-    // Both textures are r16float with the same dimensions — direct copy
-    const encoder = device.createCommandEncoder({ label: 'stub-tone-to-density' });
-    encoder.copyTextureToTexture(
-      { texture: toneEntry.texture },
-      { texture: densityEntry.texture },
-      { width: w, height: h },
-    );
+    // Density shader uses two bind groups:
+    //   @group(0): binding 0 = params uniform, binding 1 = output storage
+    //   @group(1): binding 0 = input texture
+    const bg0Layout = pipeline.getBindGroupLayout(0);
+    const bg1Layout = pipeline.getBindGroupLayout(1);
+
+    const bg0 = device.createBindGroup({
+      label: 'density-bg0',
+      layout: bg0Layout,
+      entries: [
+        { binding: 0, resource: { buffer: uniformBuffer } },
+        { binding: 1, resource: densityEntry.view },
+      ],
+    });
+
+    const bg1 = device.createBindGroup({
+      label: 'density-bg1',
+      layout: bg1Layout,
+      entries: [
+        { binding: 0, resource: linearEntry.view },
+      ],
+    });
+
+    const encoder = device.createCommandEncoder({ label: 'density-encoder' });
+    const pass = encoder.beginComputePass({ label: 'density-pass' });
+    pass.setPipeline(pipeline);
+    pass.setBindGroup(0, bg0);
+    pass.setBindGroup(1, bg1);
+    pass.dispatchWorkgroups(wgX, wgY);
+    pass.end();
     device.queue.submit([encoder.finish()]);
     await device.queue.onSubmittedWorkDone();
+
+    uniformBuffer.destroy();
   }
 
   // -- Pass 8 (WebGPU): Resolve -------------------------------------------
@@ -1384,6 +1445,8 @@ export class MediumPipeline {
       case 'rgba16f': bytesPerPixel = 8; break;
       case 'r16f':    bytesPerPixel = 2; break;
       case 'rg16f':   bytesPerPixel = 4; break;
+      case 'r32f':    bytesPerPixel = 4; break;
+      case 'rg32f':   bytesPerPixel = 8; break;
       case 'r32uint': bytesPerPixel = 4; break;
       default:        bytesPerPixel = 4; break;
     }
@@ -1458,6 +1521,34 @@ export class MediumPipeline {
           const dst = (y * w + x) * 4;
           const r = float16ToFloat32((raw[srcOff + 1] << 8) | raw[srcOff]);
           const g = float16ToFloat32((raw[srcOff + 3] << 8) | raw[srcOff + 2]);
+          px[dst] = clamp255((r * 0.5 + 0.5) * 255);
+          px[dst + 1] = clamp255((g * 0.5 + 0.5) * 255);
+          px[dst + 2] = 0;
+          px[dst + 3] = 255;
+        }
+      }
+    } else if (format === 'r32f') {
+      const f32View = new Float32Array(raw.buffer);
+      for (let y = 0; y < h; y++) {
+        const rowFloatOffset = (y * bytesPerRow) / 4;
+        for (let x = 0; x < w; x++) {
+          const val = f32View[rowFloatOffset + x];
+          const b = clamp255(val * 255);
+          const dst = (y * w + x) * 4;
+          px[dst] = b;
+          px[dst + 1] = b;
+          px[dst + 2] = b;
+          px[dst + 3] = 255;
+        }
+      }
+    } else if (format === 'rg32f') {
+      const f32View = new Float32Array(raw.buffer);
+      for (let y = 0; y < h; y++) {
+        const rowFloatOffset = (y * bytesPerRow) / 4;
+        for (let x = 0; x < w; x++) {
+          const r = f32View[rowFloatOffset + x * 2];
+          const g = f32View[rowFloatOffset + x * 2 + 1];
+          const dst = (y * w + x) * 4;
           px[dst] = clamp255((r * 0.5 + 0.5) * 255);
           px[dst + 1] = clamp255((g * 0.5 + 0.5) * 255);
           px[dst + 2] = 0;
@@ -1657,6 +1748,7 @@ export class MediumPipeline {
     _technique: TechniqueParams,
     seed: number,
     wetMultiplier: number,
+    densityGamma: number,
     timings: Record<string, number>,
   ): Promise<ImageData> {
     const gl = this.gl!;
@@ -1704,11 +1796,10 @@ export class MediumPipeline {
     this.glPassSubstrate(w, h, substrate, seed);
     timings['substrate'] = performance.now() - t;
 
-    // -- Passes 5-7: Stub (copy tone to density) --------------------------
-    // TODO: Full stroke synthesis. For now, blit tone_r16f to density_r16f.
+    // -- Density: continuous luminance-to-density conversion ---------------
     t = performance.now();
-    this.glStubCopyToneToDensity(w, h);
-    timings['seed+integrate+deposit'] = performance.now() - t;
+    this.glPassDensity(w, h, densityGamma);
+    timings['density'] = performance.now() - t;
 
     // -- Pass 8: Resolve --------------------------------------------------
     t = performance.now();
@@ -2049,24 +2140,36 @@ export class MediumPipeline {
     this.drawFullscreenTriangle();
   }
 
-  // -- Passes 5-7 Stub (GL): Copy tone to density -------------------------
+  // -- Density pass (GL): Continuous luminance-to-density conversion -------
 
   /**
-   * Stub for passes 5-7. Blits tone_r16f to density_r16f.
-   * TODO: Full stroke synthesis for stroke and hybrid mediums.
+   * Computes continuous pigment density from the original linear image.
+   * Uses BT.709 luminance with an intensity-controlled gamma curve.
    */
-  private glStubCopyToneToDensity(w: number, h: number): void {
+  private glPassDensity(w: number, h: number, densityGamma: number): void {
     const gl = this.gl!;
     const pool = this.glTexturePool!;
+    const { program, uniforms } = this.getOrCreateGLProgram(
+      'density', densityFrag,
+      ['uLinear', 'uDensityGamma'],
+    );
 
-    const toneEntry = pool.get('tone_r16f')!;
-    const densityEntry = pool.get('density_r16f')!;
+    const linearEntry = pool.get('linear_rgba16f')!;
+    const outEntry = pool.get('density_r16f')!;
 
-    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, toneEntry.fbo);
-    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, densityEntry.fbo);
-    gl.blitFramebuffer(0, 0, w, h, 0, 0, w, h, gl.COLOR_BUFFER_BIT, gl.NEAREST);
-    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
-    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+    gl.useProgram(program);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, outEntry.fbo);
+    gl.viewport(0, 0, w, h);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, linearEntry.texture);
+    const texLoc = uniforms.get('uLinear');
+    if (texLoc) gl.uniform1i(texLoc, 0);
+
+    const gammaLoc = uniforms.get('uDensityGamma');
+    if (gammaLoc) gl.uniform1f(gammaLoc, densityGamma);
+
+    this.drawFullscreenTriangle();
   }
 
   // -- Pass 8 (GL): Resolve -----------------------------------------------

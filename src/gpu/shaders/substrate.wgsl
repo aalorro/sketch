@@ -4,7 +4,7 @@
 // value noise plus directional fiber streaks, producing realistic paper tooth
 // that downstream passes (resolve) use for pigment deposition simulation.
 //
-// Output: texture_storage_2d<r16float, write> — height in [0, 1]
+// Output: texture_storage_2d<r32float, write> — height in [0, 1]
 
 struct SubstrateUniforms {
   heightScale: f32,
@@ -18,7 +18,7 @@ struct SubstrateUniforms {
 };
 
 @group(0) @binding(0) var<uniform> params: SubstrateUniforms;
-@group(1) @binding(0) var output: texture_storage_2d<r16float, write>;
+@group(1) @binding(0) var output: texture_storage_2d<r32float, write>;
 
 // ----- PCG32 hash (copy-pasted from pcg.wgsl — WGSL has no includes) -----
 fn pcg_hash(v_in: u32) -> u32 {

@@ -123,7 +123,7 @@ fn height_normal(coord: vec2<i32>, dims: vec2<i32>) -> vec3<f32> {
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   let x = i32(gid.x);
   let y = i32(gid.y);
-  let dims = textureDimensions(sourceTex);
+  let dims = vec2<i32>(textureDimensions(sourceTex));
 
   if (gid.x >= u32(dims.x) || gid.y >= u32(dims.y)) {
     return;
@@ -132,7 +132,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   let coord = vec2<i32>(x, y);
 
   // ---- Read inputs ----
-  let density = textureLoad(densityTex, coord, 0).r;
+  // Density pass outputs [0, 1]; scale to physical range [0, maxDensity]
+  let raw_density = textureLoad(densityTex, coord, 0).r;
+  let density = raw_density * params.maxDensity;
   let height  = textureLoad(heightTex, coord, 0).r;
   let source  = textureLoad(sourceTex, coord, 0);
 

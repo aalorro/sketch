@@ -17,6 +17,8 @@ function toGPUTextureFormat(format: TextureFormat): GPUTextureFormat {
     case 'rgba16f': return 'rgba16float';
     case 'r16f':    return 'r16float';
     case 'rg16f':   return 'rg16float';
+    case 'r32f':    return 'r32float';
+    case 'rg32f':   return 'rg32float';
     case 'r32uint': return 'r32uint';
   }
 }
@@ -38,6 +40,10 @@ function toGL2FormatInfo(gl: WebGL2RenderingContext, format: TextureFormat): GL2
       return { internalFormat: gl.R16F, format: gl.RED, type: gl.FLOAT };
     case 'rg16f':
       return { internalFormat: gl.RG16F, format: gl.RG, type: gl.FLOAT };
+    case 'r32f':
+      return { internalFormat: gl.R32F, format: gl.RED, type: gl.FLOAT };
+    case 'rg32f':
+      return { internalFormat: gl.RG32F, format: gl.RG, type: gl.FLOAT };
     case 'r32uint':
       return { internalFormat: gl.R32UI, format: gl.RED_INTEGER, type: gl.UNSIGNED_INT };
   }

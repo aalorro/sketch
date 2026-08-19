@@ -374,7 +374,7 @@ async function openStyleGrid(): Promise<void> {
     card.addEventListener('click', () => {
       styleSelect.value = s.value;
       pushUndo();
-      drawPreview();
+      renderCurrent();
       modalGrid.style.display = 'none';
     });
 
@@ -391,7 +391,7 @@ async function openStyleGrid(): Promise<void> {
 // ── Initialize all modules ──────────────────────────────────────────────────
 
 // Undo/Redo
-initUndoRedo(drawPreview);
+initUndoRedo(renderCurrent);
 
 // Clipboard paste
 document.addEventListener('paste', (e: ClipboardEvent) => {
@@ -429,16 +429,16 @@ refreshPresetList();
 
 // Init modules with their dependencies
 initNav({
-  drawPreview,
+  drawPreview: renderCurrent,
   updateFileInfo,
   setSingleImage,
 });
 
-initCompare(drawPreview);
-initZoomAndPan(drawPreview);
+initCompare(renderCurrent);
+initZoomAndPan(renderCurrent);
 initWebcam({
   enableControls,
-  drawPreview,
+  drawPreview: renderCurrent,
   updateFileInfo,
   setSingleImage,
   showErrorMessage,
@@ -451,8 +451,17 @@ initExport({
 // ── Engine toggle ────────────────────────────────────────────────────────────
 
 if (engineToggle) {
-  engineToggle.addEventListener('change', () => {
-    const newEngine = engineToggle!.value as 'classic' | 'physics';
+  engineToggle.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('.engine-btn') as HTMLElement | null;
+    if (!btn) return;
+
+    const newEngine = btn.dataset.engine as 'classic' | 'physics';
+    if (!newEngine) return;
+
+    // Update active state on buttons
+    engineToggle!.querySelectorAll('.engine-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
     setEngine(newEngine);
 
     // Show/hide appropriate control panels
@@ -622,12 +631,13 @@ modalGrid.addEventListener('click', (e) => {
 
 // ── Try Sample Image ────────────────────────────────────────────────────────
 
+const base = import.meta.env.BASE_URL;
 const sampleImages = [
-  'public/algomodo-01.png',
-  'public/algomodo-02.png',
-  'public/algomodo-03.png',
-  'public/highlands.jpg',
-  'public/onelab.jpg',
+  `${base}algomodo-01.png`,
+  `${base}algomodo-02.png`,
+  `${base}algomodo-03.png`,
+  `${base}highlands.jpg`,
+  `${base}onelab.jpg`,
 ];
 
 trySampleBtn.addEventListener('click', () => {
@@ -661,36 +671,50 @@ trySampleBtn.addEventListener('click', () => {
 // ── Surprise Me ─────────────────────────────────────────────────────────────
 
 surpriseMeBtn.addEventListener('click', () => {
-  const opts = Array.from(styleSelect.options).map((o) => o.value);
-  styleSelect.value = randomChoice(opts);
-  artStyleSelect.value = randomChoice([
-    'pencil',
-    'ink',
-    'marker',
-    'pen',
-    'pastel',
-    'crayon',
-    'coloredpencil',
-  ]);
-  brushSelect.value = randomChoice([
-    'none',
-    'line',
-    'hatch',
-    'crosshatch',
-    'charcoal',
-    'inkWash',
-  ]);
+  if (engine === 'physics') {
+    // Randomize physics-specific controls
+    const selectors = ['mediumSelect', 'substrateSelect', 'techniqueSelect', 'finishSelect'];
+    for (const id of selectors) {
+      const el = document.getElementById(id) as HTMLSelectElement | null;
+      if (el) {
+        const vals = Array.from(el.options).map((o) => o.value);
+        el.value = randomChoice(vals);
+      }
+    }
+  } else {
+    // Randomize classic-specific controls
+    const opts = Array.from(styleSelect.options).map((o) => o.value);
+    styleSelect.value = randomChoice(opts);
+    artStyleSelect.value = randomChoice([
+      'pencil',
+      'ink',
+      'marker',
+      'pen',
+      'pastel',
+      'crayon',
+      'coloredpencil',
+    ]);
+    brushSelect.value = randomChoice([
+      'none',
+      'line',
+      'hatch',
+      'crosshatch',
+      'charcoal',
+      'inkWash',
+    ]);
+    skipHatchingCheckbox.checked = Math.random() > 0.5;
+    colorizeCheckbox.checked = Math.random() > 0.7;
+    (document.getElementById('invert') as HTMLInputElement).checked = Math.random() > 0.85;
+    textureTypeSelect.value = randomChoice(['none', 'paper', 'canvas', 'rough', 'film']);
+    textureOpacityInput.value = (Math.random() * 10).toFixed(1);
+  }
+  // Shared controls (both engines)
   intensityInput.value = String(randomInt(1, 10));
   strokeInput.value = String(randomInt(1, 10));
   smoothingInput.value = (Math.random() * 10).toFixed(1);
-  skipHatchingCheckbox.checked = Math.random() > 0.5;
-  colorizeCheckbox.checked = Math.random() > 0.7;
-  (document.getElementById('invert') as HTMLInputElement).checked = Math.random() > 0.85;
   contrastInput.value = (0.5 + Math.random() * 1.5).toFixed(1);
   saturationInput.value = (0.3 + Math.random() * 1.7).toFixed(1);
   hueShiftInput.value = String(Math.floor(Math.random() * 73) * 5);
-  textureTypeSelect.value = randomChoice(['none', 'paper', 'canvas', 'rough', 'film']);
-  textureOpacityInput.value = (Math.random() * 10).toFixed(1);
   if (singleImage) renderCurrent();
 });
 
@@ -803,7 +827,7 @@ savePresetBtn.addEventListener('click', () => {
 });
 loadPresetBtn.addEventListener('click', () => {
   const name = presetSelectEl.value;
-  loadPresetLocally(name, drawPreview);
+  loadPresetLocally(name, renderCurrent);
 });
 deletePresetBtn.addEventListener('click', () => {
   const name = presetSelectEl.value;

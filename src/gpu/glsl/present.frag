@@ -40,12 +40,8 @@ void main() {
   // 0.18 is the perceptual middle grey in linear light
   color = mix(vec3(0.18), color, uContrast);
 
-  // Clamp negatives before tone mapping
-  color = max(color, vec3(0.0));
-
-  // ---- 3. Reinhard tone mapping (soft highlight rolloff) ----
-  // Maps HDR values to [0, 1) range while preserving relative luminance
-  color = color / (vec3(1.0) + color);
+  // Clamp to valid range (resolve output is already LDR [0,1])
+  color = clamp(color, vec3(0.0), vec3(1.0));
 
   // ---- 4. Linear -> sRGB conversion (IEC 61966-2-1) ----
   vec3 srgb = vec3(

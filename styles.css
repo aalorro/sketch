@@ -203,3 +203,7 @@ body.dark-mode .discord-button {
     margin-top:0;
   }
 }
+
+.engine-btn{background:var(--bg);color:var(--muted)}
+.engine-btn.active{background:var(--primary);color:#fff}
+.engine-btn:hover:not(.active){background:var(--border)}

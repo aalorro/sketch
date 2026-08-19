@@ -120,7 +120,9 @@ void main() {
   ivec2 dims = textureSize(uSourceTex, 0);
 
   // ---- Read inputs ----
-  float density = texelFetch(uDensityTex, coord, 0).r;
+  // Density pass outputs [0, 1]; scale to physical range [0, maxDensity]
+  float rawDensity = texelFetch(uDensityTex, coord, 0).r;
+  float density = rawDensity * uMaxDensity;
   float height  = texelFetch(uHeightTex, coord, 0).r;
   vec4  source  = texelFetch(uSourceTex, coord, 0);
 

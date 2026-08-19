@@ -17,7 +17,7 @@
 //   etfTex  — texture_2d<f32> (rg16float tangent field from pass 2)
 //
 // Output:
-//   texture_storage_2d<r16float, write> — edge map: 0 = edge, 1 = no edge
+//   texture_storage_2d<r32float, write> — edge map: 0 = edge, 1 = no edge
 
 struct Params {
   width: u32,
@@ -32,7 +32,7 @@ struct Params {
 
 @group(0) @binding(0) var toneTex: texture_2d<f32>;    // quantized luminance
 @group(0) @binding(1) var etfTex: texture_2d<f32>;     // ETF tangent field
-@group(0) @binding(2) var output: texture_storage_2d<r16float, write>;
+@group(0) @binding(2) var output: texture_storage_2d<r32float, write>;
 @group(0) @binding(3) var<uniform> params: Params;
 
 // Clamp-to-edge boundary handling
