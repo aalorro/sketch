@@ -131,11 +131,12 @@ void main() {
   // ---- 1. Tooth occlusion ----
   // Paper tooth modulates pigment deposition: pigment settles in valleys
   // and skips peaks. Smoothstep controls the transition gradient.
-  float toothMask = smoothstep(
+  // Floor of 0.25 prevents wash-out on very smooth substrates (hot-press).
+  float toothMask = max(0.25, smoothstep(
     uToothContact - uToothSoftness,
     uToothContact + uToothSoftness,
     height
-  );
+  ));
   float effectiveDensity = density * toothMask;
 
   // Clamp to maximum density (pigment saturation)

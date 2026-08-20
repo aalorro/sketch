@@ -1,9 +1,9 @@
-// Brush effects — hatch, cross-hatch, charcoal, ink wash
+// Technique effects — line, hatch, cross-hatch, charcoal, ink wash
 
 import type { RandFn } from './types';
 
 /**
- * Apply brush-specific effect to the rendered sketch.
+ * Apply technique-specific effect to the rendered sketch.
  * Handles: none, line, hatch, crosshatch, charcoal, inkWash.
  */
 export function applyBrushEffect(
@@ -16,7 +16,7 @@ export function applyBrushEffect(
   edges: Uint8ClampedArray,
   rand: RandFn
 ): void {
-  if (brush === 'none' || brush === 'line') return;
+  if (brush === 'none') return;
 
   const imgData = ctx.getImageData(0, 0, w, h);
   const d = imgData.data;
@@ -25,24 +25,36 @@ export function applyBrushEffect(
   for (let i = 0; i < w * h; i++)
     brt[i] = (d[i * 4] + d[i * 4 + 1] + d[i * 4 + 2]) / 3;
 
-  if (brush === 'hatch' || brush === 'crosshatch') {
-    // Pure ImageData d-grid -- O(w*h) per pass, no canvas path API.
+  if (brush === 'line') {
+    // Contour reinforcement: darken sketch pixels near detected edges
+    const edgeStr = 0.15 + intensity * 0.02; // 17-35% darkening
+    for (let i = 0; i < w * h; i++) {
+      const e = edges[i * 4]; // edge brightness (dark = strong edge)
+      if (e < 140) {
+        // Near an edge — darken proportionally
+        const factor = 1 - edgeStr * (1 - e / 140);
+        const v = Math.max(0, Math.round(brt[i] * factor));
+        d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = v;
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+  } else if (brush === 'hatch' || brush === 'crosshatch') {
     // Per-pixel perpendicular distance from nearest hatching line via modulo.
-    const spacing = Math.max(4, Math.round(18 - stroke * 1.4));
-    const halfLw = Math.max(0.3, 0.38 + stroke * 0.09);
-    const toneThr = 85 + intensity * 12; // 97 (i=1) to 205 (i=10)
-    const hyst = 8;
+    const spacing = Math.max(3, Math.round(16 - stroke * 1.3));
+    const halfLw = Math.max(0.5, 0.6 + stroke * 0.15);
+    const toneThr = 110 + intensity * 14; // 124 (i=1) to 250 (i=10)
+    const hyst = 6;
     const PASSES: [number, number, number][] =
       brush === 'hatch'
-        ? [[Math.PI / 6, toneThr, 0.6]]
+        ? [[Math.PI / 4, toneThr, 0.8]]
         : [
-            [Math.PI / 6, toneThr, 0.6],
-            [Math.PI * 2 / 3, toneThr - 24, 0.44],
+            [Math.PI / 4, toneThr, 0.8],
+            [Math.PI * 3 / 4, toneThr - 10, 0.7],
           ];
     for (const [angle, thr, alpha] of PASSES) {
       const cos_a = Math.cos(angle),
         sin_a = Math.sin(angle);
-      const scale = 1 - alpha * (1 - 18 / 255);
+      const scale = 1 - alpha * (1 - 12 / 255);
       for (let y = 0; y < h; y++) {
         for (let x = 0; x < w; x++) {
           let dv = (-x * sin_a + y * cos_a) % spacing;
@@ -57,9 +69,9 @@ export function applyBrushEffect(
     }
     ctx.putImageData(imgData, 0, 0);
   } else if (brush === 'charcoal') {
-    // Fine grain noise via ImageData pixel scatter -- no path API for the 4M-pixel loop.
-    const grainChance = 0.009 + intensity * 0.007;
-    const grainScale = 1 - (0.17 + stroke * 0.03) * (1 - 24 / 255);
+    // Heavy grain noise via ImageData pixel scatter
+    const grainChance = 0.025 + intensity * 0.012;
+    const grainScale = 1 - (0.25 + stroke * 0.05) * (1 - 24 / 255);
     for (let i = 0; i < w * h; i++) {
       const g = brt[i];
       if (g < 18 || g > 235 || rand() > grainChance) continue;
@@ -67,14 +79,14 @@ export function applyBrushEffect(
       d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = v;
     }
     ctx.putImageData(imgData, 0, 0);
-    // Directional grain marks via canvas path -- count is bounded by grid (~(w/step)*(h/step))
-    const markStep = Math.max(4, Math.round(16 - stroke * 1.1));
-    const markLen = Math.round(markStep * (1.3 + stroke * 0.2));
-    const markAlpha = (0.07 + intensity * 0.016).toFixed(3);
+    // Bold directional grain marks via canvas path
+    const markStep = Math.max(3, Math.round(14 - stroke * 1.1));
+    const markLen = Math.round(markStep * (1.5 + stroke * 0.3));
+    const markAlpha = (0.12 + intensity * 0.025).toFixed(3);
     const slope = 0.27; // tan(15 deg)
     ctx.globalCompositeOperation = 'multiply';
     ctx.strokeStyle = `rgba(22, 14, 8, ${markAlpha})`;
-    ctx.lineWidth = Math.max(0.35, stroke * 0.5);
+    ctx.lineWidth = Math.max(0.7, stroke * 0.8);
     ctx.lineCap = 'round';
     ctx.beginPath();
     for (let y = 0; y < h; y += markStep) {
@@ -92,8 +104,8 @@ export function applyBrushEffect(
     ctx.globalCompositeOperation = 'source-over';
   } else if (brush === 'inkWash') {
     // Box-blur softening
-    const blurPasses = 1 + Math.round(stroke * 0.2);
-    const washStr = 0.28 + stroke * 0.055;
+    const blurPasses = 2 + Math.round(stroke * 0.4);
+    const washStr = 0.4 + stroke * 0.06;
     let blur = new Float32Array(brt);
     const next = new Float32Array(w * h);
     for (let p = 0; p < blurPasses; p++) {
@@ -130,10 +142,9 @@ export function applyBrushEffect(
       d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = v;
       d[i * 4 + 3] = 255;
     }
-    // Wet-edge bloom via box-blurred dark mask -- no ctx.arc loop.
-    // Build a float mask (1.0 where original sketch has dark ink marks).
-    const bloomR = 2 + Math.round(stroke * 0.45);
-    const bloomAlpha = 0.07 + intensity * 0.009;
+    // Wet-edge bloom via box-blurred dark mask
+    const bloomR = 3 + Math.round(stroke * 0.7);
+    const bloomAlpha = 0.12 + intensity * 0.015;
     const darkMask = new Float32Array(w * h);
     for (let i = 0; i < w * h; i++)
       darkMask[i] = brt[i] < 75 ? 1.0 : 0.0;
