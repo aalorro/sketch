@@ -683,6 +683,7 @@ trySampleBtn.addEventListener('click', () => {
 // ── Surprise Me ─────────────────────────────────────────────────────────────
 
 surpriseMeBtn.addEventListener('click', () => {
+  pushUndo();
   if (engine === 'physics') {
     // Randomize physics-specific controls
     const selectors = ['mediumSelect', 'substrateSelect', 'techniqueSelect', 'finishSelect'];
@@ -719,16 +720,16 @@ surpriseMeBtn.addEventListener('click', () => {
     colorizeCheckbox.checked = Math.random() > 0.7;
     (document.getElementById('invert') as HTMLInputElement).checked = Math.random() > 0.85;
     textureTypeSelect.value = randomChoice(['none', 'paper', 'canvas', 'rough', 'film']);
-    textureOpacityInput.value = (Math.random() * 10).toFixed(1);
+    textureOpacityInput.value = (Math.random() * 5).toFixed(1);
     syncMediumButtons('artStyleGroup', artStyleSelect.value);
   }
   // Shared controls (both engines)
-  intensityInput.value = String(randomInt(1, 10));
-  strokeInput.value = String(randomInt(1, 10));
-  smoothingInput.value = (Math.random() * 10).toFixed(1);
-  contrastInput.value = (0.5 + Math.random() * 1.5).toFixed(1);
-  saturationInput.value = (0.3 + Math.random() * 1.7).toFixed(1);
-  hueShiftInput.value = String(Math.floor(Math.random() * 73) * 5);
+  intensityInput.value = String(randomInt(1, 5));
+  strokeInput.value = String(randomInt(1, 5));
+  smoothingInput.value = (Math.random() * 5).toFixed(1);
+  contrastInput.value = (0.5 + Math.random() * 0.75).toFixed(1);
+  saturationInput.value = (0.3 + Math.random() * 0.7).toFixed(1);
+  hueShiftInput.value = String(Math.floor(Math.random() * 36) * 5);
   if (singleImage) renderCurrent();
 });
 

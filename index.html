@@ -96,9 +96,7 @@
       <button id="instructionsBtn" type="button" style="width:100%;margin-bottom:12px;padding:12px;background:linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%);color:#fff;border:0;border-radius:8px;font-weight:600;font-size:15px;cursor:pointer;transition:all 0.2s" title="View Sketchify instructions and guide">📖 Instructions & Guide</button>
       <button id="donateBtn" type="button" style="width:100%;margin-bottom:12px;padding:12px;background:linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);color:#1f2937;border:0;border-radius:8px;font-weight:600;font-size:15px;cursor:pointer;transition:all 0.2s" title="Support Sketchify development">❤️ Support Development</button>
       <div class="buttons" style="margin-bottom:12px">
-        <button id="undo" type="button" title="Undo (Ctrl+Z)">↶</button>
-        <button id="redo" type="button" title="Redo (Ctrl+Y)">↷</button>
-        <button id="resetAll" type="button" title="Reset all controls">Reset</button>
+        <button id="resetAll" type="button" title="Reset all controls">Image Reset</button>
       </div>
       <label>Load image <button type="button" class="info-btn" data-modal="modal-load">?</button><input id="file" type="file" accept="image/*" multiple></label>
       <div style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:4px;">or paste an image with Ctrl+V</div>
@@ -424,6 +422,9 @@
         <div style="height:100%; background:#0fff00; width:0%; transition:width 0.15s linear; box-shadow:0 0 20px #0fff00, 0 0 30px #0fff00, inset 0 0 20px rgba(15,255,0,0.8);" id="progressBar"></div>
       </div>
       <div style="margin-top:12px; display:flex; gap:8px; justify-content:center; align-items:center;">
+        <button id="undo" type="button" style="padding:6px 12px; background:#6b7280; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:14px;" title="Undo (Ctrl+Z)">↶</button>
+        <button id="redo" type="button" style="padding:6px 12px; background:#6b7280; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:14px;" title="Redo (Ctrl+Y)">↷</button>
+        <span style="margin:0 4px;opacity:0.3">|</span>
         <button id="zoomOut" type="button" style="padding:6px 12px; background:#06b6d4; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:14px;">−</button>
         <span id="zoomLevel" style="min-width:60px; text-align:center; font-size:13px; color:#888; font-weight:600;">100%</span>
         <button id="zoomIn" type="button" style="padding:6px 12px; background:#06b6d4; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:14px;">+</button>
@@ -601,6 +602,7 @@
       <p>Enables GPU-accelerated image processing using WebGPU compute shaders for faster real-time previews.</p>
       <p><strong>Benefits:</strong> Significantly faster Sobel, grayscale, color adjustments, smoothing, and texture blending.</p>
       <p><strong>Fallback:</strong> Automatically falls back to WebGL2 if WebGPU is unavailable, then to CPU.</p>
+      <p><strong>Tip:</strong> If your rendered image looks washed out or faded, try disabling WebGPU. Some GPU drivers may produce different tonal results compared to CPU rendering.</p>
     </div>
   </div>
 
@@ -740,7 +742,7 @@
         <li><strong>Hue Shift (0-360):</strong> Rotates colors when Colorize is enabled</li>
         <li><strong>Invert:</strong> Swap light and dark — white lines on dark ground</li>
         <li><strong>Skip Hatching:</strong> Clean edges only, no decorative patterns</li>
-        <li><strong>WebGPU:</strong> Enable GPU acceleration for edge detection and post-processing</li>
+        <li><strong>WebGPU:</strong> Enable GPU acceleration for edge detection and post-processing. If your image looks washed out, try disabling this option</li>
       </ul>
 
       <h4>Key Features</h4>

@@ -50,14 +50,14 @@ export function applyMediumEffect(
     }
 
     case 'ink': {
-      // India ink: 3 dilations (heavy wet bleed), nearly binary black, blue-black tint.
+      // India ink: 3 dilations (heavy wet bleed), dark crush, blue-black tint.
       dilateMask(d, w, h, 3);
       for (let i = 0; i < n; i++) {
         const v = d[i * 4];
         if (v < BG) {
-          // Nearly binary — ink is extremely opaque, very little mid-tone
-          const crushed = v < 180 ? Math.max(0, Math.round(v * 0.3 - 15))
-                                  : Math.max(0, Math.round(v * 0.5 - 30));
+          // Strong darkening but preserves tonal separation for tonal styles
+          const crushed = v < 180 ? Math.max(0, Math.round(v * 0.4 - 8))
+                                  : Math.max(0, Math.round(v * 0.55 - 20));
           d[i * 4] = Math.max(0, crushed - 8);     // R: cold
           d[i * 4 + 1] = Math.max(0, crushed - 3);
           d[i * 4 + 2] = Math.min(255, crushed + 15); // B: strong blue-black
@@ -101,15 +101,14 @@ export function applyMediumEffect(
     }
 
     case 'pen': {
-      // Technical pen / ballpoint: NO dilation, high-contrast binary, neutral-cool, no grain.
-      // Pen lines are thin, uniform, and very dark — minimal mid-tones
+      // Technical pen / ballpoint: NO dilation, high-contrast, neutral-cool, no grain.
+      // Pen lines are thin, uniform, and dark — preserves some tonal structure
       for (let i = 0; i < n; i++) {
         const v = d[i * 4];
         if (v < BG) {
-          // Hard threshold: push most marks toward black, only lightest stay mid
           const crisp = v < 160
-            ? Math.max(0, Math.round(v * 0.25))    // darks → near black
-            : Math.max(0, Math.round(v * 0.6 - 40)); // lights → still dark
+            ? Math.max(0, Math.round(v * 0.35))     // darks → very dark
+            : Math.max(0, Math.round(v * 0.65 - 30)); // lights → dark
           d[i * 4] = crisp;
           d[i * 4 + 1] = crisp;
           d[i * 4 + 2] = Math.min(255, crisp + 5); // subtle cool blue

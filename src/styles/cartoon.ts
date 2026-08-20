@@ -5,20 +5,20 @@ export function renderCartoon({ ctx, w, h, edges, gray, intensity, stroke }: Ren
   const threshold = 25 + (11 - intensity) * 10 - stroke * 0.3;
   const overlay = ctx.createImageData(w, h);
 
-  // Create mid-tone base for cartoon look
+  // Create mid-tone base for cartoon look — widely-spaced tonal steps
+  // that survive aggressive medium processing (ink crush, pen threshold)
   for (let i = 0; i < w * h; i++) {
     const e = edges[i];
     const g = gray[i];
-    // Simplify to distinct tonal areas
     let v: number;
     if (e > threshold) {
-      v = 20;  // Black outlines
+      v = 0;   // Black outlines
     } else if (g < 85) {
-      v = 50;  // Dark areas
+      v = 55;  // Dark areas (spaced far from outlines)
     } else if (g < 170) {
-      v = 150;  // Mid tones
+      v = 140; // Mid tones
     } else {
-      v = 240;  // Light areas
+      v = 235; // Light areas
     }
     overlay.data[i*4] = v;
     overlay.data[i*4+1] = v;
