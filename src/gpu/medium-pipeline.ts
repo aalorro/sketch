@@ -393,73 +393,81 @@ export class MediumPipeline {
     let densityGammaOffset = 0.0;
 
     // -- Apply technique modifiers ------------------------------------------
-    // Each technique modulates existing pipeline params to create distinct
-    // visual character (stroke synthesis passes 5-7 are not yet implemented).
+    // Each technique aggressively modulates pipeline params to create visually
+    // distinct character. Parameters pushed to extremes for obvious differences.
     switch (request.technique) {
       case 'hatching':
         // Baseline — no modifications
         break;
       case 'cross-hatching':
-        // Denser marks, more tonal detail, tighter edges
-        bilateralRadius = Math.max(1, Math.round(bilateralRadius * 0.6));
-        toneLevels = Math.round(toneLevels * 1.4);
-        fdogSigma1 *= 0.8; fdogSigma2 = fdogSigma1 * 1.6;
-        fdogPhi = 2.5;
-        densityGammaOffset = 0.15;
+        // Very dense, detailed, crisp tight edges, dark
+        bilateralRadius = 1;
+        toneLevels = Math.round(toneLevels * 2.5);
+        fdogSigma1 *= 0.5; fdogSigma2 = fdogSigma1 * 1.3;
+        fdogTau = 0.92;
+        fdogPhi = 1.5;
+        densityGammaOffset = 0.4;
+        sigmaRange = 0.03;
         break;
       case 'contour':
-        // Smooth flowing lines, clean tonal areas, wider edges
-        bilateralRadius = Math.max(1, Math.round(bilateralRadius * 1.6));
-        toneLevels = Math.max(2, Math.round(toneLevels * 0.5));
-        fdogSigma1 *= 1.5; fdogSigma2 = fdogSigma1 * 1.6;
-        fdogPhi = 3.5;
-        densityGammaOffset = -0.15;
+        // Very smooth, clean flat tonal bands, bold flowing edges
+        bilateralRadius = Math.max(3, Math.round(bilateralRadius * 3.0));
+        toneLevels = Math.max(2, Math.round(toneLevels * 0.25));
+        fdogSigma1 *= 2.5; fdogSigma2 = fdogSigma1 * 2.0;
+        fdogTau = 0.99;
+        fdogPhi = 6.0;
+        densityGammaOffset = -0.25;
+        sigmaRange = 0.2;
         break;
       case 'stipple':
-        // Grainy, dotted, many tonal steps, thin edges
-        bilateralRadius = Math.max(1, Math.round(bilateralRadius * 0.4));
-        toneLevels = Math.round(toneLevels * 2.0);
-        fdogSigma1 *= 0.5; fdogSigma2 = fdogSigma1 * 1.6;
-        fdogTau = 0.9;
-        fdogPhi = 1.0;
-        densityGammaOffset = 0.3;
-        sigmaRange = 0.04;
+        // Pointillist dots: no smoothing, maximum tonal steps, suppress edges
+        bilateralRadius = 1;
+        toneLevels = Math.max(10, Math.round(toneLevels * 4.0));
+        fdogSigma1 *= 0.3; fdogSigma2 = fdogSigma1 * 1.2;
+        fdogTau = 0.7;
+        fdogPhi = 0.5;
+        densityGammaOffset = 0.5;
+        sigmaRange = 0.02;
         break;
       case 'broad-side':
-        // Wide flat tonal coverage, very smooth, few levels
-        bilateralRadius = Math.max(1, Math.round(bilateralRadius * 2.0));
-        toneLevels = Math.max(2, Math.round(toneLevels * 0.4));
-        fdogSigma1 *= 2.0; fdogSigma2 = fdogSigma1 * 1.6;
-        fdogPhi = 2.0;
-        densityGammaOffset = 0.2;
-        sigmaRange = 0.12;
+        // Poster-like: extreme smoothing, 2-3 flat tone bands, wide soft edges
+        bilateralRadius = Math.max(4, Math.round(bilateralRadius * 4.0));
+        toneLevels = 2;
+        fdogSigma1 *= 3.0; fdogSigma2 = fdogSigma1 * 2.0;
+        fdogTau = 0.995;
+        fdogPhi = 3.0;
+        densityGammaOffset = 0.3;
+        sigmaRange = 0.25;
         break;
       case 'scribble':
-        // Rough, energetic, more edges visible, noisy
-        bilateralRadius = Math.max(1, Math.round(bilateralRadius * 0.5));
-        toneLevels = Math.round(toneLevels * 1.3);
-        fdogSigma1 *= 0.7; fdogSigma2 = fdogSigma1 * 1.6;
-        fdogTau = 0.85;
-        fdogPhi = 1.5;
-        densityGammaOffset = 0.1;
+        // Chaotic: no smoothing, many edges everywhere, noisy, medium-dark
+        bilateralRadius = 1;
+        toneLevels = Math.round(toneLevels * 1.8);
+        fdogSigma1 *= 0.4; fdogSigma2 = fdogSigma1 * 1.2;
+        fdogTau = 0.6;
+        fdogPhi = 0.8;
+        densityGammaOffset = 0.25;
+        sigmaRange = 0.02;
         break;
       case 'continuous-line':
-        // Thin clean flowing lines, near-binary, very smooth tones
-        bilateralRadius = Math.max(1, Math.round(bilateralRadius * 1.4));
-        toneLevels = Math.max(2, Math.round(toneLevels * 0.3));
-        fdogSigma1 *= 0.6; fdogSigma2 = fdogSigma1 * 1.4;
-        fdogTau = 0.995;
-        fdogPhi = 5.0;
-        densityGammaOffset = -0.2;
+        // Pure line art: heavy smoothing, binary (2 levels), razor-sharp thin edges
+        bilateralRadius = Math.max(3, Math.round(bilateralRadius * 2.5));
+        toneLevels = 2;
+        fdogSigma1 *= 0.4; fdogSigma2 = fdogSigma1 * 1.2;
+        fdogTau = 0.998;
+        fdogPhi = 10.0;
+        densityGammaOffset = -0.3;
+        sigmaRange = 0.15;
         break;
       case 'scratchboard':
-        // Dense high-contrast, many edges, heavy density
-        bilateralRadius = Math.max(1, Math.round(bilateralRadius * 0.7));
-        toneLevels = Math.round(toneLevels * 1.6);
-        fdogSigma1 *= 0.9; fdogSigma2 = fdogSigma1 * 1.6;
-        fdogTau = 0.92;
-        fdogPhi = 2.0;
-        densityGammaOffset = 0.4;
+        // Inverted feel: very heavy density, crisp edges, maximum contrast
+        bilateralRadius = Math.max(1, Math.round(bilateralRadius * 0.5));
+        toneLevels = Math.round(toneLevels * 2.0);
+        fdogSigma1 *= 0.7; fdogSigma2 = fdogSigma1 * 1.4;
+        fdogTau = 0.88;
+        fdogPhi = 1.2;
+        densityGammaOffset = 0.7;
+        sigmaRange = 0.03;
         break;
     }
 

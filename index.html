@@ -88,7 +88,7 @@
         <div class="logo-text">by ARTMONDO</div>
       </div>
     </div>
-    <p>Turn your photos into masterpiece sketches with 20+ artistic styles — adjust intensity, brush type, and color while watching live previews. No uploads, no servers — all processing happens locally. Completely FREE to use!</p>
+    <p>Turn your photos into masterpiece sketches with 20+ artistic styles — adjust intensity, technique, and color while watching live previews. No uploads, no servers — all processing happens locally. Completely FREE to use!</p>
   </header>
 
   <main>
@@ -197,7 +197,7 @@
       </label>
       <button id="styleGridBtn" type="button" style="width:100%;padding:8px;background:#06b6d4;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;margin-top:-4px;margin-bottom:8px;">Style Grid</button>
 
-      <label>Brush
+      <label>Technique
         <select id="brush">
           <option value="none">None</option>
           <option value="line">Line</option>
@@ -471,6 +471,8 @@
       <span style="margin:0 8px;opacity:0.5">•</span>
       <a href="#" onclick="document.getElementById('modal-privacy').style.display='flex'; return false;" style="color:inherit;text-decoration:none;border-bottom:1px dotted;transition:all 0.2s;cursor:pointer">Privacy Policy</a>
       <span style="margin:0 8px;opacity:0.5">•</span>
+      <a href="#" onclick="document.getElementById('modal-about').style.display='flex'; return false;" style="color:inherit;text-decoration:none;border-bottom:1px dotted;transition:all 0.2s;cursor:pointer">About</a>
+      <span style="margin:0 8px;opacity:0.5">•</span>
       <a href="https://github.com/aalorro/sketch/releases/tag/v2.1.0" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none;border-bottom:1px dotted;transition:all 0.2s;cursor:pointer">Download Server 💾</a>
     </small>
   </footer>
@@ -490,7 +492,7 @@
       <h3>Skip Hatching</h3>
       <p>When checked, removes decorative hatching and pattern effects, giving you clean line-based sketches with crisp edges only.</p>
       <p><strong>Best for:</strong> Simple outlines, contour drawings, and minimalist styles.</p>
-      <p>When unchecked, hatching and brush textures are applied based on your chosen brush type.</p>
+      <p>When unchecked, hatching and technique textures are applied based on your chosen technique.</p>
     </div>
   </div>
 
@@ -576,7 +578,7 @@
     <div class="modal-content">
       <button class="modal-close" type="button">&times;</button>
       <h3>Presets</h3>
-      <p>Save and load your favorite configuration combinations (style, brush, intensity, saturation, etc.) for quick reuse.</p>
+      <p>Save and load your favorite configuration combinations (style, technique, intensity, saturation, etc.) for quick reuse.</p>
       <p><strong>How to save:</strong></p>
       <ol>
         <li>Adjust all settings to your liking</li>
@@ -606,7 +608,7 @@
     <div class="modal-content">
       <button class="modal-close" type="button">&times;</button>
       <h3>Generate</h3>
-      <p>Processes all uploaded images with your current settings (style, brush, intensity, etc.).</p>
+      <p>Processes all uploaded images with your current settings (style, technique, intensity, etc.).</p>
       <p><strong>Processing:</strong></p>
       <ul>
         <li>Single image: Processes instantly in your browser</li>
@@ -708,7 +710,7 @@
 
       <h4>Rendering Engines</h4>
       <ul>
-        <li><strong>Classic Engine:</strong> CPU-based Canvas 2D rendering. 28 sketch styles with 7 mediums (Pencil, Ink, Marker, Pen, Pastel, Crayon, Colored Pencil) and 6 brush effects. Fast, reliable, works on all devices.</li>
+        <li><strong>Classic Engine:</strong> CPU-based Canvas 2D rendering. 28 sketch styles with 7 mediums (Pencil, Ink, Marker, Pen, Pastel, Crayon, Colored Pencil) and 6 technique effects. Fast, reliable, works on all devices.</li>
         <li><strong>Physics Engine:</strong> GPU-accelerated rendering via WebGPU/WebGL2 compute shaders. Simulates real art physics — pigment density, paper tooth occlusion, Beer-Lambert transmittance, Kubelka-Munk color mixing, and surface sheen. 11 mediums, 9 substrates, 8 techniques, and 3 finish levels.</li>
       </ul>
 
@@ -716,7 +718,7 @@
       <ul>
         <li><strong>Style:</strong> 28 sketch styles — Contour, Hatching, Charcoal, Comic, Ink Wash, Stippling, and more</li>
         <li><strong>Medium:</strong> Drawing tool character — Pencil (warm graphite), Ink (wet bleed, blue-black), Marker (bold warm streaks), Pen (crisp thin lines), Pastel (vivid chalky smear), Crayon (saturated waxy color), Colored Pencil (vivid layered strokes)</li>
-        <li><strong>Brush:</strong> Texture overlay — None, Line, Hatch, Cross-hatch, Charcoal, Stipple</li>
+        <li><strong>Technique:</strong> Shading overlay — None, Line, Hatch, Cross-hatch, Charcoal, Ink Wash</li>
         <li><strong>Colorize:</strong> Adds original photo colors to the sketch. Crayon, Pastel, and Colored Pencil include color automatically</li>
       </ul>
 
@@ -925,6 +927,45 @@
     </div>
   </div>
 
+  <!-- About Modal -->
+  <div id="modal-about" class="modal" style="display:none">
+    <div class="modal-content" style="max-height:80vh;overflow-y:auto;max-width:700px">
+      <button class="modal-close" type="button">&times;</button>
+      <h3>About Sketchify</h3>
+
+      <p><strong>Sketchify v2.1.0</strong> by <a href="https://github.com/aalorro" target="_blank" rel="noopener noreferrer" style="color:#7c3aed;text-decoration:underline;font-weight:600">ArtMondo</a></p>
+
+      <p>Sketchify is a free, open-source web application that transforms your photos into artistic sketches entirely in the browser. No uploads, no servers, no accounts &mdash; your images never leave your device.</p>
+
+      <h4>What It Does</h4>
+      <p>Choose from 28 sketch styles, 7 drawing mediums, and multiple shading techniques to create everything from quick gesture drawings to polished fine-art renderings. Adjust intensity, stroke, contrast, saturation, and hue to fine-tune your output, then export as PNG, JPG, SVG, or animated WebM.</p>
+
+      <h4>Two Rendering Engines</h4>
+      <ul>
+        <li><strong>Classic Engine</strong> &mdash; CPU-based Canvas 2D rendering. Fast, reliable, works on all devices. 28 styles, 7 mediums, 6 techniques.</li>
+        <li><strong>Physics Engine</strong> &mdash; GPU-accelerated via WebGPU/WebGL2. Simulates real art physics: pigment density, paper tooth, Beer-Lambert transmittance, Kubelka-Munk color mixing, and surface sheen. 11 mediums, 9 substrates, 8 techniques, 3 finish levels.</li>
+      </ul>
+
+      <h4>Technology</h4>
+      <ul>
+        <li>TypeScript + Vite &mdash; 68 modular source files</li>
+        <li>WebGPU compute shaders (WGSL) with WebGL2 (GLSL) fallback</li>
+        <li>Canvas 2D for style rendering and post-processing</li>
+        <li>Zero external dependencies for core rendering</li>
+      </ul>
+
+      <h4>Open Source</h4>
+      <p>Sketchify is licensed under the <strong>MIT License</strong>. Source code, issues, and contributions are welcome on GitHub.</p>
+      <p>
+        <a href="https://github.com/aalorro/sketch" target="_blank" rel="noopener noreferrer" style="color:#7c3aed;text-decoration:underline;font-weight:600">GitHub Repository</a>
+        <span style="margin:0 8px;opacity:0.5">•</span>
+        <a href="https://discord.gg/nqY5xSx6" target="_blank" rel="noopener noreferrer" style="color:#7c3aed;text-decoration:underline;font-weight:600">Discord Community</a>
+      </p>
+
+      <p style="margin-top:24px;font-size:13px;color:var(--muted);font-style:italic">&copy; 2026 ArtMondo. All rights reserved.</p>
+    </div>
+  </div>
+
   <!-- Roadmap Modal -->
   <div id="modal-roadmap" class="modal" style="display:none">
     <div class="modal-content" style="max-height:80vh;overflow-y:auto;max-width:700px">
@@ -1019,7 +1060,7 @@
       <h4>Version 1.3.0 (August 18, 2026)</h4>
       <ul>
         <li><strong>Try Sample Image:</strong> New button loads a random sample image from the built-in gallery so you can explore styles without uploading a file</li>
-        <li><strong>Surprise Me:</strong> New button randomizes all rendering parameters (style, medium, brush, intensity, stroke, smoothing, texture, color settings) and re-renders instantly</li>
+        <li><strong>Surprise Me:</strong> New button randomizes all rendering parameters (style, medium, technique, intensity, stroke, smoothing, texture, color settings) and re-renders instantly</li>
         <li><strong>Aligned Preview Panels:</strong> Original and Rendered panels are now perfectly aligned side-by-side with shared zoom/compare controls centered below both</li>
       </ul>
 

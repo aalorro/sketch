@@ -142,11 +142,14 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   // Paper tooth modulates pigment deposition: pigment settles in valleys
   // (low height) and skips peaks (high height). The smoothstep transition
   // controls how gradually pigment fills the tooth.
-  let tooth_mask = smoothstep(
+  // Floor of 0.25 ensures pigment deposits even on very smooth paper
+  // (e.g. hot-press with heightScale 0.05 produces near-zero heights,
+  //  which would otherwise reduce tooth_mask to ~5% and wash out marks).
+  let tooth_mask = max(0.25, smoothstep(
     params.toothContact - params.toothSoftness,
     params.toothContact + params.toothSoftness,
     height
-  );
+  ));
   var effective_density = density * tooth_mask;
 
   // Clamp to maximum density (pigment saturation)
