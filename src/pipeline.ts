@@ -218,16 +218,28 @@ export function applySketchTransform(
     originalColors[i * 3 + 2] = canvasData.data[i * 4 + 2]; // B
   }
 
-  let imgData = srcImageData || canvasData;
-
+  // Always compute gray from the original photo (canvasData), never from GPU edge data.
+  // Styles use gray for tonal mapping (e.g. cartoon's brightness bands) so it must
+  // reflect actual image brightness, not edge magnitudes.
   const gray = new Uint8ClampedArray(w * h);
   for (let i = 0; i < w * h; i++) {
-    const r = imgData.data[i * 4],
-      g = imgData.data[i * 4 + 1],
-      b = imgData.data[i * 4 + 2];
+    const r = canvasData.data[i * 4],
+      g = canvasData.data[i * 4 + 1],
+      b = canvasData.data[i * 4 + 2];
     gray[i] = (0.299 * r + 0.587 * g + 0.114 * b) | 0;
   }
-  const edges = sobel(gray, w, h);
+
+  // If GPU already computed edges, use them directly (one byte per pixel from R channel).
+  // Otherwise fall back to CPU Sobel on the grayscale photo.
+  let edges: Uint8ClampedArray;
+  if (srcImageData) {
+    edges = new Uint8ClampedArray(w * h);
+    for (let i = 0; i < w * h; i++) {
+      edges[i] = srcImageData.data[i * 4]; // R channel = edge magnitude
+    }
+  } else {
+    edges = sobel(gray, w, h);
+  }
 
   // Route to style-specific rendering
   const styleFn = styleRegistry.get(style);

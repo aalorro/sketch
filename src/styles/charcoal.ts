@@ -3,15 +3,15 @@ import type { RenderParams } from '../types';
 export function renderCharcoal({ ctx, w, h, edges, gray, intensity, stroke, rand }: RenderParams): void {
   // ── 1. S-curve tonal map + edge deepening in one ImageData pass ──────────
   const edgeThr = Math.max(10, 80 - intensity * 6); // 74 (i=1) → 14 (i=10)
-  const edgeBite = 0.8 + intensity * 0.07;          // how hard edges cut in
+  const edgeBite = 1.0 + intensity * 0.1;           // stronger edge darkening
   const overlay = ctx.createImageData(w, h);
   const d = overlay.data;
 
   for (let i = 0; i < w * h; i++) {
     const t = gray[i] / 255;
-    // S-curve: pushes shadows darker, highlights brighter
+    // S-curve with full range: darker shadows, snappier contrast
     const s = t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t);
-    let v = Math.round(22 + s * 220); // 22 (black) … 242 (near-white)
+    let v = Math.round(s * 240); // 0 (black) … 240 (near-white)
 
     // Deepen strong edges (simulate charcoal pressing harder at contours)
     const e = edges[i];
