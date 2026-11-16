@@ -5,6 +5,7 @@ import { renderBlindContour } from './blindcontour';
 import { renderGesture } from './gesture';
 import { renderLineArt } from './lineart';
 import { renderCrossContour } from './crosscontour';
+import { renderNeurographic } from './neurographic';
 import { renderHatching } from './hatching';
 import { renderCrossHatching } from './crosshatching';
 import { renderScribble } from './scribble';
@@ -36,6 +37,7 @@ export const styleRegistry: Map<string, StyleRenderFn> = new Map([
   ['gesture', renderGesture],
   ['lineart', renderLineArt],
   ['crosscontour', renderCrossContour],
+  ['neurographic', renderNeurographic],
   ['hatching', renderHatching],
   ['crosshatching', renderCrossHatching],
   ['scribble', renderScribble],
